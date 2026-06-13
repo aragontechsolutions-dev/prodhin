@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  admin
+  chofer
+}
+
+enum CustomerType {
+  persona_fisica
+  empresa
+}
+
+model Profile {
+  id         String   @id @db.Uuid
+  fullName   String   @map("full_name")
+  phone      String?
+  role       UserRole @default(chofer)
+  isActive   Boolean  @default(true) @map("is_active")
+  avatarUrl  String?  @map("avatar_url")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  customersCreated Customer[]       @relation("CreatedBy")
+  assignedCustomers DriverCustomer[] @relation("DriverAssignments")
+  assignmentsMade  DriverCustomer[] @relation("AssignedBy")
+
+  @@map("profiles")
+}
+
+model Customer {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerType CustomerType @map("customer_type")
+
+  // Persona física
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+
+  // Empresa / Local
+  businessName String?  @map("business_name")
+  taxId        String?  @map("tax_id")
+  contactName  String?  @map("contact_name")
+
+  // Común
+  phone        String
+  email        String?
+  address      String
+  lat          Float
+  lng          Float
+  notes        String?
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdById  String   @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  createdBy    Profile          @relation("CreatedBy", fields: [createdById], references: [id])
+  driverAssignments DriverCustomer[]
+
+  @@map("customers")
+}
+
+model DriverCustomer {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  driverId    String   @map("driver_id") @db.Uuid
+  customerId  String   @map("customer_id") @db.Uuid
+  assignedById String  @map("assigned_by") @db.Uuid
+  assignedAt  DateTime @default(now()) @map("assigned_at") @db.Timestamptz()
+
+  driver      Profile  @relation("DriverAssignments", fields: [driverId], references: [id], onDelete: Cascade)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedBy  Profile  @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([driverId, customerId])
+  @@map("driver_customers")
+}

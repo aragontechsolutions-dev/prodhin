@@ -1,0 +1,14 @@
+{
+  "name": "prodhin",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace=apps/web",
+    "api": "npm run start:dev --workspace=apps/api",
+    "mobile": "npm run start --workspace=apps/mobile"
+  }
+}
