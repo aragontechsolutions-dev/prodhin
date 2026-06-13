@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Prodhin",
+    "slug": "prodhin-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "prodhin",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.aragontechsolutions.prodhin"
+    },
+    "android": {
+      "package": "com.aragontechsolutions.prodhin",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F59E0B"
+      }
+    },
+    "plugins": [
+      [
+        "react-native-maps",
+        {
+          "androidApiKey": ""
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}
