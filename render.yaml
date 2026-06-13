@@ -4,7 +4,7 @@ services:
     runtime: node
     region: ohio
     plan: free
-    buildCommand: npm install && cd apps/api && npx prisma generate && npx tsc -p tsconfig.build.json
+    buildCommand: npm install && npm install @prisma/client --force && cd apps/api && npx prisma generate && npx tsc -p tsconfig.build.json
     startCommand: node apps/api/dist/main
     envVars:
       - key: NODE_ENV
