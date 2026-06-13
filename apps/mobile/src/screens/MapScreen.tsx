@@ -15,10 +15,10 @@ import { getDisplayName } from '../types';
 import type { Customer } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
-// Centro por defecto: Venezuela
 const DEFAULT_REGION: Region = {
   latitude: 10.4696,
   longitude: -66.9036,
@@ -28,7 +28,8 @@ const DEFAULT_REGION: Region = {
 
 export default function MapScreen() {
   const { profile, signOut } = useAuth();
-  const { data: customers, isLoading, refetch } = useMyCustomers(profile?.id);
+  const { isOnline } = useNetworkStatus();
+  const { data: customers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
   const navigation = useNavigation<Nav>();
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,16 +53,30 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Banner offline */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>
+            📵  Sin conexión — mostrando datos guardados
+          </Text>
+        </View>
+      )}
+
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, !isOnline && styles.headerOffline]}>
         <View>
           <Text style={styles.headerTitle}>Mis clientes</Text>
           <Text style={styles.headerSub}>
-            {isLoading ? '...' : `${customers?.length ?? 0} asignados`}
+            {isLoading ? 'Cargando...' : `${customers?.length ?? 0} asignados`}
+            {isFetching && !isLoading ? ' · actualizando...' : ''}
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => refetch()} style={styles.iconBtn}>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={[styles.iconBtn, !isOnline && styles.iconBtnDisabled]}
+            disabled={!isOnline}
+          >
             <Text style={styles.iconBtnText}>↻</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={signOut} style={styles.iconBtn}>
@@ -99,25 +114,24 @@ export default function MapScreen() {
         ))}
       </MapView>
 
-      {/* Loading overlay */}
+      {/* Loading overlay (primera carga) */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#f59e0b" />
+          <Text style={styles.loadingText}>Cargando clientes...</Text>
         </View>
       )}
 
-      {/* Lista compacta en la parte inferior */}
-      {!isLoading && customers && customers.length > 0 && (
-        <View style={styles.listBar}>
-          <Text style={styles.listBarTitle}>
-            {profile?.full_name} · {customers.length} cliente{customers.length !== 1 ? 's' : ''}
+      {/* Barra de estado inferior */}
+      {!isLoading && (
+        <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
+          <Text style={[styles.statusText, !isOnline && styles.statusTextOffline]}>
+            {profile?.full_name}
+            {customers && customers.length > 0
+              ? ` · ${customers.length} cliente${customers.length !== 1 ? 's' : ''}`
+              : ' · Sin clientes asignados'}
+            {!isOnline ? ' · OFFLINE' : ''}
           </Text>
-        </View>
-      )}
-
-      {!isLoading && customers?.length === 0 && (
-        <View style={styles.emptyBar}>
-          <Text style={styles.emptyText}>No tienes clientes asignados</Text>
         </View>
       )}
     </View>
@@ -129,6 +143,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  offlineBanner: {
+    backgroundColor: '#dc2626',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 6,
+  },
+  offlineBannerText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -139,6 +165,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
+  },
+  headerOffline: {
+    paddingTop: 12,
   },
   headerTitle: {
     fontSize: 18,
@@ -161,6 +190,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconBtnDisabled: {
+    opacity: 0.4,
   },
   iconBtnText: {
     fontSize: 16,
@@ -196,32 +228,33 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
   },
-  listBar: {
+  loadingText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  statusBar: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#fffbeb',
     borderTopWidth: 1,
     borderTopColor: '#fde68a',
   },
-  listBarTitle: {
-    fontSize: 13,
+  statusBarOffline: {
+    backgroundColor: '#fee2e2',
+    borderTopColor: '#fca5a5',
+  },
+  statusText: {
+    fontSize: 12,
     color: '#92400e',
     fontWeight: '500',
     textAlign: 'center',
   },
-  emptyBar: {
-    paddingVertical: 12,
-    backgroundColor: '#f9fafb',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#9ca3af',
-    fontSize: 13,
+  statusTextOffline: {
+    color: '#991b1b',
   },
 });
