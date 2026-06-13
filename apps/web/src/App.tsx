@@ -2,6 +2,10 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './pages/auth/LoginPage';
+import AdminLayout from './pages/admin/AdminLayout';
+import DashboardPage from './pages/admin/DashboardPage';
+import UsersPage from './pages/admin/users/UsersPage';
+import CustomersPage from './pages/admin/customers/CustomersPage';
 
 function App() {
   useAuth();
@@ -12,7 +16,12 @@ function App() {
 
       {/* Rutas protegidas — solo Admin */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-        <Route path="/admin/*" element={<div className="p-8 text-gray-700">Panel Admin — Etapa 2</div>} />
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/dashboard" element={<DashboardPage />} />
+          <Route path="/admin/usuarios" element={<UsersPage />} />
+          <Route path="/admin/clientes" element={<CustomersPage />} />
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+        </Route>
       </Route>
 
       {/* Ruta raíz: redirige según rol */}
