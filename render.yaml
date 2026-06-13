@@ -4,9 +4,8 @@ services:
     runtime: node
     region: ohio
     plan: free
-    rootDir: apps/api
-    buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: node dist/main
+    buildCommand: cd apps/api && npm install && npx prisma generate && npm run build
+    startCommand: node apps/api/dist/main
     envVars:
       - key: NODE_ENV
         value: production
