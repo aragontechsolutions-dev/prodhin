@@ -20,8 +20,8 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.API_PORT ?? 3000;
-  await app.listen(port);
-  console.log(`API corriendo en: http://localhost:${port}/api/v1`);
+  const port = process.env.PORT ?? process.env.API_PORT ?? 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`API corriendo en puerto ${port}`);
 }
 bootstrap();
