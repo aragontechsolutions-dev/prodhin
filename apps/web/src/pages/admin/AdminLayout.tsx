@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
+import { useInactivityTimer } from '../../hooks/useInactivityTimer';
 
 const navItems = [
   {
@@ -50,6 +51,7 @@ const navItems = [
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { isDark, toggle } = useTheme();
@@ -58,6 +60,22 @@ export default function AdminLayout() {
     await signOut();
     navigate('/login');
   }
+
+  const handleInactivityLogout = useCallback(async () => {
+    setShowWarning(false);
+    await signOut();
+    navigate('/login');
+  }, [signOut, navigate]);
+
+  const handleWarning = useCallback(() => {
+    setShowWarning(true);
+  }, []);
+
+  const handleActive = useCallback(() => {
+    setShowWarning(false);
+  }, []);
+
+  const { reset: resetInactivity } = useInactivityTimer(handleInactivityLogout, handleWarning, handleActive);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
@@ -136,6 +154,21 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex dark:bg-gray-950">
+      {/* Inactivity warning banner */}
+      {showWarning && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl shadow-lg text-sm max-w-sm w-full mx-4">
+          <svg className="w-5 h-5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="flex-1">Tu sesión se cerrará en <strong>30 segundos</strong> por inactividad.</p>
+          <button
+            onClick={resetInactivity}
+            className="font-semibold text-amber-700 dark:text-amber-300 hover:underline whitespace-nowrap"
+          >
+            Seguir conectado
+          </button>
+        </div>
+      )}
       {/* Sidebar desktop */}
       <div className="hidden md:flex md:w-60 md:flex-shrink-0 md:flex-col">
         {sidebar}
