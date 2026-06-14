@@ -4,6 +4,7 @@ import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
 import LocationPicker from '../../../components/map/LocationPicker';
+import { normalizeUruguayPhone } from '../../../utils/phone';
 import type { Customer } from '@prodhin/shared';
 
 interface Props {
@@ -70,7 +71,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
         business_name: form.customer_type === 'empresa' ? form.business_name || null : null,
         tax_id: form.tax_id || null,
         contact_name: form.contact_name || null,
-        phone: form.phone,
+        phone: normalizeUruguayPhone(form.phone),
         email: form.email || null,
         address: form.address,
         lat: form.lat!,
@@ -159,7 +160,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
           required
           value={form.phone}
           onChange={(e) => set('phone', e.target.value)}
-          placeholder="+58 412 000 0000"
+          placeholder="09X XXX XXX o +598 9X XXX XXX"
         />
         <Input
           label="Email"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { normalizeUruguayPhone } from '../../../utils/phone';
 import { useUsers, useCreateUser, useUpdateUser, useToggleUserActive, type Profile } from '../../../hooks/useUsers';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
@@ -64,14 +65,17 @@ export default function UsersPage() {
       if (editingUser) {
         await updateUser.mutateAsync({
           id: editingUser.id,
-          data: { full_name: form.full_name, phone: form.phone || null, role: form.role },
+          data: { full_name: form.full_name, phone: form.phone ? normalizeUruguayPhone(form.phone) : null, role: form.role },
         });
       } else {
         if (!form.password || form.password.length < 6) {
           setFormError('La contraseña debe tener al menos 6 caracteres');
           return;
         }
-        await createUser.mutateAsync(form);
+        await createUser.mutateAsync({
+          ...form,
+          phone: form.phone ? normalizeUruguayPhone(form.phone) : '',
+        });
       }
       setModalOpen(false);
     } catch (err) {
@@ -254,7 +258,7 @@ export default function UsersPage() {
             type="tel"
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+58 412 000 0000"
+            placeholder="09X XXX XXX o +598 9X XXX XXX"
           />
           <Select
             label="Rol"
