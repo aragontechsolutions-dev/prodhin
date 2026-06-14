@@ -56,14 +56,10 @@ export default function AssignmentsPage() {
     });
   }
 
-  // Customers not yet assigned to selected driver (for modal)
-  const assignedCustomerIds = new Set(
-    (assignments ?? [])
-      .filter((a) => a.driver_id === selectedDriverId)
-      .map((a) => a.customer_id)
-  );
+  // All assigned customer IDs across every driver
+  const allAssignedCustomerIds = new Set((assignments ?? []).map((a) => a.customer_id));
   const availableCustomers = (customers ?? []).filter(
-    (c) => c.is_active && !assignedCustomerIds.has(c.id)
+    (c) => c.is_active && !allAssignedCustomerIds.has(c.id)
   );
 
   function openModal(driverId = '') {
@@ -245,8 +241,8 @@ export default function AssignmentsPage() {
             disabled={!selectedDriverId}
           />
           {selectedDriverId && customerOptions.length === 0 && (
-            <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-              Este chofer tiene todos los clientes asignados.
+            <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg">
+              No hay clientes sin asignar. Para reasignar un cliente, primero quítalo del chofer actual usando el botón ✕ en su tarjeta.
             </p>
           )}
           <div className="flex gap-3 pt-2">
