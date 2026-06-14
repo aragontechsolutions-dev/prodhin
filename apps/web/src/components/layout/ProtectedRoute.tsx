@@ -8,7 +8,7 @@ interface Props {
 export default function ProtectedRoute({ allowedRoles }: Props) {
   const { user, profile, isLoading } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || (user && allowedRoles && !profile)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />

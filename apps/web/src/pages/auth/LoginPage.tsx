@@ -1,11 +1,16 @@
 import { useState, type FormEvent } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/auth.store';
 
 export default function LoginPage() {
+  const { user } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  if (user) return <Navigate to="/admin" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
