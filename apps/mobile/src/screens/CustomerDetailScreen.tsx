@@ -12,6 +12,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getDisplayName } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerDetail'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CustomerDetail'>;
@@ -40,6 +42,8 @@ export default function CustomerDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Props['route']>();
   const { customer: c } = route.params;
+  const { signOut } = useAuth();
+  const { resetTimers } = useInactivityTimer(signOut);
 
   function openGoogleMaps() {
     const url = Platform.select({
@@ -74,16 +78,16 @@ export default function CustomerDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onTouchStart={resetTimers}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {getDisplayName(c)}
         </Text>
-        <View style={{ width: 72 }} />
+        <View style={{ width: 80 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -178,12 +182,19 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   backBtn: {
-    width: 72,
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backBtnText: {
     fontSize: 14,
-    color: '#f59e0b',
-    fontWeight: '600',
+    color: '#92400e',
+    fontWeight: '700',
   },
   headerTitle: {
     flex: 1,

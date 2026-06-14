@@ -17,6 +17,7 @@ import type { Customer } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
@@ -108,6 +109,7 @@ export default function MapScreen() {
   const navigation = useNavigation<Nav>();
   const webViewRef = useRef<WebView>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const { resetTimers } = useInactivityTimer(signOut);
 
   useEffect(() => {
     (async () => {
@@ -137,7 +139,7 @@ export default function MapScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onTouchStart={resetTimers}>
       {!isOnline && (
         <View style={styles.offlineBanner}>
           <Text style={styles.offlineBannerText}>
@@ -162,8 +164,8 @@ export default function MapScreen() {
           >
             <Text style={styles.iconBtnText}>↻</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={signOut} style={styles.iconBtn}>
-            <Text style={styles.iconBtnText}>⏻</Text>
+          <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
+            <Text style={styles.signOutBtnText}>Salir</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -253,9 +255,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -264,8 +266,21 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   iconBtnText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#374151',
+  },
+  signOutBtn: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#dc2626',
   },
   map: {
     flex: 1,
