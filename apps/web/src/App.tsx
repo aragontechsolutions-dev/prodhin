@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useAuthStore } from './store/auth.store';
 import ProtectedRoute from './components/layout/ProtectedRoute';
@@ -11,15 +11,30 @@ import CustomersPage from './pages/admin/customers/CustomersPage';
 
 function NoAutorizado() {
   const { signOut } = useAuthStore();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut();
+    navigate('/login', { replace: true });
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-600">
-      <p className="text-lg">No tienes permisos para acceder a esta sección.</p>
-      <button
-        onClick={signOut}
-        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition"
-      >
-        Cerrar sesión
-      </button>
+    <div className="min-h-screen bg-primary-50 flex flex-col items-center justify-center gap-6 p-4">
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center space-y-4">
+        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">Acceso denegado</h1>
+        <p className="text-sm text-gray-500">No tienes permisos para acceder a esta sección.</p>
+        <button
+          onClick={handleSignOut}
+          className="w-full bg-primary-500 hover:bg-primary-600 text-gray-900 font-semibold py-2.5 rounded-lg transition"
+        >
+          Cerrar sesión
+        </button>
+      </div>
     </div>
   );
 }
