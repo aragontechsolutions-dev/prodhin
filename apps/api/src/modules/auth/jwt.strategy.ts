@@ -18,19 +18,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    const profile = await this.prisma.profile.findUnique({
-      where: { id: payload.sub },
-    });
+    try {
+      const profile = await this.prisma.profile.findUnique({
+        where: { id: payload.sub },
+      });
 
-    if (!profile || !profile.isActive) {
-      throw new UnauthorizedException('Usuario no autorizado o inactivo');
+      console.log('[JWT] sub:', payload.sub, '| profile:', profile?.id ?? 'NOT FOUND', '| active:', profile?.isActive);
+
+      if (!profile || !profile.isActive) {
+        throw new UnauthorizedException('Usuario no autorizado o inactivo');
+      }
+
+      return {
+        id: profile.id,
+        email: payload.email,
+        role: profile.role,
+        fullName: profile.fullName,
+      };
+    } catch (err) {
+      console.error('[JWT] validate error:', err);
+      throw err;
     }
-
-    return {
-      id: profile.id,
-      email: payload.email,
-      role: profile.role,
-      fullName: profile.fullName,
-    };
   }
 }
