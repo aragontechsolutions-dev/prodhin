@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
-import * as ws from 'ws';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -18,13 +17,16 @@ export class UsersService {
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
+    // Polyfill WebSocket para Node 20 (no tiene WebSocket nativo)
+    if (typeof globalThis.WebSocket === 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      globalThis.WebSocket = require('ws');
+    }
+
     this.supabaseAdmin = createClient(
       this.config.get<string>('SUPABASE_URL')!,
       this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')!,
-      {
-        auth: { autoRefreshToken: false, persistSession: false },
-        realtime: { transport: ws },
-      },
+      { auth: { autoRefreshToken: false, persistSession: false } },
     );
   }
 
