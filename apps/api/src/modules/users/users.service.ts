@@ -52,15 +52,21 @@ export class UsersService {
 
     if (error) throw new InternalServerErrorException(error.message);
 
-    await this.prisma.profile.update({
-      where: { id: data.user.id },
-      data: {
-        fullName: dto.full_name,
-        phone: dto.phone ?? null,
-        role: dto.role,
-        mustChangePassword: dto.must_change_password ?? false,
-      },
-    });
+    try {
+      await this.prisma.profile.update({
+        where: { id: data.user.id },
+        data: {
+          fullName: dto.full_name,
+          phone: dto.phone ?? null,
+          role: dto.role,
+          mustChangePassword: dto.must_change_password ?? false,
+        },
+      });
+    } catch (prismaError) {
+      // Revertir: eliminar el usuario de Auth para no dejar inconsistencia
+      await this.supabaseAdmin.auth.admin.deleteUser(data.user.id);
+      throw new InternalServerErrorException('Error al configurar el perfil del usuario');
+    }
 
     return this.prisma.profile.findUnique({ where: { id: data.user.id } });
   }
