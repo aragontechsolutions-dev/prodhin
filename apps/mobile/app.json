@@ -14,7 +14,7 @@
     "android": {
       "package": "com.aragontechsolutions.prodhin",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#F59E0B"
       }
     },
