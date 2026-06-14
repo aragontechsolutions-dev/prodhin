@@ -21,11 +21,13 @@ interface UserFormData {
   full_name: string;
   phone: string;
   role: 'admin' | 'chofer';
+  email_confirmed: boolean;
   must_change_password: boolean;
 }
 
 const defaultForm: UserFormData = {
-  email: '', password: '', full_name: '', phone: '', role: 'chofer', must_change_password: false,
+  email: '', password: '', full_name: '', phone: '', role: 'chofer',
+  email_confirmed: true, must_change_password: false,
 };
 
 export default function UsersPage() {
@@ -55,6 +57,7 @@ export default function UsersPage() {
       full_name: user.full_name,
       phone: user.phone ?? '',
       role: user.role,
+      email_confirmed: true,
       must_change_password: user.must_change_password ?? false,
     });
     setFormError(null);
@@ -281,6 +284,20 @@ export default function UsersPage() {
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'admin' | 'chofer' }))}
             options={roleOptions}
           />
+
+          {!editingUser && (
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.email_confirmed}
+                onChange={(e) => setForm((f) => ({ ...f, email_confirmed: e.target.checked }))}
+                className="w-4 h-4 accent-primary-500 rounded"
+              />
+              <span className="text-sm text-gray-700">
+                Verificar email automáticamente
+              </span>
+            </label>
+          )}
 
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <input

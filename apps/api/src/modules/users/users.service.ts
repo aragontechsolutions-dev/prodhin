@@ -1,10 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  private supabaseAdmin;
+
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {
+    this.supabaseAdmin = createClient(
+      this.config.get<string>('SUPABASE_URL')!,
+      this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+  }
 
   findAll() {
     return this.prisma.profile.findMany({
@@ -16,6 +34,29 @@ export class UsersService {
     const profile = await this.prisma.profile.findUnique({ where: { id } });
     if (!profile) throw new NotFoundException('Usuario no encontrado');
     return profile;
+  }
+
+  async create(dto: CreateUserDto) {
+    const { data, error } = await this.supabaseAdmin.auth.admin.createUser({
+      email: dto.email,
+      password: dto.password,
+      email_confirm: dto.email_confirmed ?? false,
+      user_metadata: { full_name: dto.full_name },
+    });
+
+    if (error) throw new InternalServerErrorException(error.message);
+
+    await this.prisma.profile.update({
+      where: { id: data.user.id },
+      data: {
+        fullName: dto.full_name,
+        phone: dto.phone ?? null,
+        role: dto.role,
+        mustChangePassword: dto.must_change_password ?? false,
+      },
+    });
+
+    return this.prisma.profile.findUnique({ where: { id: data.user.id } });
   }
 
   async update(id: string, dto: UpdateUserDto) {

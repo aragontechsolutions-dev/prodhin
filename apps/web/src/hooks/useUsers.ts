@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Profile {
   id: string;
@@ -62,37 +63,15 @@ export function useCreateUser() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: {
+    mutationFn: (payload: {
       email: string;
       password: string;
       full_name: string;
       phone?: string;
       role: 'admin' | 'chofer';
+      email_confirmed?: boolean;
       must_change_password?: boolean;
-    }) => {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: payload.email,
-        password: payload.password,
-        options: {
-          data: { full_name: payload.full_name },
-        },
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('No se pudo crear el usuario');
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: payload.full_name,
-          phone: payload.phone ?? null,
-          role: payload.role,
-          must_change_password: payload.must_change_password ?? false,
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) throw profileError;
-    },
+    }) => api.post('/users', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 }
