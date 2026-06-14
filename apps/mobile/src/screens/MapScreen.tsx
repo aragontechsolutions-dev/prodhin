@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Callout, Region, PROVIDER_DEFAULT } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMyCustomers } from '../hooks/useMyCustomers';
@@ -19,41 +20,124 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
-const DEFAULT_REGION: Region = {
-  latitude: -34.9011,
-  longitude: -54.9595,
-  latitudeDelta: 0.15,
-  longitudeDelta: 0.15,
-};
+function buildMapHtml(customers: Customer[], userLat?: number, userLng?: number): string {
+  const markers = customers.map((c) => ({
+    id: c.id,
+    lat: c.lat,
+    lng: c.lng,
+    name: getDisplayName(c).replace(/'/g, "\\'"),
+    phone: (c.phone ?? '').replace(/'/g, "\\'"),
+    address: (c.address ?? '').replace(/'/g, "\\'"),
+  }));
+
+  const userMarker =
+    userLat != null && userLng != null
+      ? `L.circleMarker([${userLat}, ${userLng}], {
+          radius: 9,
+          fillColor: '#2563eb',
+          color: '#ffffff',
+          weight: 3,
+          fillOpacity: 1,
+        }).bindPopup('Mi ubicación').addTo(map);`
+      : '';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f3f4f6; }
+    #map { width: 100vw; height: 100vh; }
+    .popup-btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 10px;
+      background: #f59e0b;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  var map = L.map('map', { zoomControl: true }).setView([-34.9011, -54.9595], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  var redIcon = L.divIcon({
+    html: '<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    className: '',
+  });
+
+  var customers = ${JSON.stringify(markers)};
+
+  customers.forEach(function(c) {
+    var popup = '<b style="font-size:13px;">' + c.name + '</b>' +
+      '<br><span style="font-size:11px;color:#6b7280;">' + c.phone + '</span>' +
+      '<br><span style="font-size:10px;color:#9ca3af;">' + c.address + '</span>' +
+      '<br><a class="popup-btn" onclick="window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))" href="#">Ver detalles →</a>';
+
+    L.marker([c.lat, c.lng], { icon: redIcon })
+      .bindPopup(popup, { maxWidth: 200 })
+      .addTo(map);
+  });
+
+  ${userMarker}
+<\/script>
+</body>
+</html>`;
+}
 
 export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: customers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
   const navigation = useNavigation<Nav>();
-  const mapRef = useRef<MapView>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  function handleMarkerPress(c: Customer) {
-    setSelectedId(c.id);
-    mapRef.current?.animateToRegion(
-      {
-        latitude: c.lat,
-        longitude: c.lng,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      400,
-    );
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    })();
+  }, []);
+
+  function handleMessage(event: { nativeEvent: { data: string } }) {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'navigate' && msg.id) {
+        const customer = customers?.find((c) => c.id === msg.id);
+        if (customer) navigation.navigate('CustomerDetail', { customer });
+      }
+    } catch {
+      // ignore malformed messages
+    }
   }
 
-  function openDetail(c: Customer) {
-    navigation.navigate('CustomerDetail', { customer: c });
-  }
+  const html = buildMapHtml(
+    customers ?? [],
+    userLocation?.lat,
+    userLocation?.lng,
+  );
 
   return (
     <View style={styles.container}>
-      {/* Banner offline */}
       {!isOnline && (
         <View style={styles.offlineBanner}>
           <Text style={styles.offlineBannerText}>
@@ -62,7 +146,6 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Header */}
       <View style={[styles.header, !isOnline && styles.headerOffline]}>
         <View>
           <Text style={styles.headerTitle}>Mis clientes</Text>
@@ -85,37 +168,23 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {/* Mapa */}
-      <MapView
-        ref={mapRef}
+      <WebView
+        ref={webViewRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={DEFAULT_REGION}
-        showsUserLocation
-        showsMyLocationButton
-      >
-        {(customers ?? []).map((c) => (
-          <Marker
-            key={c.id}
-            coordinate={{ latitude: c.lat, longitude: c.lng }}
-            pinColor={selectedId === c.id ? '#f59e0b' : '#ef4444'}
-            onPress={() => handleMarkerPress(c)}
-          >
-            <Callout onPress={() => openDetail(c)}>
-              <View style={styles.callout}>
-                <Text style={styles.calloutName}>{getDisplayName(c)}</Text>
-                <Text style={styles.calloutPhone}>{c.phone}</Text>
-                <Text style={styles.calloutAddress} numberOfLines={2}>
-                  {c.address}
-                </Text>
-                <Text style={styles.calloutAction}>Ver detalles →</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
+        source={{ html }}
+        javaScriptEnabled
+        domStorageEnabled
+        originWhitelist={['*']}
+        mixedContentMode="always"
+        onMessage={handleMessage}
+        startInLoadingState
+        renderLoading={() => (
+          <View style={styles.webviewLoading}>
+            <ActivityIndicator size="large" color="#f59e0b" />
+          </View>
+        )}
+      />
 
-      {/* Loading overlay (primera carga) */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#f59e0b" />
@@ -123,7 +192,6 @@ export default function MapScreen() {
         </View>
       )}
 
-      {/* Barra de estado inferior */}
       {!isLoading && (
         <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
           <Text style={[styles.statusText, !isOnline && styles.statusTextOffline]}>
@@ -202,30 +270,15 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  callout: {
-    width: 200,
-    padding: 8,
-  },
-  calloutName: {
-    fontWeight: '700',
-    fontSize: 13,
-    color: '#111827',
-    marginBottom: 2,
-  },
-  calloutPhone: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 2,
-  },
-  calloutAddress: {
-    fontSize: 11,
-    color: '#9ca3af',
-    marginBottom: 6,
-  },
-  calloutAction: {
-    fontSize: 12,
-    color: '#f59e0b',
-    fontWeight: '600',
+  webviewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

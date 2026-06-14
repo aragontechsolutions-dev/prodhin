@@ -19,7 +19,7 @@
       }
     },
     "plugins": [
-      ["react-native-maps", { "androidApiKey": "AIzaSyC0xUApqJVSk3P-5y0avfgvZo_abQhaQaY" }]
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Esta app necesita tu ubicación para mostrarte en el mapa." }]
     ],
     "extra": {
       "eas": {
