@@ -6,10 +6,11 @@ interface Props extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   options: Option[];
+  placeholder?: string;
 }
 
 const Select = forwardRef<HTMLSelectElement, Props>(
-  ({ label, error, options, className = '', id, ...props }, ref) => {
+  ({ label, error, options, placeholder, className = '', id, ...props }, ref) => {
     const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
@@ -32,6 +33,7 @@ const Select = forwardRef<HTMLSelectElement, Props>(
           `}
           {...props}
         >
+          {placeholder && <option value="">{placeholder}</option>}
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}

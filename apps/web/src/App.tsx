@@ -8,6 +8,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
 import UsersPage from './pages/admin/users/UsersPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
+import AssignmentsPage from './pages/admin/assignments/AssignmentsPage';
 
 function NoAutorizado() {
   const { signOut } = useAuthStore();
@@ -56,6 +57,7 @@ function App() {
           <Route path="/admin/dashboard" element={<DashboardPage />} />
           <Route path="/admin/usuarios" element={<UsersPage />} />
           <Route path="/admin/clientes" element={<CustomersPage />} />
+          <Route path="/admin/asignaciones" element={<AssignmentsPage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
       </Route>
