@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { normalizeUruguayPhone } from '../../../utils/phone';
+import Pagination from '../../../components/ui/Pagination';
+import { usePagination } from '../../../hooks/usePagination';
 import { useUsers, useCreateUser, useUpdateUser, useToggleUserActive, type Profile } from '../../../hooks/useUsers';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
@@ -90,6 +92,7 @@ export default function UsersPage() {
   }
 
   const isSubmitting = createUser.isPending || updateUser.isPending;
+  const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(users ?? []);
 
   return (
     <div className="space-y-5">
@@ -131,7 +134,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {users.map((user) => (
+                  {paginated.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
@@ -177,7 +180,7 @@ export default function UsersPage() {
 
             {/* Mobile cards */}
             <div className="sm:hidden divide-y divide-gray-100">
-              {users.map((user) => (
+              {paginated.map((user) => (
                 <div key={user.id} className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -214,6 +217,14 @@ export default function UsersPage() {
                 </div>
               ))}
             </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              total={users?.length ?? 0}
+              onPageChange={changePage}
+              onPageSizeChange={changePageSize}
+            />
           </>
         )}
       </div>

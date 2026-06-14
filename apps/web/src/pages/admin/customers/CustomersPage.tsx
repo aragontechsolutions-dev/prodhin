@@ -5,6 +5,8 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import Pagination from '../../../components/ui/Pagination';
+import { usePagination } from '../../../hooks/usePagination';
 import type { Customer } from '@prodhin/shared';
 import CustomerForm from './CustomerForm';
 
@@ -34,6 +36,8 @@ export default function CustomersPage() {
     const q = search.toLowerCase();
     return name.includes(q) || c.address.toLowerCase().includes(q) || c.phone.includes(q);
   });
+
+  const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(filtered);
 
   function openCreate() {
     setEditingCustomer(null);
@@ -98,7 +102,7 @@ export default function CustomersPage() {
           type="text"
           placeholder="Buscar por nombre, dirección o teléfono..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); changePage(1); }}
           className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white"
         />
       </div>
@@ -137,7 +141,7 @@ export default function CustomersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filtered.map((c) => (
+                    {paginated.map((c) => (
                       <tr key={c.id} className="hover:bg-gray-50 transition">
                         <td className="px-5 py-3.5">
                           <p className="font-medium text-gray-900">{getDisplayName(c)}</p>
@@ -179,7 +183,7 @@ export default function CustomersPage() {
 
               {/* Mobile cards */}
               <div className="sm:hidden divide-y divide-gray-100">
-                {filtered.map((c) => (
+                {paginated.map((c) => (
                   <div key={c.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -212,6 +216,14 @@ export default function CustomersPage() {
                   </div>
                 ))}
               </div>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={filtered.length}
+                onPageChange={changePage}
+                onPageSizeChange={changePageSize}
+              />
             </>
           )}
         </div>
