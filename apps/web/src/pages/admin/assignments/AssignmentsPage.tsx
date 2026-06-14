@@ -33,6 +33,7 @@ export default function AssignmentsPage() {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [confirmUnassign, setConfirmUnassign] = useState<{ driverId: string; customerId: string; label: string } | null>(null);
+  const [expandedDriverId, setExpandedDriverId] = useState<string | null>(null);
 
   const drivers = (users ?? []).filter((u) => u.role === 'chofer' && u.is_active);
 
@@ -135,10 +136,15 @@ export default function AssignmentsPage() {
           {drivers.map((driver) => {
             const entry = byDriver.get(driver.id);
             const count = entry?.customers.length ?? 0;
+            const isExpanded = expandedDriverId === driver.id;
             return (
               <div key={driver.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Driver header */}
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+                {/* Driver header — clickable to expand */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-50 transition-colors text-left"
+                  onClick={() => setExpandedDriverId(isExpanded ? null : driver.id)}
+                >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-xs flex-shrink-0">
                       {driver.full_name[0]?.toUpperCase()}
@@ -148,54 +154,66 @@ export default function AssignmentsPage() {
                       <p className="text-xs text-gray-500">{count} cliente{count !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => openModal(driver.id)}>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Asignar
-                  </Button>
-                </div>
+                  <svg
+                    className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-                {/* Customer list */}
-                <div className="divide-y divide-gray-50">
-                  {count === 0 ? (
-                    <p className="px-4 py-4 text-xs text-gray-400 text-center">Sin clientes asignados</p>
-                  ) : (
-                    entry!.customers.map((ac) => {
-                      const full = (customers ?? []).find((c) => c.id === ac.customerId);
-                      return (
-                        <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm text-gray-800 font-medium truncate">{ac.name}</p>
-                            {full && <p className="text-xs text-gray-500 truncate">{full.phone}</p>}
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {full && (
-                              <Badge variant={full.customer_type === 'empresa' ? 'blue' : 'yellow'}>
-                                {full.customer_type === 'empresa' ? 'Empresa' : 'Persona'}
-                              </Badge>
-                            )}
-                            <button
-                              onClick={() =>
-                                setConfirmUnassign({
-                                  driverId: driver.id,
-                                  customerId: ac.customerId,
-                                  label: `${ac.name} de ${driver.full_name}`,
-                                })
-                              }
-                              className="p-1 text-gray-400 hover:text-red-500 transition rounded"
-                              title="Quitar asignación"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                {/* Collapsible customer list */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
+                    <div className="px-4 py-2 flex justify-end border-b border-gray-50">
+                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openModal(driver.id); }}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Asignar cliente
+                      </Button>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {count === 0 ? (
+                        <p className="px-4 py-4 text-xs text-gray-400 text-center">Sin clientes asignados</p>
+                      ) : (
+                        entry!.customers.map((ac) => {
+                          const full = (customers ?? []).find((c) => c.id === ac.customerId);
+                          return (
+                            <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm text-gray-800 font-medium truncate">{ac.name}</p>
+                                {full && <p className="text-xs text-gray-500 truncate">{full.phone}</p>}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {full && (
+                                  <Badge variant={full.customer_type === 'empresa' ? 'blue' : 'yellow'}>
+                                    {full.customer_type === 'empresa' ? 'Empresa' : 'Persona'}
+                                  </Badge>
+                                )}
+                                <button
+                                  onClick={() =>
+                                    setConfirmUnassign({
+                                      driverId: driver.id,
+                                      customerId: ac.customerId,
+                                      label: `${ac.name} de ${driver.full_name}`,
+                                    })
+                                  }
+                                  className="p-1 text-gray-400 hover:text-red-500 transition rounded"
+                                  title="Quitar asignación"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
