@@ -18,7 +18,7 @@ interface Props {
   onEdit: (c: Customer) => void;
 }
 
-const DEFAULT_CENTER: [number, number] = [10.4696, -66.9036];
+const DEFAULT_CENTER: [number, number] = [-34.9011, -54.9595]; // Maldonado, Uruguay
 
 export default function CustomerMapView({ customers, onEdit }: Props) {
   const active = customers.filter((c) => c.is_active && c.lat && c.lng);
