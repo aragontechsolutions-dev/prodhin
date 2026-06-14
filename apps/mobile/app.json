@@ -18,7 +18,14 @@
         "backgroundColor": "#F59E0B"
       }
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "react-native-maps",
+        {
+          "androidApiKey": "TU_GOOGLE_MAPS_API_KEY_AQUI"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": ""
