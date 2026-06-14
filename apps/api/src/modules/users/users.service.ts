@@ -26,6 +26,7 @@ export class UsersService {
         ...(dto.full_name !== undefined && { fullName: dto.full_name }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
         ...(dto.role !== undefined && { role: dto.role }),
+        ...(dto.must_change_password !== undefined && { mustChangePassword: dto.must_change_password }),
       },
     });
   }

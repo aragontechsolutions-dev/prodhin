@@ -2,13 +2,18 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './pages/auth/LoginPage';
+import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
 import UsersPage from './pages/admin/users/UsersPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
 
 function App() {
-  useAuth();
+  const { profile } = useAuth();
+
+  if (profile?.must_change_password) {
+    return <ChangePasswordPage />;
+  }
 
   return (
     <Routes>

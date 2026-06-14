@@ -23,7 +23,8 @@ model Profile {
   fullName   String   @map("full_name")
   phone      String?
   role       UserRole @default(chofer)
-  isActive   Boolean  @default(true) @map("is_active")
+  isActive          Boolean  @default(true) @map("is_active")
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   avatarUrl  String?  @map("avatar_url")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()

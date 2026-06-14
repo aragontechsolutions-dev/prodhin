@@ -21,10 +21,11 @@ interface UserFormData {
   full_name: string;
   phone: string;
   role: 'admin' | 'chofer';
+  must_change_password: boolean;
 }
 
 const defaultForm: UserFormData = {
-  email: '', password: '', full_name: '', phone: '', role: 'chofer',
+  email: '', password: '', full_name: '', phone: '', role: 'chofer', must_change_password: false,
 };
 
 export default function UsersPage() {
@@ -54,6 +55,7 @@ export default function UsersPage() {
       full_name: user.full_name,
       phone: user.phone ?? '',
       role: user.role,
+      must_change_password: user.must_change_password ?? false,
     });
     setFormError(null);
     setModalOpen(true);
@@ -67,7 +69,7 @@ export default function UsersPage() {
       if (editingUser) {
         await updateUser.mutateAsync({
           id: editingUser.id,
-          data: { full_name: form.full_name, phone: form.phone ? normalizeUruguayPhone(form.phone) : null, role: form.role },
+          data: { full_name: form.full_name, phone: form.phone ? normalizeUruguayPhone(form.phone) : null, role: form.role, must_change_password: form.must_change_password },
         });
       } else {
         if (!form.password || form.password.length < 6) {
@@ -77,6 +79,7 @@ export default function UsersPage() {
         await createUser.mutateAsync({
           ...form,
           phone: form.phone ? normalizeUruguayPhone(form.phone) : '',
+          must_change_password: form.must_change_password,
         });
       }
       setModalOpen(false);
@@ -278,6 +281,18 @@ export default function UsersPage() {
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'admin' | 'chofer' }))}
             options={roleOptions}
           />
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.must_change_password}
+              onChange={(e) => setForm((f) => ({ ...f, must_change_password: e.target.checked }))}
+              className="w-4 h-4 accent-primary-500 rounded"
+            />
+            <span className="text-sm text-gray-700">
+              Forzar cambio de contraseña en el próximo inicio de sesión
+            </span>
+          </label>
 
           {formError && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>

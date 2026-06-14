@@ -7,6 +7,7 @@ export interface Profile {
   phone: string | null;
   role: 'admin' | 'chofer';
   is_active: boolean;
+  must_change_password: boolean;
   avatar_url: string | null;
   created_at: string;
   email?: string;
@@ -67,9 +68,8 @@ export function useCreateUser() {
       full_name: string;
       phone?: string;
       role: 'admin' | 'chofer';
+      must_change_password?: boolean;
     }) => {
-      // Crear usuario en Supabase Auth vía función edge o API admin
-      // Por ahora usamos el signup normal y luego actualizamos el profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: payload.email,
         password: payload.password,
@@ -81,13 +81,13 @@ export function useCreateUser() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('No se pudo crear el usuario');
 
-      // Actualizar el profile con el rol correcto
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: payload.full_name,
           phone: payload.phone ?? null,
           role: payload.role,
+          must_change_password: payload.must_change_password ?? false,
         })
         .eq('id', authData.user.id);
 
