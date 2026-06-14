@@ -11,11 +11,15 @@ datasource db {
 enum UserRole {
   admin
   chofer
+
+  @@map("user_role")
 }
 
 enum CustomerType {
   persona_fisica
   empresa
+
+  @@map("customer_type")
 }
 
 model Profile {
