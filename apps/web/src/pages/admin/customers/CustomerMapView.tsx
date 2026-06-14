@@ -6,12 +6,21 @@ import { getDisplayName } from './CustomersPage';
 import Badge from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
 
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+function makeIcon(type: 'empresa' | 'persona_fisica') {
+  const isEmpresa = type === 'empresa';
+  const bg = isEmpresa ? '#3b82f6' : '#eab308';
+  const emoji = isEmpresa ? '🏢' : '👤';
+  const html = `
+    <div style="
+      width:36px;height:36px;border-radius:50% 50% 50% 0;
+      background:${bg};transform:rotate(-45deg);
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      display:flex;align-items:center;justify-content:center;
+    ">
+      <span style="transform:rotate(45deg);font-size:16px;line-height:1">${emoji}</span>
+    </div>`;
+  return L.divIcon({ html, className: '', iconSize: [36, 36], iconAnchor: [18, 36], popupAnchor: [0, -36] });
+}
 
 interface Props {
   customers: Customer[];
@@ -40,6 +49,7 @@ export default function CustomerMapView({ customers, onEdit }: Props) {
             <Marker
               key={c.id}
               position={[c.lat, c.lng]}
+              icon={makeIcon(c.customer_type)}
               eventHandlers={{ click: () => setSelected(c) }}
             >
               <Popup>
