@@ -30,6 +30,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
     last_name: customer?.last_name ?? '',
     business_name: customer?.business_name ?? '',
     tax_id: customer?.tax_id ?? '',
+    business_type: customer?.business_type ?? '',
     contact_name: customer?.contact_name ?? '',
     phone: customer?.phone ?? '',
     email: customer?.email ?? '',
@@ -70,6 +71,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
         last_name: form.customer_type === 'persona_fisica' ? form.last_name || null : null,
         business_name: form.customer_type === 'empresa' ? form.business_name || null : null,
         tax_id: form.tax_id || null,
+        business_type: form.customer_type === 'empresa' ? form.business_type || null : null,
         contact_name: form.contact_name || null,
         phone: normalizeUruguayPhone(form.phone),
         email: form.email || null,
@@ -115,12 +117,18 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
             onChange={(e) => set('business_name', e.target.value)}
             placeholder="Distribuidora XYZ C.A."
           />
+          <Input
+            label="Objeto Social"
+            value={form.business_type}
+            onChange={(e) => set('business_type', e.target.value)}
+            placeholder="Distribución de alimentos"
+          />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="RIF / NIT"
+              label="RUT"
               value={form.tax_id}
               onChange={(e) => set('tax_id', e.target.value)}
-              placeholder="J-00000000-0"
+              placeholder="21XXXXXXX"
             />
             <Input
               label="Persona de contacto"

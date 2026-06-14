@@ -46,6 +46,7 @@ model Customer {
   // Empresa / Local
   businessName String?  @map("business_name")
   taxId        String?  @map("tax_id")
+  businessType String?  @map("business_type")
   contactName  String?  @map("contact_name")
 
   // Común

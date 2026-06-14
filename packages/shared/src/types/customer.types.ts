@@ -9,6 +9,7 @@ export interface Customer {
   // Empresa
   business_name: string | null;
   tax_id: string | null;
+  business_type: string | null;
   contact_name: string | null;
   // Común
   phone: string;
@@ -29,6 +30,7 @@ export interface CreateCustomerDto {
   last_name?: string | null;
   business_name?: string | null;
   tax_id?: string | null;
+  business_type?: string | null;
   contact_name?: string | null;
   phone: string;
   email?: string | null;

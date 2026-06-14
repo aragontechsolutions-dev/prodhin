@@ -34,6 +34,10 @@ export class CreateCustomerDto {
 
   @IsString()
   @IsOptional()
+  business_type?: string | null;
+
+  @IsString()
+  @IsOptional()
   contact_name?: string | null;
 
   @IsString()
