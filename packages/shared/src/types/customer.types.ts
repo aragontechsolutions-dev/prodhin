@@ -25,17 +25,17 @@ export interface Customer {
 
 export interface CreateCustomerDto {
   customer_type: CustomerType;
-  first_name?: string;
-  last_name?: string;
-  business_name?: string;
-  tax_id?: string;
-  contact_name?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  business_name?: string | null;
+  tax_id?: string | null;
+  contact_name?: string | null;
   phone: string;
-  email?: string;
+  email?: string | null;
   address: string;
   lat: number;
   lng: number;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {
