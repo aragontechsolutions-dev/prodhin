@@ -39,8 +39,10 @@ export default function AssignmentsPage() {
   // Group assignments by driver
   const byDriver = new Map<string, { driverName: string; customers: Array<{ customerId: string; name: string; phone: string }> }>();
   for (const a of assignments ?? []) {
-    const driver = a.profiles as { full_name: string } | null;
-    const customer = a.customers as { id: string; customer_type: string; first_name: string | null; last_name: string | null; business_name: string | null } | null;
+    const profilesRaw = a.profiles as unknown;
+    const customersRaw = a.customers as unknown;
+    const driver = (Array.isArray(profilesRaw) ? profilesRaw[0] : profilesRaw) as { full_name: string } | null;
+    const customer = (Array.isArray(customersRaw) ? customersRaw[0] : customersRaw) as { id: string; customer_type: string; first_name: string | null; last_name: string | null; business_name: string | null } | null;
     if (!driver || !customer) continue;
 
     if (!byDriver.has(a.driver_id)) {
