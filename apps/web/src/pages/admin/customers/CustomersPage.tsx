@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
+import { toast } from 'sonner';
 import { useCustomers, useDeleteCustomer } from '../../../hooks/useCustomers';
 import { useAuth } from '../../../hooks/useAuth';
 import Button from '../../../components/ui/Button';
@@ -51,7 +52,12 @@ export default function CustomersPage() {
 
   async function handleDelete() {
     if (!confirmCustomer) return;
-    await deleteCustomer.mutateAsync(confirmCustomer.id);
+    try {
+      await deleteCustomer.mutateAsync(confirmCustomer.id);
+      toast.success(`Cliente ${confirmCustomer.is_active ? 'desactivado' : 'activado'} correctamente`);
+    } catch {
+      toast.error('Error al cambiar el estado del cliente');
+    }
     setConfirmCustomer(null);
   }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { normalizeUruguayPhone } from '../../../utils/phone';
 import Pagination from '../../../components/ui/Pagination';
 import { usePagination } from '../../../hooks/usePagination';
@@ -40,12 +41,10 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [confirmUser, setConfirmUser] = useState<Profile | null>(null);
   const [form, setForm] = useState<UserFormData>(defaultForm);
-  const [formError, setFormError] = useState<string | null>(null);
 
   function openCreate() {
     setEditingUser(null);
     setForm(defaultForm);
-    setFormError(null);
     setModalOpen(true);
   }
 
@@ -60,13 +59,11 @@ export default function UsersPage() {
       email_confirmed: true,
       must_change_password: user.must_change_password ?? false,
     });
-    setFormError(null);
     setModalOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
 
     try {
       if (editingUser) {
@@ -74,9 +71,10 @@ export default function UsersPage() {
           id: editingUser.id,
           data: { full_name: form.full_name, phone: form.phone ? normalizeUruguayPhone(form.phone) : null, role: form.role, must_change_password: form.must_change_password },
         });
+        toast.success('Usuario actualizado correctamente');
       } else {
         if (!form.password || form.password.length < 6) {
-          setFormError('La contraseña debe tener al menos 6 caracteres');
+          toast.error('La contraseña debe tener al menos 6 caracteres');
           return;
         }
         await createUser.mutateAsync({
@@ -84,16 +82,22 @@ export default function UsersPage() {
           phone: form.phone ? normalizeUruguayPhone(form.phone) : '',
           must_change_password: form.must_change_password,
         });
+        toast.success('Usuario creado correctamente');
       }
       setModalOpen(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Error al guardar');
+      toast.error(err instanceof Error ? err.message : 'Error al guardar el usuario');
     }
   }
 
   async function handleToggleActive() {
     if (!confirmUser) return;
-    await toggleActive.mutateAsync({ id: confirmUser.id, is_active: !confirmUser.is_active });
+    try {
+      await toggleActive.mutateAsync({ id: confirmUser.id, is_active: !confirmUser.is_active });
+      toast.success(`Usuario ${confirmUser.is_active ? 'desactivado' : 'activado'} correctamente`);
+    } catch {
+      toast.error('Error al cambiar el estado del usuario');
+    }
     setConfirmUser(null);
   }
 
@@ -310,10 +314,6 @@ export default function UsersPage() {
               Forzar cambio de contraseña en el próximo inicio de sesión
             </span>
           </label>
-
-          {formError && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{formError}</p>
-          )}
 
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)} className="flex-1">

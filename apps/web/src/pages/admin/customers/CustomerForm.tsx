@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useCreateCustomer, useUpdateCustomer } from '../../../hooks/useCustomers';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
@@ -62,7 +63,11 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
     setError(null);
 
     const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+    if (validationError) {
+      toast.error(validationError);
+      setError(validationError);
+      return;
+    }
 
     try {
       const payload = {
@@ -83,12 +88,15 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
 
       if (isEditing) {
         await updateCustomer.mutateAsync({ id: customer.id, data: payload });
+        toast.success('Cliente actualizado correctamente');
       } else {
         await createCustomer.mutateAsync({ ...payload, created_by: userId });
+        toast.success('Cliente creado correctamente');
       }
 
       onSuccess();
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar el cliente');
       setError(err instanceof Error ? err.message : 'Error al guardar el cliente');
     }
   }
