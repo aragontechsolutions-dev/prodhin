@@ -23,7 +23,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error de red' }));
-    throw new Error(error.message ?? 'Error del servidor');
+    const message = Array.isArray(error.message)
+      ? error.message.join(', ')
+      : (error.message ?? 'Error del servidor');
+    throw new Error(message);
   }
 
   return response.json() as Promise<T>;
