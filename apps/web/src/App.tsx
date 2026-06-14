@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { useAuthStore } from './store/auth.store';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './pages/auth/LoginPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
@@ -7,6 +8,21 @@ import AdminLayout from './pages/admin/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
 import UsersPage from './pages/admin/users/UsersPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
+
+function NoAutorizado() {
+  const { signOut } = useAuthStore();
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-600">
+      <p className="text-lg">No tienes permisos para acceder a esta sección.</p>
+      <button
+        onClick={signOut}
+        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition"
+      >
+        Cerrar sesión
+      </button>
+    </div>
+  );
+}
 
 function App() {
   const { profile } = useAuth();
@@ -36,11 +52,7 @@ function App() {
 
       <Route
         path="/no-autorizado"
-        element={
-          <div className="min-h-screen flex items-center justify-center text-gray-600">
-            No tienes permisos para acceder a esta sección.
-          </div>
-        }
+        element={<NoAutorizado />}
       />
 
       <Route path="*" element={<Navigate to="/" replace />} />
