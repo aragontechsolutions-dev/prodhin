@@ -28,9 +28,8 @@ function ClickHandler({ onChange }: { onChange: (lat: number, lng: number) => vo
   return null;
 }
 
-// Centro por defecto: Venezuela (ajustar según la región de la empresa)
-const DEFAULT_CENTER: [number, number] = [10.4696, -66.9036];
-const DEFAULT_ZOOM = 12;
+const DEFAULT_CENTER: [number, number] = [-34.9011, -54.9595]; // Maldonado, Uruguay
+const DEFAULT_ZOOM = 13;
 
 export default function LocationPicker({ lat, lng, onChange }: Props) {
   const hasPosition = lat !== null && lng !== null;
