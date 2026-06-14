@@ -20,8 +20,8 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
 const DEFAULT_REGION: Region = {
-  latitude: 10.4696,
-  longitude: -66.9036,
+  latitude: -34.9011,
+  longitude: -54.9595,
   latitudeDelta: 0.15,
   longitudeDelta: 0.15,
 };
