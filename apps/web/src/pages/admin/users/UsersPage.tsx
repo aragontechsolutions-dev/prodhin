@@ -108,8 +108,8 @@ export default function UsersPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Gestiona los usuarios del sistema</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Usuarios</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Gestiona los usuarios del sistema</p>
         </div>
         <Button onClick={openCreate}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,7 +120,7 @@ export default function UsersPage() {
       </div>
 
       {/* Tabla / Cards */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
@@ -134,26 +134,26 @@ export default function UsersPage() {
             {/* Desktop table */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
+                <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                   <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Nombre</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Rol</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Estado</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Teléfono</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Nombre</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Rol</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Estado</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Teléfono</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                   {paginated.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition">
+                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-xs flex-shrink-0">
                             {user.full_name?.[0]?.toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{user.full_name}</p>
-                            <p className="text-xs text-gray-500">{user.email}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{user.full_name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                           </div>
                         </div>
                       </td>
@@ -167,7 +167,7 @@ export default function UsersPage() {
                           {user.is_active ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3.5 text-gray-600">{user.phone ?? '—'}</td>
+                      <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400">{user.phone ?? '—'}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2 justify-end">
                           <Button size="sm" variant="ghost" onClick={() => openEdit(user)}>
@@ -189,9 +189,9 @@ export default function UsersPage() {
             </div>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-gray-100">
+            <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
               {paginated.map((user) => (
-                <div key={user.id} className="p-4 space-y-2">
+                <div key={user.id} className="p-4 space-y-2 dark:bg-gray-900">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-xs">

@@ -112,8 +112,8 @@ export default function AssignmentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Asignaciones</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Asigna clientes a los choferes</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Asignaciones</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Asigna clientes a los choferes</p>
         </div>
         <Button onClick={() => openModal()}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,7 +128,7 @@ export default function AssignmentsPage() {
           <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : drivers.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm text-center py-16 text-sm text-gray-500">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm text-center py-16 text-sm text-gray-500 dark:text-gray-400">
           No hay choferes activos registrados.
         </div>
       ) : (
@@ -138,11 +138,11 @@ export default function AssignmentsPage() {
             const count = entry?.customers.length ?? 0;
             const isExpanded = expandedDriverId === driver.id;
             return (
-              <div key={driver.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={driver.id} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                 {/* Driver header — clickable to expand */}
                 <button
                   type="button"
-                  className="w-full px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-50 transition-colors text-left"
+                  className="w-full px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                   onClick={() => setExpandedDriverId(isExpanded ? null : driver.id)}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -150,8 +150,8 @@ export default function AssignmentsPage() {
                       {driver.full_name[0]?.toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{driver.full_name}</p>
-                      <p className="text-xs text-gray-500">{count} cliente{count !== 1 ? 's' : ''}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{driver.full_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{count} cliente{count !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                   <svg
@@ -164,8 +164,8 @@ export default function AssignmentsPage() {
 
                 {/* Collapsible customer list */}
                 {isExpanded && (
-                  <div className="border-t border-gray-100">
-                    <div className="px-4 py-2 flex justify-end border-b border-gray-50">
+                  <div className="border-t border-gray-100 dark:border-gray-800">
+                    <div className="px-4 py-2 flex justify-end border-b border-gray-50 dark:border-gray-800">
                       <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openModal(driver.id); }}>
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -173,17 +173,17 @@ export default function AssignmentsPage() {
                         Asignar cliente
                       </Button>
                     </div>
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-gray-50 dark:divide-gray-800">
                       {count === 0 ? (
-                        <p className="px-4 py-4 text-xs text-gray-400 text-center">Sin clientes asignados</p>
+                        <p className="px-4 py-4 text-xs text-gray-400 dark:text-gray-600 text-center">Sin clientes asignados</p>
                       ) : (
                         entry!.customers.map((ac) => {
                           const full = (customers ?? []).find((c) => c.id === ac.customerId);
                           return (
                             <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="text-sm text-gray-800 font-medium truncate">{ac.name}</p>
-                                {full && <p className="text-xs text-gray-500 truncate">{full.phone}</p>}
+                                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">{ac.name}</p>
+                                {full && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{full.phone}</p>}
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {full && (

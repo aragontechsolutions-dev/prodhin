@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 
 const navItems = [
   {
@@ -51,6 +52,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const { isDark, toggle } = useTheme();
 
   async function handleSignOut() {
     await signOut();
@@ -61,18 +63,18 @@ export default function AdminLayout() {
     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
     ${isActive
       ? 'bg-primary-500 text-white shadow-sm'
-      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
     }`;
 
   const sidebar = (
-    <aside className="flex flex-col h-full bg-white border-r border-gray-100">
+    <aside className="flex flex-col h-full bg-white border-r border-gray-100 dark:bg-gray-900 dark:border-gray-800">
       {/* Brand */}
-      <div className="px-4 py-5 border-b border-gray-100">
+      <div className="px-4 py-5 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🥚</span>
           <div>
-            <p className="font-bold text-gray-900 leading-none">Prodhin</p>
-            <p className="text-xs text-gray-500">Panel de administración</p>
+            <p className="font-bold text-gray-900 leading-none dark:text-gray-100">Prodhin</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Panel de administración</p>
           </div>
         </div>
       </div>
@@ -93,19 +95,34 @@ export default function AdminLayout() {
       </nav>
 
       {/* User & logout */}
-      <div className="px-3 py-4 border-t border-gray-100">
+      <div className="px-3 py-4 border-t border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-3 px-3 py-2 mb-2">
           <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
             {profile?.full_name?.[0]?.toUpperCase() ?? 'A'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{profile?.full_name}</p>
-            <p className="text-xs text-gray-500 capitalize">{profile?.role}</p>
+            <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">{profile?.full_name}</p>
+            <p className="text-xs text-gray-500 capitalize dark:text-gray-400">{profile?.role}</p>
           </div>
         </div>
         <button
+          onClick={toggle}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition dark:text-gray-300 dark:hover:bg-gray-800 mb-1"
+        >
+          {isDark ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          )}
+          {isDark ? 'Modo claro' : 'Modo oscuro'}
+        </button>
+        <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -118,7 +135,7 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex dark:bg-gray-950">
       {/* Sidebar desktop */}
       <div className="hidden md:flex md:w-60 md:flex-shrink-0 md:flex-col">
         {sidebar}
@@ -140,16 +157,31 @@ export default function AdminLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile topbar */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-30">
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-30 dark:bg-gray-900 dark:border-gray-800">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition dark:text-gray-300 dark:hover:bg-gray-800"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="font-semibold text-gray-900">Prodhin</span>
+          <span className="font-semibold text-gray-900 flex-1 dark:text-white">Prodhin</span>
+          <button
+            onClick={toggle}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition dark:text-gray-300 dark:hover:bg-gray-800"
+            aria-label="Toggle theme"
+          >
+            {isDark ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
         </header>
 
         <main className="flex-1 p-4 md:p-6">

@@ -11,11 +11,11 @@ interface StatCardProps {
 
 function StatCard({ label, value, icon, color }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
           {icon}
@@ -38,10 +38,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Bienvenido, {profile?.full_name?.split(' ')[0]} 👋
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Resumen general del sistema</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Resumen general del sistema</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -91,21 +91,21 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <h2 className="font-semibold text-gray-900 mb-3">Accesos rápidos</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800">
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Accesos rápidos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <a href="/admin/usuarios" className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition group">
+          <a href="/admin/usuarios" className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition group">
             <span className="text-2xl">👤</span>
             <div>
-              <p className="font-medium text-gray-900 group-hover:text-primary-700">Gestionar Usuarios</p>
-              <p className="text-xs text-gray-500">Crear y administrar choferes</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-700">Gestionar Usuarios</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Crear y administrar choferes</p>
             </div>
           </a>
-          <a href="/admin/clientes" className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition group">
+          <a href="/admin/clientes" className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition group">
             <span className="text-2xl">📍</span>
             <div>
-              <p className="font-medium text-gray-900 group-hover:text-primary-700">Gestionar Clientes</p>
-              <p className="text-xs text-gray-500">Ubicar clientes en el mapa</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-700">Gestionar Clientes</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ubicar clientes en el mapa</p>
             </div>
           </a>
         </div>

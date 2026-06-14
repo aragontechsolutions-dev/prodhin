@@ -14,13 +14,13 @@ export default function Pagination({ page, totalPages, pageSize, total, onPageCh
   const to = Math.min(page * pageSize, total);
 
   return (
-    <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-white flex-wrap gap-3">
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+    <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-white dark:bg-gray-900 dark:border-gray-800 flex-wrap gap-3">
+      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         <span>Filas por página:</span>
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSize)}
-          className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
         >
           {PAGE_SIZE_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -33,7 +33,7 @@ export default function Pagination({ page, totalPages, pageSize, total, onPageCh
         <button
           onClick={() => onPageChange(1)}
           disabled={page === 1}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition dark:hover:text-gray-200 dark:hover:bg-gray-800"
           aria-label="Primera página"
         >
           «
@@ -41,18 +41,18 @@ export default function Pagination({ page, totalPages, pageSize, total, onPageCh
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition dark:hover:text-gray-200 dark:hover:bg-gray-800"
           aria-label="Página anterior"
         >
           ‹
         </button>
-        <span className="px-3 py-1 text-sm text-gray-700">
+        <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
           {page} / {totalPages}
         </span>
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition dark:hover:text-gray-200 dark:hover:bg-gray-800"
           aria-label="Página siguiente"
         >
           ›
@@ -60,7 +60,7 @@ export default function Pagination({ page, totalPages, pageSize, total, onPageCh
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={page === totalPages}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition dark:hover:text-gray-200 dark:hover:bg-gray-800"
           aria-label="Última página"
         >
           »
