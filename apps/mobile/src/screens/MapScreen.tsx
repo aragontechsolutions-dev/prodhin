@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Callout, Region } from 'react-native-maps';
+import MapView, { Marker, Callout, Region, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMyCustomers } from '../hooks/useMyCustomers';
@@ -89,6 +89,7 @@ export default function MapScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
+        provider={PROVIDER_DEFAULT}
         initialRegion={DEFAULT_REGION}
         showsUserLocation
         showsMyLocationButton
