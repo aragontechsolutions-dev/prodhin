@@ -168,10 +168,14 @@ export default function MapScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             onPress={() => refetch()}
-            style={[styles.iconBtn, !isOnline && styles.iconBtnDisabled]}
-            disabled={!isOnline}
+            style={[styles.refreshBtn, (!isOnline || isFetching) && styles.refreshBtnDisabled]}
+            disabled={!isOnline || isFetching}
           >
-            <Text style={styles.iconBtnText}>↻</Text>
+            {isFetching && !isLoading ? (
+              <ActivityIndicator size="small" color="#92400e" />
+            ) : (
+              <Text style={styles.refreshBtnText}>↻ Actualizar</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
             <Text style={styles.signOutBtnText}>Salir</Text>
@@ -263,20 +267,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  iconBtn: {
-    width: 44,
+  refreshBtn: {
     height: 44,
+    paddingHorizontal: 14,
     borderRadius: 22,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1.5,
+    borderColor: '#f59e0b',
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 44,
   },
-  iconBtnDisabled: {
-    opacity: 0.4,
+  refreshBtnDisabled: {
+    opacity: 0.45,
   },
-  iconBtnText: {
-    fontSize: 18,
-    color: '#374151',
+  refreshBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400e',
   },
   signOutBtn: {
     height: 44,
