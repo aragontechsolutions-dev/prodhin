@@ -117,3 +117,15 @@ export function useUnassignCustomer() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['driver-customers'] }),
   });
 }
+
+export function useBulkCreateCustomers() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (rows: Array<CreateCustomerDto & { created_by: string }>) => {
+      const { error } = await supabase.from('customers').insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+}

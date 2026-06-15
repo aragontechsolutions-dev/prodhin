@@ -10,6 +10,7 @@ import Pagination from '../../../components/ui/Pagination';
 import { usePagination } from '../../../hooks/usePagination';
 import type { Customer } from '@prodhin/shared';
 import CustomerForm from './CustomerForm';
+import CustomerImportModal from './CustomerImportModal';
 
 const CustomerMapView = lazy(() => import('./CustomerMapView'));
 
@@ -31,6 +32,7 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [confirmCustomer, setConfirmCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
 
   const filtered = (customers ?? []).filter((c) => {
     const name = getDisplayName(c).toLowerCase();
@@ -90,6 +92,12 @@ export default function CustomersPage() {
               Mapa
             </button>
           </div>
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Importar CSV
+          </Button>
           <Button onClick={openCreate}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -258,6 +266,12 @@ export default function CustomersPage() {
         isLoading={deleteCustomer.isPending}
         title={confirmCustomer?.is_active ? 'Desactivar cliente' : 'Activar cliente'}
         message={`¿${confirmCustomer?.is_active ? 'Desactivar' : 'Activar'} a ${getDisplayName(confirmCustomer ?? {} as Customer)}?`}
+      />
+
+      <CustomerImportModal
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        userId={profile?.id ?? ''}
       />
     </div>
   );
