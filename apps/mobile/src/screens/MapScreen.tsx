@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   debugPanel: {
     position: 'absolute',
-    bottom: 48,
+    top: 120,
     left: 8,
     right: 8,
     backgroundColor: '#1e293b',
