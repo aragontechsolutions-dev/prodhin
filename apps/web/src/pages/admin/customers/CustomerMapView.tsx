@@ -35,7 +35,7 @@ export default function CustomerMapView({ customers, onEdit }: Props) {
 
   return (
     <div className="relative">
-      <div className="h-[60vh] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+      <div className="h-[60vh] rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ isolation: 'isolate' }}>
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={12}
