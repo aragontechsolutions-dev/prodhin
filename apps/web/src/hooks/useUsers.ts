@@ -75,3 +75,58 @@ export function useCreateUser() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 }
+
+export function useDriverDelegations() {
+  return useQuery({
+    queryKey: ['driver-delegations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('driver_delegations')
+        .select(`
+          id,
+          from_driver_id,
+          to_driver_id,
+          start_date,
+          end_date,
+          is_active,
+          created_at,
+          from_driver:profiles!from_driver_id(full_name),
+          to_driver:profiles!to_driver_id(full_name)
+        `)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateDelegation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      from_driver_id: string;
+      to_driver_id: string;
+      start_date: string;
+      end_date: string;
+      created_by: string;
+    }) => {
+      const { error } = await supabase.from('driver_delegations').insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['driver-delegations'] }),
+  });
+}
+
+export function useEndDelegation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('driver_delegations')
+        .update({ is_active: false, end_date: new Date().toISOString().split('T')[0] })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['driver-delegations'] }),
+  });
+}

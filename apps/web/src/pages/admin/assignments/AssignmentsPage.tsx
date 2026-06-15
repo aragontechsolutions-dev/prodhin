@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DelegationsSection from './DelegationsSection';
 import { toast } from 'sonner';
 import {
   useDriverCustomers,
@@ -270,6 +271,9 @@ export default function AssignmentsPage() {
         title="Quitar asignación"
         message={`¿Quitar a ${confirmUnassign?.label}?`}
       />
+
+      <hr className="border-gray-200 dark:border-gray-800" />
+      <DelegationsSection />
     </div>
   );
 }
