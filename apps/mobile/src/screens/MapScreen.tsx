@@ -21,15 +21,20 @@ import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
-function buildMapHtml(customers: Customer[], userLat?: number, userLng?: number): string {
-  const markers = customers.map((c) => ({
+function buildMapHtml(own: Customer[], delegated: Customer[], userLat?: number, userLng?: number): string {
+  const toMarker = (c: Customer, isDelegated: boolean) => ({
     id: c.id,
     lat: c.lat,
     lng: c.lng,
     name: getDisplayName(c).replace(/'/g, "\\'"),
     phone: (c.phone ?? '').replace(/'/g, "\\'"),
     address: (c.address ?? '').replace(/'/g, "\\'"),
-  }));
+    delegated: isDelegated,
+  });
+  const markers = [
+    ...own.map((c) => toMarker(c, false)),
+    ...delegated.map((c) => toMarker(c, true)),
+  ];
 
   const userMarker =
     userLat != null && userLng != null
@@ -78,20 +83,25 @@ function buildMapHtml(customers: Customer[], userLat?: number, userLng?: number)
 
   var redIcon = L.divIcon({
     html: '<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    className: '',
+    iconSize: [16, 16], iconAnchor: [8, 8], className: '',
+  });
+
+  var orangeIcon = L.divIcon({
+    html: '<div style="background:#f97316;width:16px;height:16px;border-radius:4px;border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);"></div>',
+    iconSize: [16, 16], iconAnchor: [8, 8], className: '',
   });
 
   var customers = ${JSON.stringify(markers)};
 
   customers.forEach(function(c) {
-    var popup = '<b style="font-size:13px;">' + c.name + '</b>' +
+    var badge = c.delegated ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA</span>' : '';
+    var popup = badge +
+      '<b style="font-size:13px;">' + c.name + '</b>' +
       '<br><span style="font-size:11px;color:#6b7280;">' + c.phone + '</span>' +
       '<br><span style="font-size:10px;color:#9ca3af;">' + c.address + '</span>' +
       '<br><a class="popup-btn" onclick="window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))" href="#">Ver detalles →</a>';
 
-    L.marker([c.lat, c.lng], { icon: redIcon })
+    L.marker([c.lat, c.lng], { icon: c.delegated ? orangeIcon : redIcon })
       .bindPopup(popup, { maxWidth: 200 })
       .addTo(map);
   });
@@ -105,7 +115,10 @@ function buildMapHtml(customers: Customer[], userLat?: number, userLng?: number)
 export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
-  const { data: customers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
+  const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
+  const ownCustomers = myCustomers?.own ?? [];
+  const delegatedCustomers = myCustomers?.delegated ?? [];
+  const allCustomers = [...ownCustomers, ...delegatedCustomers];
   const navigation = useNavigation<Nav>();
   const webViewRef = useRef<WebView>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -124,7 +137,7 @@ export default function MapScreen() {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'navigate' && msg.id) {
-        const customer = customers?.find((c) => c.id === msg.id);
+        const customer = allCustomers.find((c) => c.id === msg.id);
         if (customer) navigation.navigate('CustomerDetail', { customer });
       }
     } catch {
@@ -132,11 +145,7 @@ export default function MapScreen() {
     }
   }
 
-  const html = buildMapHtml(
-    customers ?? [],
-    userLocation?.lat,
-    userLocation?.lng,
-  );
+  const html = buildMapHtml(ownCustomers, delegatedCustomers, userLocation?.lat, userLocation?.lng);
 
   return (
     <View style={styles.container} onTouchStart={resetTimers}>
@@ -152,7 +161,7 @@ export default function MapScreen() {
         <View>
           <Text style={styles.headerTitle}>Mis clientes</Text>
           <Text style={styles.headerSub}>
-            {isLoading ? 'Cargando...' : `${customers?.length ?? 0} asignados`}
+            {isLoading ? 'Cargando...' : `${ownCustomers.length} propios${delegatedCustomers.length > 0 ? ` · ${delegatedCustomers.length} en cobertura` : ''}`}
             {isFetching && !isLoading ? ' · actualizando...' : ''}
           </Text>
         </View>
@@ -198,8 +207,8 @@ export default function MapScreen() {
         <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
           <Text style={[styles.statusText, !isOnline && styles.statusTextOffline]}>
             {profile?.full_name}
-            {customers && customers.length > 0
-              ? ` · ${customers.length} cliente${customers.length !== 1 ? 's' : ''}`
+            {allCustomers.length > 0
+              ? ` · ${ownCustomers.length} propios${delegatedCustomers.length > 0 ? ` + ${delegatedCustomers.length} cobertura` : ''}`
               : ' · Sin clientes asignados'}
             {!isOnline ? ' · OFFLINE' : ''}
           </Text>
