@@ -5,6 +5,7 @@ import type { Customer } from '../types';
 export interface MyCustomers {
   own: Customer[];
   delegated: Customer[];
+  debug: string;
 }
 
 export function useMyCustomers(driverId: string | undefined) {
@@ -26,7 +27,8 @@ export function useMyCustomers(driverId: string | undefined) {
 
       const directIds = assignments?.map((r) => r.customer_id) ?? [];
 
-      // Active delegations — non-fatal: if this fails just skip delegated customers
+      const debugLines: string[] = [`Hoy: ${today}`, `IDs propios: ${directIds.length}`];
+
       let delegatedIds: string[] = [];
       try {
         const { data: delegations, error: dErr } = await supabase
@@ -37,25 +39,34 @@ export function useMyCustomers(driverId: string | undefined) {
           .lte('start_date', today)
           .gte('end_date', today);
 
-        if (!dErr && delegations && delegations.length > 0) {
-          const fromDriverIds = delegations.map((d) => d.from_driver_id);
-          const { data: delegatedAssignments, error: daErr } = await supabase
-            .from('driver_customers')
-            .select('customer_id')
-            .in('driver_id', fromDriverIds);
-          if (!daErr) {
-            delegatedIds = delegatedAssignments?.map((r) => r.customer_id) ?? [];
+        if (dErr) {
+          debugLines.push(`Delegaciones ERROR: ${dErr.message} (${dErr.code})`);
+        } else {
+          debugLines.push(`Delegaciones encontradas: ${delegations?.length ?? 0}`);
+          if (delegations && delegations.length > 0) {
+            const fromDriverIds = delegations.map((d) => d.from_driver_id);
+            debugLines.push(`from_driver_ids: ${fromDriverIds.join(', ')}`);
+            const { data: delegatedAssignments, error: daErr } = await supabase
+              .from('driver_customers')
+              .select('customer_id')
+              .in('driver_id', fromDriverIds);
+            if (daErr) {
+              debugLines.push(`Clientes delegados ERROR: ${daErr.message}`);
+            } else {
+              delegatedIds = delegatedAssignments?.map((r) => r.customer_id) ?? [];
+              debugLines.push(`IDs delegados: ${delegatedIds.length}`);
+            }
           }
         }
-      } catch {
-        // Silently skip delegated customers if query fails
+      } catch (e) {
+        debugLines.push(`Excepción: ${e instanceof Error ? e.message : String(e)}`);
       }
 
-      // Remove overlap: delegated IDs that are also directly assigned stay as "own"
       const delegatedOnlyIds = delegatedIds.filter((id) => !directIds.includes(id));
-
       const allIds = [...new Set([...directIds, ...delegatedOnlyIds])];
-      if (allIds.length === 0) return { own: [], delegated: [] };
+      debugLines.push(`Total IDs a buscar: ${allIds.length}`);
+
+      if (allIds.length === 0) return { own: [], delegated: [], debug: debugLines.join('\n') };
 
       const { data, error } = await supabase
         .from('customers')
@@ -70,6 +81,7 @@ export function useMyCustomers(driverId: string | undefined) {
       return {
         own: all.filter((c) => directSet.has(c.id)),
         delegated: all.filter((c) => !directSet.has(c.id)),
+        debug: debugLines.join('\n'),
       };
     },
   });
