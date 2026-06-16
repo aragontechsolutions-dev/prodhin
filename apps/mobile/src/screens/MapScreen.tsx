@@ -122,7 +122,6 @@ export default function MapScreen() {
   const navigation = useNavigation<Nav>();
   const webViewRef = useRef<WebView>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
   const { resetTimers } = useInactivityTimer(signOut);
 
   useEffect(() => {
@@ -208,26 +207,16 @@ export default function MapScreen() {
         </View>
       )}
 
-      {showDebug && (
-        <View style={styles.debugPanel}>
-          <Text style={styles.debugTitle}>🔍 Debug info (toca para cerrar)</Text>
-          <TouchableOpacity onPress={() => setShowDebug(false)}>
-            <Text style={styles.debugText}>{myCustomers?.debug ?? 'Sin datos aún'}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {!isLoading && (
-        <TouchableOpacity onPress={() => setShowDebug((v) => !v)} style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
+        <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
           <Text style={[styles.statusText, !isOnline && styles.statusTextOffline]}>
             {profile?.full_name}
             {allCustomers.length > 0
               ? ` · ${ownCustomers.length} propios${delegatedCustomers.length > 0 ? ` + ${delegatedCustomers.length} cobertura` : ''}`
               : ' · Sin clientes asignados'}
             {!isOnline ? ' · OFFLINE' : ''}
-            {' · toca para debug'}
           </Text>
-        </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -353,27 +342,5 @@ const styles = StyleSheet.create({
   },
   statusTextOffline: {
     color: '#991b1b',
-  },
-  debugPanel: {
-    position: 'absolute',
-    top: 120,
-    left: 8,
-    right: 8,
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    padding: 12,
-    zIndex: 100,
-  },
-  debugTitle: {
-    color: '#facc15',
-    fontWeight: '700',
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  debugText: {
-    color: '#e2e8f0',
-    fontSize: 11,
-    fontFamily: 'monospace',
-    lineHeight: 18,
   },
 });
