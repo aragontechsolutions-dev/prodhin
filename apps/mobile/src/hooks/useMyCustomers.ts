@@ -28,6 +28,9 @@ export function useMyCustomers(driverId: string | undefined) {
       const directIds = assignments?.map((r) => r.customer_id) ?? [];
 
       const debugLines: string[] = [`Hoy: ${today}`, `IDs propios: ${directIds.length}`];
+      console.log('[DELEGATION] driverId:', driverId);
+      console.log('[DELEGATION] today:', today);
+      console.log('[DELEGATION] directIds:', directIds);
 
       let delegatedIds: string[] = [];
       try {
@@ -41,20 +44,25 @@ export function useMyCustomers(driverId: string | undefined) {
 
         if (dErr) {
           debugLines.push(`Delegaciones ERROR: ${dErr.message} (${dErr.code})`);
+          console.log('[DELEGATION] ERROR querying driver_delegations:', dErr.code, dErr.message);
         } else {
           debugLines.push(`Delegaciones encontradas: ${delegations?.length ?? 0}`);
+          console.log('[DELEGATION] delegations found:', delegations?.length, JSON.stringify(delegations));
           if (delegations && delegations.length > 0) {
             const fromDriverIds = delegations.map((d) => d.from_driver_id);
             debugLines.push(`from_driver_ids: ${fromDriverIds.join(', ')}`);
+            console.log('[DELEGATION] from_driver_ids:', fromDriverIds);
             const { data: delegatedAssignments, error: daErr } = await supabase
               .from('driver_customers')
               .select('customer_id')
               .in('driver_id', fromDriverIds);
             if (daErr) {
               debugLines.push(`Clientes delegados ERROR: ${daErr.message}`);
+              console.log('[DELEGATION] ERROR querying delegated driver_customers:', daErr.message);
             } else {
               delegatedIds = delegatedAssignments?.map((r) => r.customer_id) ?? [];
               debugLines.push(`IDs delegados: ${delegatedIds.length}`);
+              console.log('[DELEGATION] delegated customer ids:', delegatedIds);
             }
           }
         }
