@@ -109,7 +109,7 @@ export function useAddRouteStop() {
 export function useRemoveRouteStop() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, route_id }: { id: string; route_id: string }) => {
+    mutationFn: async ({ id }: { id: string; route_id: string }) => {
       const { error } = await supabase.from('route_stops').delete().eq('id', id);
       if (error) throw error;
     },
