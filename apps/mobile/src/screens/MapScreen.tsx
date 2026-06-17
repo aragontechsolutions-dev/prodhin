@@ -1,17 +1,21 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   ActivityIndicator,
   Platform,
+  FlatList,
+  Keyboard,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMyCustomers } from '../hooks/useMyCustomers';
+import { useMyRoute, getTodayDayOfWeek, isSummerSeason } from '../hooks/useMyRoute';
 import { getDisplayName } from '../types';
 import type { Customer } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -21,16 +25,34 @@ import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 
-function buildMapHtml(own: Customer[], delegated: Customer[], userLat?: number, userLng?: number): string {
-  const toMarker = (c: Customer, isDelegated: boolean) => ({
-    id: c.id,
-    lat: c.lat,
-    lng: c.lng,
-    name: getDisplayName(c).replace(/'/g, "\\'"),
-    phone: (c.phone ?? '').replace(/'/g, "\\'"),
-    address: (c.address ?? '').replace(/'/g, "\\'"),
-    delegated: isDelegated,
-  });
+type MarkerKind = 'route' | 'route-visited' | 'own' | 'delegated';
+
+function buildMapHtml(
+  own: Customer[],
+  delegated: Customer[],
+  todayRouteIds: Set<string>,
+  visitedIds: Set<string>,
+  userLat?: number,
+  userLng?: number,
+): string {
+  const toMarker = (c: Customer, isDelegated: boolean) => {
+    let kind: MarkerKind;
+    if (todayRouteIds.has(c.id)) {
+      kind = visitedIds.has(c.id) ? 'route-visited' : 'route';
+    } else {
+      kind = isDelegated ? 'delegated' : 'own';
+    }
+    return {
+      id: c.id,
+      lat: c.lat,
+      lng: c.lng,
+      name: getDisplayName(c).replace(/'/g, "\\'"),
+      phone: (c.phone ?? '').replace(/'/g, "\\'"),
+      address: (c.address ?? '').replace(/'/g, "\\'"),
+      kind,
+    };
+  };
+
   const markers = [
     ...own.map((c) => toMarker(c, false)),
     ...delegated.map((c) => toMarker(c, true)),
@@ -69,6 +91,25 @@ function buildMapHtml(own: Customer[], delegated: Customer[], userLat?: number, 
       text-decoration: none;
       cursor: pointer;
     }
+    .visit-btn {
+      display: inline-block;
+      margin-top: 4px;
+      margin-left: 4px;
+      padding: 4px 10px;
+      background: #16a34a;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(22,163,74,0.6); }
+      70%  { box-shadow: 0 0 0 10px rgba(22,163,74,0); }
+      100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+    }
+    .pulse { animation: pulse 1.8s infinite; border-radius: 50%; }
   </style>
 </head>
 <body>
@@ -81,32 +122,86 @@ function buildMapHtml(own: Customer[], delegated: Customer[], userLat?: number, 
     maxZoom: 19,
   }).addTo(map);
 
+  // own (not on route)
   var redIcon = L.divIcon({
-    html: '<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>',
-    iconSize: [16, 16], iconAnchor: [8, 8], className: '',
+    html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);opacity:0.7;"></div>',
+    iconSize: [14, 14], iconAnchor: [7, 7], className: '',
   });
-
+  // delegated (not on route)
   var orangeIcon = L.divIcon({
-    html: '<div style="background:#f97316;width:16px;height:16px;border-radius:4px;border:2.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);"></div>',
+    html: '<div style="background:#f97316;width:14px;height:14px;border-radius:4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);opacity:0.7;"></div>',
+    iconSize: [14, 14], iconAnchor: [7, 7], className: '',
+  });
+  // on route today
+  var routeIcon = L.divIcon({
+    html: '<div class="pulse" style="background:#16a34a;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',
+    iconSize: [20, 20], iconAnchor: [10, 10], className: '',
+  });
+  // visited
+  var visitedIcon = L.divIcon({
+    html: '<div style="background:#9ca3af;width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:10px;font-weight:bold;">✓</span></div>',
     iconSize: [16, 16], iconAnchor: [8, 8], className: '',
   });
+  // search highlight
+  var highlightIcon = L.divIcon({
+    html: '<div style="background:#7c3aed;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(124,58,237,0.4);"></div>',
+    iconSize: [22, 22], iconAnchor: [11, 11], className: '',
+  });
 
+  var iconMap = { route: routeIcon, 'route-visited': visitedIcon, own: redIcon, delegated: orangeIcon };
+
+  var markers = {};
   var customers = ${JSON.stringify(markers)};
 
   customers.forEach(function(c) {
-    var badge = c.delegated ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA</span>' : '';
-    var popup = badge +
-      '<b style="font-size:13px;">' + c.name + '</b>' +
-      '<br><span style="font-size:11px;color:#6b7280;">' + c.phone + '</span>' +
-      '<br><span style="font-size:10px;color:#9ca3af;">' + c.address + '</span>' +
-      '<br><a class="popup-btn" onclick="window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))" href="#">Ver detalles →</a>';
+    var routeBadge = (c.kind === 'route' || c.kind === 'route-visited')
+      ? '<br><span style="font-size:9px;background:#16a34a;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">' + (c.kind === 'route-visited' ? '✓ VISITADO' : 'RUTA HOY') + '</span>'
+      : '';
+    var delegBadge = c.kind === 'delegated'
+      ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA</span>'
+      : '';
+    var visitBtn = c.kind === 'route'
+      ? '<a class="visit-btn" onclick="window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Marcar visitado<\\/a>'
+      : '';
+    var popup = routeBadge + delegBadge +
+      '<b style="font-size:13px;">' + c.name + '<\\/b>' +
+      '<br><span style="font-size:11px;color:#6b7280;">' + c.phone + '<\\/span>' +
+      '<br><span style="font-size:10px;color:#9ca3af;">' + c.address + '<\\/span>' +
+      '<br><a class="popup-btn" onclick="window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))" href="#">Ver detalles →<\\/a>' +
+      visitBtn;
 
-    L.marker([c.lat, c.lng], { icon: c.delegated ? orangeIcon : redIcon })
-      .bindPopup(popup, { maxWidth: 200 })
+    var icon = iconMap[c.kind] || redIcon;
+    var m = L.marker([c.lat, c.lng], { icon: icon })
+      .bindPopup(popup, { maxWidth: 220 })
       .addTo(map);
+    markers[c.id] = m;
   });
 
   ${userMarker}
+
+  // Listen for commands from React Native
+  document.addEventListener('message', handleCmd);
+  window.addEventListener('message', handleCmd);
+  function handleCmd(e) {
+    try {
+      var msg = JSON.parse(e.data);
+      if (msg.type === 'highlight' && msg.id && markers[msg.id]) {
+        map.flyTo(markers[msg.id].getLatLng(), 16, { duration: 0.8 });
+        markers[msg.id].setIcon(highlightIcon);
+        markers[msg.id].openPopup();
+      }
+      if (msg.type === 'clearHighlight' && msg.id && markers[msg.id]) {
+        var c = customers.find(function(x) { return x.id === msg.id; });
+        if (c) markers[msg.id].setIcon(iconMap[c.kind] || redIcon);
+      }
+      if (msg.type === 'markVisited' && msg.id && markers[msg.id]) {
+        markers[msg.id].setIcon(visitedIcon);
+        var c = customers.find(function(x) { return x.id === msg.id; });
+        if (c) c.kind = 'route-visited';
+        markers[msg.id].closePopup();
+      }
+    } catch(err) {}
+  }
 <\/script>
 </body>
 </html>`;
@@ -116,13 +211,30 @@ export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
+  const { data: routeStops } = useMyRoute(profile?.id);
   const ownCustomers = myCustomers?.own ?? [];
   const delegatedCustomers = myCustomers?.delegated ?? [];
   const allCustomers = [...ownCustomers, ...delegatedCustomers];
   const navigation = useNavigation<Nav>();
   const webViewRef = useRef<WebView>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
   const { resetTimers } = useInactivityTimer(signOut);
+
+  const todayDow = getTodayDayOfWeek();
+  const summer = isSummerSeason();
+  const hasRouteToday = todayDow >= 1 && (summer ? todayDow <= 6 : todayDow <= 5);
+
+  const todayRouteIds = new Set(
+    hasRouteToday
+      ? (routeStops ?? []).filter((s) => s.day_of_week === todayDow).map((s) => s.customer_id)
+      : [],
+  );
+  const todayCount = todayRouteIds.size;
+  const visitedCount = [...visitedIds].filter((id) => todayRouteIds.has(id)).length;
 
   useEffect(() => {
     (async () => {
@@ -133,6 +245,34 @@ export default function MapScreen() {
     })();
   }, []);
 
+  // Search results
+  const searchResults = searchQuery.trim().length >= 1
+    ? allCustomers.filter((c) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          getDisplayName(c).toLowerCase().includes(q) ||
+          (c.tax_id ?? '').toLowerCase().includes(q)
+        );
+      }).slice(0, 6)
+    : [];
+
+  const sendToMap = useCallback((msg: object) => {
+    webViewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(msg))} })); true;`
+    );
+  }, []);
+
+  function handleSelectSearchResult(customer: Customer) {
+    if (lastHighlighted && lastHighlighted !== customer.id) {
+      sendToMap({ type: 'clearHighlight', id: lastHighlighted });
+    }
+    sendToMap({ type: 'highlight', id: customer.id });
+    setLastHighlighted(customer.id);
+    setSearchQuery(getDisplayName(customer));
+    setSearchFocused(false);
+    Keyboard.dismiss();
+  }
+
   function handleMessage(event: { nativeEvent: { data: string } }) {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
@@ -140,12 +280,25 @@ export default function MapScreen() {
         const customer = allCustomers.find((c) => c.id === msg.id);
         if (customer) navigation.navigate('CustomerDetail', { customer });
       }
+      if (msg.type === 'visited' && msg.id) {
+        setVisitedIds((prev) => new Set([...prev, msg.id]));
+        sendToMap({ type: 'markVisited', id: msg.id });
+      }
     } catch {
       // ignore malformed messages
     }
   }
 
-  const html = buildMapHtml(ownCustomers, delegatedCustomers, userLocation?.lat, userLocation?.lng);
+  const html = buildMapHtml(
+    ownCustomers,
+    delegatedCustomers,
+    todayRouteIds,
+    visitedIds,
+    userLocation?.lat,
+    userLocation?.lng,
+  );
+
+  const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   return (
     <View style={styles.container} onTouchStart={resetTimers}>
@@ -183,6 +336,50 @@ export default function MapScreen() {
         </View>
       </View>
 
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputRow}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar cliente por nombre o RUT..."
+            placeholderTextColor="#9ca3af"
+            value={searchQuery}
+            onChangeText={(t) => { setSearchQuery(t); setSearchFocused(true); }}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => {
+              if (lastHighlighted) sendToMap({ type: 'clearHighlight', id: lastHighlighted });
+              setSearchQuery('');
+              setLastHighlighted(null);
+            }}>
+              <Text style={styles.searchClear}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {searchFocused && searchResults.length > 0 && (
+          <View style={styles.searchDropdown}>
+            <FlatList
+              data={searchResults}
+              keyExtractor={(c) => c.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.searchItem}
+                  onPress={() => handleSelectSearchResult(item)}
+                >
+                  <Text style={styles.searchItemName}>{getDisplayName(item)}</Text>
+                  <Text style={styles.searchItemSub}>{item.address}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+      </View>
+
       <WebView
         ref={webViewRef}
         style={styles.map}
@@ -204,6 +401,23 @@ export default function MapScreen() {
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#f59e0b" />
           <Text style={styles.loadingText}>Cargando clientes...</Text>
+        </View>
+      )}
+
+      {/* Route today banner */}
+      {!isLoading && hasRouteToday && todayCount > 0 && (
+        <View style={styles.routeBanner}>
+          <View style={styles.routeDot} />
+          <Text style={styles.routeBannerText}>
+            Ruta {DAY_NAMES[todayDow]} · {visitedCount}/{todayCount} visitados
+          </Text>
+        </View>
+      )}
+      {!isLoading && !hasRouteToday && (
+        <View style={[styles.routeBanner, styles.routeBannerOff]}>
+          <Text style={styles.routeBannerTextOff}>
+            {todayDow === -1 ? 'Domingo — sin ruta' : 'No hay ruta configurada para hoy'}
+          </Text>
         </View>
       )}
 
@@ -245,7 +459,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 56 : 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
@@ -299,6 +513,72 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#dc2626',
   },
+  searchContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    zIndex: 10,
+  },
+  searchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 10,
+    height: 40,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#111827',
+    paddingVertical: 0,
+  },
+  searchClear: {
+    fontSize: 14,
+    color: '#9ca3af',
+    paddingLeft: 6,
+  },
+  searchDropdown: {
+    position: 'absolute',
+    top: 58,
+    left: 12,
+    right: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+    maxHeight: 260,
+    zIndex: 20,
+  },
+  searchItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  searchItemName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  searchItemSub: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginTop: 1,
+  },
   map: {
     flex: 1,
   },
@@ -322,6 +602,36 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  routeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#f0fdf4',
+    borderTopWidth: 1,
+    borderTopColor: '#bbf7d0',
+  },
+  routeBannerOff: {
+    backgroundColor: '#f9fafb',
+    borderTopColor: '#e5e7eb',
+  },
+  routeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16a34a',
+  },
+  routeBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803d',
+  },
+  routeBannerTextOff: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
   statusBar: {
     paddingHorizontal: 16,
