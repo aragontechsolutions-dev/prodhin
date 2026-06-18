@@ -1,10 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Alert } from 'react-native';
 
-const WARNING_AFTER_MS = 19 * 60 * 1000; // warn at 19 min
-const LOGOUT_AFTER_MS = 20 * 60 * 1000;  // logout at 20 min
+const WARNING_AFTER_MS = 19 * 60 * 1000;
+const LOGOUT_AFTER_MS = 20 * 60 * 1000;
 
-export function useInactivityTimer(onSignOut: () => void) {
+export function useInactivityTimer(
+  onSignOut: () => void,
+  onWarning?: () => void,
+  onLogout?: () => void,
+) {
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -17,19 +20,14 @@ export function useInactivityTimer(onSignOut: () => void) {
     clearTimers();
 
     warningTimer.current = setTimeout(() => {
-      Alert.alert(
-        'Sesión a punto de expirar',
-        'Tu sesión se cerrará en 1 minuto por inactividad.',
-        [{ text: 'Seguir conectado', onPress: resetTimers }],
-        { cancelable: false },
-      );
+      onWarning?.();
     }, WARNING_AFTER_MS);
 
     logoutTimer.current = setTimeout(() => {
-      Alert.alert('Sesión cerrada', 'Se cerró la sesión por inactividad.');
+      onLogout?.();
       onSignOut();
     }, LOGOUT_AFTER_MS);
-  }, [clearTimers, onSignOut]);
+  }, [clearTimers, onSignOut, onWarning, onLogout]);
 
   useEffect(() => {
     resetTimers();
