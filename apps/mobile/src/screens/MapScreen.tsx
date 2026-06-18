@@ -413,10 +413,24 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
+      {!isLoading && hasRouteToday && todayCount === 0 && (routeStops ?? []).length > 0 && (
+        <View style={[styles.routeBanner, styles.routeBannerOff]}>
+          <Text style={styles.routeBannerTextOff}>
+            Sin clientes en la ruta para hoy ({DAY_NAMES[todayDow]})
+          </Text>
+        </View>
+      )}
+      {!isLoading && hasRouteToday && (routeStops ?? []).length === 0 && (
+        <View style={[styles.routeBanner, styles.routeBannerOff]}>
+          <Text style={styles.routeBannerTextOff}>
+            Sin ruta configurada — contactá al administrador
+          </Text>
+        </View>
+      )}
       {!isLoading && !hasRouteToday && (
         <View style={[styles.routeBanner, styles.routeBannerOff]}>
           <Text style={styles.routeBannerTextOff}>
-            {todayDow === -1 ? 'Domingo — sin ruta' : 'No hay ruta configurada para hoy'}
+            {todayDow === -1 ? 'Domingo — sin ruta' : 'Sábado — fuera de temporada de verano'}
           </Text>
         </View>
       )}
