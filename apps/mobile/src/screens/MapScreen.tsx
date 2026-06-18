@@ -229,6 +229,7 @@ export default function MapScreen() {
 
   const todayDow = getTodayDayOfWeek();
   const summer = isSummerSeason();
+  const hasRouteToday = todayDow >= 1 && (summer ? todayDow <= 6 : todayDow <= 5);
 
   const todayRouteIds = new Set(
     hasRouteToday
