@@ -227,6 +227,7 @@ export default function MapScreen() {
   const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
   const [routeAlertVisible, setRouteAlertVisible] = useState(false);
   const [routeAlertCountdown, setRouteAlertCountdown] = useState(8);
+  const [mapKey, setMapKey] = useState(0);
   const { resetTimers } = useInactivityTimer(signOut);
 
   const todayDow = getTodayDayOfWeek();
@@ -242,6 +243,11 @@ export default function MapScreen() {
   const visitedCount = [...visitedIds].filter((id) => todayRouteIds.has(id)).length;
 
   const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  // Re-mount WebView with fresh HTML when route data changes
+  useEffect(() => {
+    if (routeData !== undefined) setMapKey((k) => k + 1);
+  }, [routeData]);
 
   // Show alert modal once data is loaded and there's a route problem
   useEffect(() => {
@@ -405,6 +411,7 @@ export default function MapScreen() {
       </View>
 
       <WebView
+        key={mapKey}
         ref={webViewRef}
         style={styles.map}
         source={{ html }}
