@@ -19,6 +19,7 @@ export interface Profile {
   full_name: string;
   role: 'admin' | 'chofer';
   is_active: boolean;
+  must_change_password: boolean;
 }
 
 export function getDisplayName(c: Customer): string {

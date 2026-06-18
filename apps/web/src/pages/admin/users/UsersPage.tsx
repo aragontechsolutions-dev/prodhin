@@ -28,7 +28,7 @@ interface UserFormData {
 
 const defaultForm: UserFormData = {
   email: '', password: '', full_name: '', phone: '', role: 'chofer',
-  email_confirmed: true, must_change_password: false,
+  email_confirmed: true, must_change_password: true,
 };
 
 export default function UsersPage() {

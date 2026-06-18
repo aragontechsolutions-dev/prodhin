@@ -23,7 +23,7 @@ export function useAuth() {
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, role, is_active')
+      .select('id, full_name, role, is_active, must_change_password')
       .eq('id', userId)
       .single();
     setProfile(data ?? null);
@@ -39,5 +39,5 @@ export function useAuth() {
     await supabase.auth.signOut();
   }
 
-  return { profile, loading, signIn, signOut };
+  return { profile, setProfile, loading, signIn, signOut };
 }

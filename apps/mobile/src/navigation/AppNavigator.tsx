@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import LoginScreen from '../screens/LoginScreen';
 import MapScreen from '../screens/MapScreen';
 import CustomerDetailScreen from '../screens/CustomerDetailScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
 
 export type RootStackParamList = {
@@ -25,9 +26,9 @@ export default function AppNavigator() {
     );
   }
 
-  if (!profile) {
-    return <LoginScreen />;
-  }
+  if (!profile) return <LoginScreen />;
+
+  if (profile.must_change_password) return <ChangePasswordScreen />;
 
   return (
     <NavigationContainer>
