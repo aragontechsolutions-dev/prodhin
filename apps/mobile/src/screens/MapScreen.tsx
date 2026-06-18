@@ -212,7 +212,7 @@ export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
-  const { data: routeData } = useMyRoute(profile?.id);
+  const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
   const routeStops = routeData?.stops ?? [];
   const ownCustomers = myCustomers?.own ?? [];
@@ -344,7 +344,7 @@ export default function MapScreen() {
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            onPress={() => refetch()}
+            onPress={() => { setRouteAlertVisible(false); refetch(); refetchRoute(); }}
             style={[styles.refreshBtn, (!isOnline || isFetching) && styles.refreshBtnDisabled]}
             disabled={!isOnline || isFetching}
           >
@@ -434,20 +434,6 @@ export default function MapScreen() {
           <View style={styles.routeDot} />
           <Text style={styles.routeBannerText}>
             Ruta {DAY_NAMES[todayDow]} · {visitedCount}/{todayCount} visitados
-          </Text>
-        </View>
-      )}
-      {!isLoading && hasRouteToday && routeFound && todayCount === 0 && (
-        <View style={[styles.routeBanner, styles.routeBannerOff]}>
-          <Text style={styles.routeBannerTextOff}>
-            Sin clientes en la ruta para el {DAY_NAMES[todayDow]}
-          </Text>
-        </View>
-      )}
-      {!isLoading && hasRouteToday && !routeFound && (
-        <View style={[styles.routeBanner, styles.routeBannerOff]}>
-          <Text style={styles.routeBannerTextOff}>
-            Sin ruta configurada — contactá al administrador
           </Text>
         </View>
       )}
