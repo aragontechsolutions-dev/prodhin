@@ -39,12 +39,16 @@ export function useMyRoute(driverId: string | undefined) {
       const effectiveDriverId =
         delegations?.length ? delegations[0].from_driver_id : driverId!;
 
-      const { data: routes } = await supabase
+      console.log('[ROUTE] driverId:', driverId, 'effectiveDriverId:', effectiveDriverId);
+
+      const { data: routes, error: rErr } = await supabase
         .from('routes')
         .select('id')
         .eq('driver_id', effectiveDriverId)
         .eq('is_active', true)
         .limit(1);
+
+      console.log('[ROUTE] routes:', JSON.stringify(routes), 'error:', rErr?.message);
 
       if (!routes?.length) return [];
 
@@ -52,6 +56,9 @@ export function useMyRoute(driverId: string | undefined) {
         .from('route_stops')
         .select('customer_id, day_of_week')
         .eq('route_id', routes[0].id);
+
+      console.log('[ROUTE] stops:', JSON.stringify(stops), 'error:', error?.message);
+      console.log('[ROUTE] todayDow:', new Date().getDay(), 'today:', new Date().toISOString().split('T')[0]);
 
       if (error) throw error;
       return (stops ?? []) as RouteStop[];
