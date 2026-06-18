@@ -44,16 +44,12 @@ export function useMyRoute(driverId: string | undefined) {
       const effectiveDriverId =
         delegations?.length ? delegations[0].from_driver_id : driverId!;
 
-      console.log('[ROUTE] driverId:', driverId, 'effectiveDriverId:', effectiveDriverId);
-
       const { data: routes, error: rErr } = await supabase
         .from('routes')
         .select('id')
         .eq('driver_id', effectiveDriverId)
         .eq('is_active', true)
         .limit(1);
-
-      console.log('[ROUTE] routes:', JSON.stringify(routes), 'error:', rErr?.message);
 
       // Fallback: if covering driver but absent has no route, use own route
       let finalRoutes = routes;
@@ -64,7 +60,6 @@ export function useMyRoute(driverId: string | undefined) {
           .eq('driver_id', driverId!)
           .eq('is_active', true)
           .limit(1);
-        console.log('[ROUTE] fallback to own route:', JSON.stringify(ownRoutes));
         finalRoutes = ownRoutes;
       }
 
@@ -74,9 +69,6 @@ export function useMyRoute(driverId: string | undefined) {
         .from('route_stops')
         .select('customer_id, day_of_week')
         .eq('route_id', finalRoutes![0].id);
-
-      console.log('[ROUTE] stops:', JSON.stringify(stops), 'error:', error?.message);
-      console.log('[ROUTE] todayDow:', new Date().getDay(), 'today:', new Date().toISOString().split('T')[0]);
 
       if (error) throw error;
       return { routeFound: true, stops: (stops ?? []) as RouteStop[] };
