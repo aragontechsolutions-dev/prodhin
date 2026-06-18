@@ -16,7 +16,7 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMyCustomers } from '../hooks/useMyCustomers';
-import { useMyRoute, getTodayDayOfWeek, isSummerSeason } from '../hooks/useMyRoute';
+import { useMyRoute, getTodayDayOfWeek, isSummerSeason, type MyRouteResult } from '../hooks/useMyRoute';
 import { getDisplayName } from '../types';
 import type { Customer } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -212,7 +212,9 @@ export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
-  const { data: routeStops } = useMyRoute(profile?.id);
+  const { data: routeData } = useMyRoute(profile?.id);
+  const routeFound = routeData?.routeFound ?? false;
+  const routeStops = routeData?.stops ?? [];
   const ownCustomers = myCustomers?.own ?? [];
   const delegatedCustomers = myCustomers?.delegated ?? [];
   const allCustomers = [...ownCustomers, ...delegatedCustomers];
@@ -243,14 +245,14 @@ export default function MapScreen() {
 
   // Show alert modal once data is loaded and there's a route problem
   useEffect(() => {
-    if (isLoading || routeStops === undefined) return;
-    const noRoute = hasRouteToday && routeStops.length === 0;
-    const noStopsToday = hasRouteToday && routeStops.length > 0 && todayCount === 0;
+    if (isLoading || routeData === undefined) return;
+    const noRoute = hasRouteToday && !routeFound;
+    const noStopsToday = hasRouteToday && routeFound && todayCount === 0;
     if (noRoute || noStopsToday) {
       setRouteAlertVisible(true);
       setRouteAlertCountdown(8);
     }
-  }, [isLoading, routeStops, todayCount]);
+  }, [isLoading, routeData, todayCount]);
 
   // Countdown timer for auto-close
   useEffect(() => {
@@ -435,14 +437,14 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
-      {!isLoading && hasRouteToday && todayCount === 0 && (routeStops ?? []).length > 0 && (
+      {!isLoading && hasRouteToday && routeFound && todayCount === 0 && (
         <View style={[styles.routeBanner, styles.routeBannerOff]}>
           <Text style={styles.routeBannerTextOff}>
-            Sin clientes en la ruta para hoy ({DAY_NAMES[todayDow]})
+            Sin clientes en la ruta para el {DAY_NAMES[todayDow]}
           </Text>
         </View>
       )}
-      {!isLoading && hasRouteToday && (routeStops ?? []).length === 0 && (
+      {!isLoading && hasRouteToday && !routeFound && (
         <View style={[styles.routeBanner, styles.routeBannerOff]}>
           <Text style={styles.routeBannerTextOff}>
             Sin ruta configurada — contactá al administrador
@@ -458,24 +460,24 @@ export default function MapScreen() {
       )}
 
       {/* Route alert modal */}
-      <Modal visible={routeAlertVisible} transparent animationType="fade">
+      <Modal visible={routeAlertVisible} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalIconRow}>
-              <Text style={styles.modalIcon}>📋</Text>
+              <Text style={styles.modalIcon}>{!routeFound ? '🗺️' : '📋'}</Text>
             </View>
             <Text style={styles.modalTitle}>
-              {hasRouteToday && (routeStops ?? []).length === 0
-                ? 'Sin ruta configurada'
-                : `Sin clientes para hoy`}
+              {!routeFound ? 'Sin ruta configurada' : `Sin clientes para el ${DAY_NAMES[todayDow]}`}
             </Text>
             <Text style={styles.modalMessage}>
-              {hasRouteToday && (routeStops ?? []).length === 0
-                ? 'No tenés una ruta asignada. Contactá al administrador para que configure tu ruta de reparto.'
-                : `Tu ruta no tiene clientes asignados para el ${DAY_NAMES[todayDow]}. Consultá con el administrador.`}
+              {!routeFound
+                ? 'No tenés una ruta de reparto asignada. Contactá al administrador.'
+                : `Tu ruta existe pero no tiene clientes asignados para el ${DAY_NAMES[todayDow]}. Contactá al administrador.`}
             </Text>
             <View style={styles.modalFooter}>
-              <Text style={styles.modalCountdown}>Cerrando en {routeAlertCountdown}s</Text>
+              <View style={styles.modalCountdownBox}>
+                <Text style={styles.modalCountdown}>{routeAlertCountdown}</Text>
+              </View>
               <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRouteAlertVisible(false)}>
                 <Text style={styles.modalCloseBtnText}>Entendido</Text>
               </TouchableOpacity>
@@ -762,9 +764,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  modalCountdownBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalCountdown: {
-    fontSize: 12,
-    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6b7280',
   },
   modalCloseBtn: {
     backgroundColor: '#f59e0b',

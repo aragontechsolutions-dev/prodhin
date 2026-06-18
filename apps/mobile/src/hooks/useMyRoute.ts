@@ -17,6 +17,11 @@ export function isSummerSeason(): boolean {
   return m >= 11 || m <= 2;
 }
 
+export interface MyRouteResult {
+  routeFound: boolean;
+  stops: RouteStop[];
+}
+
 export function useMyRoute(driverId: string | undefined) {
   return useQuery({
     queryKey: ['my-route', driverId],
@@ -24,7 +29,7 @@ export function useMyRoute(driverId: string | undefined) {
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60 * 24,
     networkMode: 'offlineFirst',
-    queryFn: async (): Promise<RouteStop[]> => {
+    queryFn: async (): Promise<MyRouteResult> => {
       const today = new Date().toISOString().split('T')[0];
 
       // If covering another driver, use their route
@@ -63,7 +68,7 @@ export function useMyRoute(driverId: string | undefined) {
         finalRoutes = ownRoutes;
       }
 
-      if (!finalRoutes?.length) return [];
+      if (!finalRoutes?.length) return { routeFound: false, stops: [] };
 
       const { data: stops, error } = await supabase
         .from('route_stops')
@@ -74,7 +79,7 @@ export function useMyRoute(driverId: string | undefined) {
       console.log('[ROUTE] todayDow:', new Date().getDay(), 'today:', new Date().toISOString().split('T')[0]);
 
       if (error) throw error;
-      return (stops ?? []) as RouteStop[];
+      return { routeFound: true, stops: (stops ?? []) as RouteStop[] };
     },
   });
 }
