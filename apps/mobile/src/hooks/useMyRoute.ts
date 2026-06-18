@@ -50,12 +50,25 @@ export function useMyRoute(driverId: string | undefined) {
 
       console.log('[ROUTE] routes:', JSON.stringify(routes), 'error:', rErr?.message);
 
-      if (!routes?.length) return [];
+      // Fallback: if covering driver but absent has no route, use own route
+      let finalRoutes = routes;
+      if ((!routes?.length) && effectiveDriverId !== driverId!) {
+        const { data: ownRoutes } = await supabase
+          .from('routes')
+          .select('id')
+          .eq('driver_id', driverId!)
+          .eq('is_active', true)
+          .limit(1);
+        console.log('[ROUTE] fallback to own route:', JSON.stringify(ownRoutes));
+        finalRoutes = ownRoutes;
+      }
+
+      if (!finalRoutes?.length) return [];
 
       const { data: stops, error } = await supabase
         .from('route_stops')
         .select('customer_id, day_of_week')
-        .eq('route_id', routes[0].id);
+        .eq('route_id', finalRoutes![0].id);
 
       console.log('[ROUTE] stops:', JSON.stringify(stops), 'error:', error?.message);
       console.log('[ROUTE] todayDow:', new Date().getDay(), 'today:', new Date().toISOString().split('T')[0]);
