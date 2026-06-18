@@ -24,7 +24,7 @@ export interface MyRouteResult {
 
 export function useMyRoute(driverId: string | undefined) {
   return useQuery({
-    queryKey: ['my-route', driverId],
+    queryKey: ['my-route-v2', driverId],
     enabled: !!driverId,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60 * 24,
