@@ -116,6 +116,17 @@ BEGIN
       now(), now(), '', ''
     );
 
+    -- Insertar identity (requerido por GoTrue para autenticación por email)
+    INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    VALUES (
+      gen_random_uuid(),
+      new_uid,
+      new_uid::text,
+      jsonb_build_object('sub', new_uid::text, 'email', 'chofer' || i || '@prodhin.com'),
+      'email',
+      now(), now(), now()
+    );
+
     -- El trigger crea el profile; actualizamos teléfono
     UPDATE public.profiles
     SET phone = '099' || lpad((100000 + i * 11111)::text, 6, '0')
