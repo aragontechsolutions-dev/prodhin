@@ -9,6 +9,7 @@ import {
   Platform,
   FlatList,
   Keyboard,
+  Modal,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
@@ -222,11 +223,12 @@ export default function MapScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
+  const [routeAlertVisible, setRouteAlertVisible] = useState(false);
+  const [routeAlertCountdown, setRouteAlertCountdown] = useState(8);
   const { resetTimers } = useInactivityTimer(signOut);
 
   const todayDow = getTodayDayOfWeek();
   const summer = isSummerSeason();
-  const hasRouteToday = todayDow >= 1 && (summer ? todayDow <= 6 : todayDow <= 5);
 
   const todayRouteIds = new Set(
     hasRouteToday
@@ -235,6 +237,27 @@ export default function MapScreen() {
   );
   const todayCount = todayRouteIds.size;
   const visitedCount = [...visitedIds].filter((id) => todayRouteIds.has(id)).length;
+
+  const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  // Show alert modal once data is loaded and there's a route problem
+  useEffect(() => {
+    if (isLoading || routeStops === undefined) return;
+    const noRoute = hasRouteToday && routeStops.length === 0;
+    const noStopsToday = hasRouteToday && routeStops.length > 0 && todayCount === 0;
+    if (noRoute || noStopsToday) {
+      setRouteAlertVisible(true);
+      setRouteAlertCountdown(8);
+    }
+  }, [isLoading, routeStops, todayCount]);
+
+  // Countdown timer for auto-close
+  useEffect(() => {
+    if (!routeAlertVisible) return;
+    if (routeAlertCountdown <= 0) { setRouteAlertVisible(false); return; }
+    const t = setTimeout(() => setRouteAlertCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [routeAlertVisible, routeAlertCountdown]);
 
   useEffect(() => {
     (async () => {
@@ -297,8 +320,6 @@ export default function MapScreen() {
     userLocation?.lat,
     userLocation?.lng,
   );
-
-  const DAY_NAMES = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   return (
     <View style={styles.container} onTouchStart={resetTimers}>
@@ -434,6 +455,33 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
+
+      {/* Route alert modal */}
+      <Modal visible={routeAlertVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconRow}>
+              <Text style={styles.modalIcon}>📋</Text>
+            </View>
+            <Text style={styles.modalTitle}>
+              {hasRouteToday && (routeStops ?? []).length === 0
+                ? 'Sin ruta configurada'
+                : `Sin clientes para hoy`}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {hasRouteToday && (routeStops ?? []).length === 0
+                ? 'No tenés una ruta asignada. Contactá al administrador para que configure tu ruta de reparto.'
+                : `Tu ruta no tiene clientes asignados para el ${DAY_NAMES[todayDow]}. Consultá con el administrador.`}
+            </Text>
+            <View style={styles.modalFooter}>
+              <Text style={styles.modalCountdown}>Cerrando en {routeAlertCountdown}s</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setRouteAlertVisible(false)}>
+                <Text style={styles.modalCloseBtnText}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {!isLoading && (
         <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
@@ -666,5 +714,66 @@ const styles = StyleSheet.create({
   },
   statusTextOffline: {
     color: '#991b1b',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  modalIconRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalIcon: {
+    fontSize: 40,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalCountdown: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 22,
+  },
+  modalCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
