@@ -33,6 +33,8 @@ export default function AssignmentsPage() {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [viewModalDriverId, setViewModalDriverId] = useState<string | null>(null);
+  const [viewSearch, setViewSearch] = useState('');
   const [confirmUnassign, setConfirmUnassign] = useState<{ driverId: string; customerId: string; label: string } | null>(null);
   const [expandedDriverId, setExpandedDriverId] = useState<string | null>(null);
 
@@ -186,48 +188,19 @@ export default function AssignmentsPage() {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-100 dark:border-gray-800">
-                    <div className="px-4 py-2 flex justify-end border-b border-gray-50 dark:border-gray-800">
-                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openModal(driver.id); }}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Asignar clientes
-                      </Button>
-                    </div>
-                    <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                      {count === 0 ? (
-                        <p className="px-4 py-4 text-xs text-gray-400 dark:text-gray-600 text-center">Sin clientes asignados</p>
-                      ) : (
-                        entry!.customers.map((ac) => {
-                          const full = (customers ?? []).find((c) => c.id === ac.customerId);
-                          return (
-                            <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">{ac.name}</p>
-                                {full && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{full.phone}</p>}
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                {full && (
-                                  <Badge variant={full.customer_type === 'empresa' ? 'blue' : 'yellow'}>
-                                    {full.customer_type === 'empresa' ? 'Empresa' : 'Persona'}
-                                  </Badge>
-                                )}
-                                <button
-                                  onClick={() => setConfirmUnassign({ driverId: driver.id, customerId: ac.customerId, label: `${ac.name} de ${driver.full_name}` })}
-                                  className="p-1 text-gray-400 hover:text-red-500 transition rounded"
-                                  title="Quitar asignación"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
+                  <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 flex gap-2">
+                    <Button size="sm" variant="ghost" className="flex-1" onClick={(e) => { e.stopPropagation(); openModal(driver.id); }}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Asignar
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); setViewModalDriverId(driver.id); setViewSearch(''); }}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                      Ver clientes
+                    </Button>
                   </div>
                 )}
               </div>
@@ -235,6 +208,76 @@ export default function AssignmentsPage() {
           })}
         </div>
       )}
+
+      {/* ── Modal ver clientes asignados ── */}
+      {(() => {
+        const viewEntry = viewModalDriverId ? byDriver.get(viewModalDriverId) : null;
+        const viewDriver = viewModalDriverId ? (users ?? []).find((u) => u.id === viewModalDriverId) : null;
+        const viewFiltered = (viewEntry?.customers ?? []).filter((ac) => {
+          const q = viewSearch.trim().toLowerCase();
+          if (!q) return true;
+          const full = (customers ?? []).find((c) => c.id === ac.customerId);
+          return (
+            ac.name.toLowerCase().includes(q) ||
+            (full?.phone ?? '').toLowerCase().includes(q) ||
+            (full?.tax_id ?? '').toLowerCase().includes(q)
+          );
+        });
+        return (
+          <Modal isOpen={!!viewModalDriverId} onClose={() => setViewModalDriverId(null)} title={`Clientes de ${viewDriver?.full_name ?? ''}`}>
+            <div className="space-y-3">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, teléfono o RUT..."
+                  value={viewSearch}
+                  onChange={(e) => setViewSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+              <p className="text-xs text-gray-400">{viewEntry?.customers.length ?? 0} cliente{(viewEntry?.customers.length ?? 0) !== 1 ? 's' : ''} asignados</p>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                {viewFiltered.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">Sin resultados</p>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {viewFiltered.map((ac) => {
+                      const full = (customers ?? []).find((c) => c.id === ac.customerId);
+                      return (
+                        <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">{ac.name}</p>
+                            {full && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{full.phone}</p>}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {full && (
+                              <Badge variant={full.customer_type === 'empresa' ? 'blue' : 'yellow'}>
+                                {full.customer_type === 'empresa' ? 'Empresa' : 'Persona'}
+                              </Badge>
+                            )}
+                            <button
+                              onClick={() => { setViewModalDriverId(null); setConfirmUnassign({ driverId: viewModalDriverId!, customerId: ac.customerId, label: `${ac.name} de ${viewDriver?.full_name ?? ''}` }); }}
+                              className="p-1 text-gray-400 hover:text-red-500 transition rounded"
+                              title="Quitar asignación"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ── Modal asignación con buscador + checkboxes ── */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Asignar clientes a chofer">
