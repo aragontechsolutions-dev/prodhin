@@ -102,6 +102,27 @@ export function useAssignCustomer() {
   });
 }
 
+export function useBulkAssignCustomers() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      driver_id,
+      customer_ids,
+      assigned_by,
+    }: {
+      driver_id: string;
+      customer_ids: string[];
+      assigned_by: string;
+    }) => {
+      const rows = customer_ids.map((customer_id) => ({ driver_id, customer_id, assigned_by }));
+      const { error } = await supabase.from('driver_customers').upsert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['driver-customers'] }),
+  });
+}
+
 export function useUnassignCustomer() {
   const qc = useQueryClient();
 
