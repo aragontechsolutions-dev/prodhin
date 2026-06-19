@@ -11,8 +11,8 @@ export function useMyCustomers(driverId: string | undefined) {
   return useQuery({
     queryKey: ['my-customers', driverId],
     enabled: !!driverId,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 60 * 24,
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
     networkMode: 'offlineFirst',
     queryFn: async (): Promise<MyCustomers> => {
       const today = new Date().toISOString().split('T')[0];
