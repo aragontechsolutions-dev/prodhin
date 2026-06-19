@@ -163,14 +163,27 @@ export default function ManualPage() {
           <Steps items={[
             'Ir a Usuarios → botón "Nuevo usuario".',
             'Completar nombre completo, email, teléfono y contraseña temporal.',
-            'El rol se asigna automáticamente como Chofer.',
-            'Entregar el email y la contraseña al chofer para que inicie sesión en la app.',
+            'Seleccionar el rol (Chofer o Admin). Por defecto se marca "Forzar cambio de contraseña en el próximo inicio de sesión".',
+            'Entregar el email y la contraseña temporal al chofer para que inicie sesión en la app.',
           ]} />
-          <Tip>La primera vez que el chofer ingrese, el sistema le pedirá que cambie su contraseña temporal.</Tip>
+          <Tip>La primera vez que el chofer ingrese, la app le pedirá que cambie su contraseña temporal. Tras hacerlo, será redirigido al login automáticamente.</Tip>
 
-          <SubTitle>Activar / Desactivar chofer</SubTitle>
-          <P>Desde la lista de usuarios podés activar o desactivar un chofer con el toggle. Un chofer inactivo no puede iniciar sesión en la app móvil.</P>
-          <Warning>Desactivar un chofer no elimina sus clientes asignados ni sus rutas. Si lo reactivás, todo vuelve a funcionar como antes.</Warning>
+          <SubTitle>Cambiar la contraseña de un usuario</SubTitle>
+          <P>Si un chofer olvida su contraseña, el administrador puede establecerle una nueva directamente desde el CORE:</P>
+          <Steps items={[
+            'En la lista de usuarios, hacer clic en "Cambiar pass" en la fila del chofer.',
+            'Escribir la nueva contraseña temporal (mínimo 6 caracteres).',
+            'El sistema activa automáticamente "forzar cambio en próximo login".',
+            'Comunicar la contraseña temporal al chofer. Al ingresar, deberá establecer una propia.',
+          ]} />
+
+          <SubTitle>Forzar cambio de contraseña</SubTitle>
+          <P>El ícono de candado 🔒 en cada fila permite activar o desactivar el forzado de cambio de contraseña sin abrir el modal de edición. Cuando está activo, el badge <strong>"Cambio pendiente"</strong> aparece en amarillo junto al estado del usuario.</P>
+          <Warning>Si el chofer ya está logueado en la app cuando se le fuerza el cambio, verá la pantalla de cambio de contraseña la próxima vez que la app se reinicie o al cerrar y volver a abrir sesión.</Warning>
+
+          <SubTitle>Activar / Desactivar usuario</SubTitle>
+          <P>Desde la lista de usuarios podés activar o desactivar un usuario con el botón correspondiente. Un usuario inactivo no puede iniciar sesión en la app móvil.</P>
+          <Warning>Desactivar un usuario no elimina sus clientes asignados ni sus rutas. Si lo reactivás, todo vuelve a funcionar como antes.</Warning>
         </section>
 
         {/* Clientes */}
@@ -204,24 +217,35 @@ export default function ManualPage() {
           <SectionTitle>📋 Módulo Asignaciones</SectionTitle>
           <P>Las asignaciones vinculan clientes con choferes. Un chofer solo ve en su app los clientes que le fueron asignados.</P>
 
-          <SubTitle>Asignar clientes</SubTitle>
+          <SubTitle>Asignar clientes a un chofer</SubTitle>
           <Steps items={[
-            'Ir a Asignaciones y seleccionar un chofer.',
-            'En el panel derecho aparece la lista de clientes disponibles.',
-            'Hacer clic en el cliente para asignarlo al chofer seleccionado.',
-            'El chofer verá el cliente en su mapa al próximo Actualizar.',
+            'Ir a Asignaciones → en la card del chofer, desplegar con el botón "▾".',
+            'Hacer clic en "Asignar" para abrir el modal de asignación.',
+            'Seleccionar el chofer en el desplegable (si no estaba preseleccionado).',
+            'Usar el buscador para filtrar por nombre, RUT o teléfono.',
+            'Marcar los clientes deseados con los checkboxes (o usar "Seleccionar todos").',
+            'Hacer clic en "Asignar N clientes" para confirmar.',
           ]} />
-          <Tip>Un mismo cliente puede estar asignado a varios choferes simultáneamente.</Tip>
+          <Warning>Un cliente solo puede estar asignado a un chofer a la vez. El sistema no muestra como disponibles los clientes que ya tienen un chofer asignado. Para reasignar un cliente, primero desasignarlo del chofer actual.</Warning>
+
+          <SubTitle>Ver y gestionar clientes asignados</SubTitle>
+          <Steps items={[
+            'En la card del chofer, desplegar con "▾" y hacer clic en "Ver clientes".',
+            'Se abre un modal con la lista completa de clientes del chofer.',
+            'Usar el buscador para encontrar un cliente específico por nombre, teléfono o RUT.',
+            'Para quitar un cliente, hacer clic en la ✕ a la derecha de su nombre.',
+          ]} />
 
           <SubTitle>Delegaciones de cobertura</SubTitle>
           <P>Cuando un chofer está ausente, podés delegar su cartera a otro chofer temporalmente.</P>
           <Steps items={[
             'En Asignaciones → sección Delegaciones → "Nueva delegación".',
-            'Seleccionar el chofer ausente (from) y el chofer que cubre (to).',
+            'Seleccionar el chofer ausente y el chofer que lo cubre.',
             'Definir fecha de inicio y fin de la cobertura.',
-            'El chofer cubridor verá los clientes del ausente con marcador naranja en su mapa.',
+            'El chofer cubridor verá los clientes del ausente con marcador naranja (diamante) en su mapa.',
           ]} />
-          <Warning>La delegación NO transfiere la ruta del ausente automáticamente. Si el ausente tiene una ruta configurada, el cubridor también la verá; si no, el cubridor trabaja con su propia ruta.</Warning>
+          <Tip>La delegación es automática por fecha. Al llegar la fecha de fin, los clientes naranjas desaparecen del mapa del cubridor sin ninguna acción adicional.</Tip>
+          <Warning>Los clientes del ausente aparecen en el mapa del cubridor pero no forman parte de su ruta propia. Si necesitás que el cubridor los vea resaltados en verde, deberás agregarlos a su ruta manualmente.</Warning>
         </section>
 
         {/* Rutas */}
@@ -234,8 +258,8 @@ export default function ManualPage() {
             'Ir a Rutas → "Nueva ruta".',
             'Asignar un nombre descriptivo y el chofer responsable.',
             'La ruta se crea activa. Hacer clic en ella para abrirla.',
-            'Seleccionar el día (ej: Miércoles) y agregar clientes desde el panel derecho.',
-            'Los clientes aparecerán en el mapa del chofer ese día con marcador verde.',
+            'Seleccionar el día (ej: Miércoles) y agregar clientes desde el panel.',
+            'Los clientes aparecerán en el mapa del chofer ese día con marcador verde pulsante.',
           ]} />
 
           <SubTitle>Temporada y días disponibles</SubTitle>
@@ -249,7 +273,7 @@ export default function ManualPage() {
               <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">Marzo a Octubre — habilita Lunes a Viernes (5 días).</p>
             </div>
           </div>
-          <Tip>La temporada se calcula automáticamente según el mes. Configura los clientes para los días que correspondan a la temporada actual.</Tip>
+          <Tip>La temporada se calcula automáticamente según el mes. No requiere configuración manual.</Tip>
           <Warning>Si asignás un cliente a Sábado en temporada normal, ese cliente no aparecerá resaltado en verde porque el Sábado no es día de ruta fuera del verano.</Warning>
         </section>
 
@@ -258,19 +282,35 @@ export default function ManualPage() {
           <SectionTitle>📱 App móvil — Flujo del chofer</SectionTitle>
           <P>La app muestra un mapa interactivo con todos los clientes asignados al chofer. Al abrir la app, los marcadores ya están clasificados según la configuración del CORE.</P>
 
+          <SubTitle>Primer login</SubTitle>
+          <P>Si el administrador creó el usuario con "forzar cambio de contraseña" activado, la app mostrará una pantalla de cambio de contraseña antes de acceder al mapa. El chofer debe ingresar y confirmar su nueva contraseña. Tras confirmar, aparece un mensaje de éxito con cuenta regresiva de 4 segundos y la app redirige al login para ingresar con la nueva contraseña.</P>
+
+          <SubTitle>Navegación — Menú lateral</SubTitle>
+          <P>El botón de tres líneas (☰) en la esquina superior izquierda abre un menú lateral deslizante con dos vistas:</P>
+          <div className="grid sm:grid-cols-2 gap-3 mb-4">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📍 Mis clientes</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Lista de todos los clientes asignados con buscador. Al tocar un cliente el mapa vuela a su marcador.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🗓️ Ruta de hoy</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Muestra los clientes pendientes (verde) y visitados (gris con ✓) del día. Al tocar un cliente pendiente el mapa vuela a él.</p>
+            </div>
+          </div>
+
           <SubTitle>Leyenda de marcadores</SubTitle>
           <div className="border border-gray-100 dark:border-gray-800 rounded-xl divide-y divide-gray-50 dark:divide-gray-800 mb-4">
-            <MarkerLegend color="bg-green-500" shape="circle" label="Verde pulsante — Ruta de hoy" desc="Cliente incluido en la ruta del chofer para el día actual." />
-            <MarkerLegend color="bg-gray-400" shape="circle" label="Gris con ✓ — Visitado" desc="El chofer marcó este cliente como visitado en el día." />
+            <MarkerLegend color="bg-green-500" shape="circle" label="Verde pulsante — Ruta de hoy" desc="Cliente incluido en la ruta del chofer para el día actual. Pendiente de visita." />
+            <MarkerLegend color="bg-gray-400" shape="circle" label="Gris con ✓ — Visitado" desc="El chofer marcó este cliente como visitado durante el día." />
             <MarkerLegend color="bg-red-500" shape="circle" label="Rojo — Propio sin ruta hoy" desc="Cliente asignado al chofer pero no está en la ruta del día." />
-            <MarkerLegend color="bg-orange-500" shape="diamond" label="Naranja (diamante) — Cobertura" desc="Cliente del chofer ausente que este chofer está cubriendo hoy." />
+            <MarkerLegend color="bg-orange-500" shape="diamond" label="Naranja (diamante) — Cobertura" desc="Cliente del chofer ausente que este chofer está cubriendo hoy por delegación." />
           </div>
 
           <SubTitle>Funciones principales</SubTitle>
-          <div className="space-y-2 mb-3">
+          <div className="space-y-2 mb-4">
             {[
               { icon: '🔍', label: 'Buscador', desc: 'Filtra clientes por nombre o RUT. Al seleccionar uno, el mapa vuela al marcador y lo resalta en violeta.' },
-              { icon: '↻', label: 'Actualizar', desc: 'Refresca clientes y ruta en tiempo real desde el servidor. Útil si el admin hizo cambios.' },
+              { icon: '↻', label: 'Actualizar', desc: 'Refresca clientes y ruta en tiempo real desde el servidor. Útil si el admin hizo cambios en el CORE.' },
               { icon: '✓', label: 'Marcar visitado', desc: 'En el popup de cada cliente de ruta hay un botón para marcarlo como visitado. El marcador pasa a gris.' },
               { icon: '→', label: 'Ver detalles', desc: 'Abre la ficha completa del cliente con teléfono, dirección y notas.' },
             ].map((f) => (
@@ -285,8 +325,8 @@ export default function ManualPage() {
           </div>
 
           <SubTitle>Modal de aviso de ruta</SubTitle>
-          <P>Al abrir la app, si hay un problema con la ruta, se muestra un modal con cuenta regresiva de 8 segundos:</P>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <P>Al abrir la app, si hay un problema con la ruta configurada, se muestra un modal con cuenta regresiva de 8 segundos. El botón "Actualizar" cierra el modal y refresca los datos:</P>
+          <div className="grid sm:grid-cols-2 gap-3 mb-4">
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">🗺️ "Sin ruta configurada"</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">El chofer no tiene ninguna ruta asignada en el CORE.</p>
@@ -296,6 +336,14 @@ export default function ManualPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400">La ruta existe pero no tiene clientes asignados para el día de hoy.</p>
             </div>
           </div>
+
+          <SubTitle>Cierre de sesión por inactividad</SubTitle>
+          <P>La app cierra sesión automáticamente si el chofer no interactúa durante un período prolongado. El proceso es:</P>
+          <Steps items={[
+            'Aparece un modal de advertencia: "¿Seguís ahí?" con un botón "Seguir conectado".',
+            'Si no responde, aparece un segundo modal informando que la sesión fue cerrada.',
+            'El modal de cierre desaparece automáticamente y la app vuelve al login.',
+          ]} />
         </section>
 
         {/* FAQ */}
@@ -304,15 +352,23 @@ export default function ManualPage() {
           <div className="mt-2">
             <FaqItem
               q="¿Por qué el chofer no ve sus clientes en el mapa?"
-              a="Verificar que los clientes estén asignados al chofer en el módulo Asignaciones. También asegurarse de que el cliente esté activo y tenga coordenadas válidas (lat/lng)."
+              a="Verificá que: (1) los clientes estén asignados al chofer en Asignaciones, (2) los clientes estén activos, (3) los clientes tengan coordenadas válidas (lat/lng). Si el admin acaba de hacer cambios, el chofer debe presionar Actualizar en la app."
             />
             <FaqItem
               q="¿Por qué los clientes de la ruta no aparecen en verde?"
               a="La ruta existe pero no tiene clientes asignados para el día de hoy. Ir a Rutas → seleccionar la ruta → pestaña del día correspondiente (ej: Miércoles) → agregar los clientes. El chofer debe presionar Actualizar en la app para ver los cambios."
             />
             <FaqItem
-              q="¿El chofer ve los clientes del ausente pero no están resaltados?"
-              a="Los marcadores naranjas son los clientes del chofer ausente visibles por cobertura. Para que aparezcan en verde (ruta del día), la ruta del chofer cubridor también debe tener esos clientes asignados para ese día, O la ruta del chofer ausente debe tener clientes para hoy."
+              q="¿Por qué los clientes del chofer cubierto no aparecen en el mapa del cubridor?"
+              a="Verificar que la delegación esté activa (is_active = true) y que la fecha de hoy esté dentro del rango start_date–end_date. Los clientes del ausente aparecen como marcadores naranjas (diamante). Si los clientes ya están asignados también al cubridor, no aparecerán duplicados."
+            />
+            <FaqItem
+              q="¿Puedo asignar el mismo cliente a dos choferes?"
+              a="No. El sistema valida que cada cliente tenga un único chofer. Al abrir el modal de asignación, solo aparecen clientes sin chofer asignado. Para reasignar un cliente a otro chofer, primero hay que quitarlo del chofer actual desde 'Ver clientes'."
+            />
+            <FaqItem
+              q="¿Cómo resetear la contraseña de un chofer que la olvidó?"
+              a="Ir a Usuarios → fila del chofer → botón 'Cambiar pass'. Ingresar una contraseña temporal y confirmar. El sistema activa automáticamente 'forzar cambio en próximo login'. Comunicar la contraseña temporal al chofer; la app le pedirá que la cambie al ingresar."
             />
             <FaqItem
               q="¿Cómo cambiar de temporada (verano/invierno)?"
