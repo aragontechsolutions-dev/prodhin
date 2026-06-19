@@ -101,7 +101,7 @@ function buildMapHtml(
   var highlightIcon = L.divIcon({ html: '<div style="background:#7c3aed;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(124,58,237,0.4);"></div>', iconSize:[22,22],iconAnchor:[11,11],className:'' });
   var iconMap = { route: routeIcon, 'route-visited': visitedIcon, own: redIcon, delegated: orangeIcon };
 
-  var markers = {};
+  var markerRefs = {};
   var customers = ${JSON.stringify(markers)};
 
   customers.forEach(function(c) {
@@ -110,7 +110,7 @@ function buildMapHtml(
     var visitBtn = c.kind==='route' ? '<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Marcar visitado<\/a>' : '';
     var popup = routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+visitBtn;
     var m = L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:220}).addTo(map);
-    markers[c.id] = m;
+    markerRefs[c.id] = m;
   });
 
   ${userMarker}
@@ -120,9 +120,9 @@ function buildMapHtml(
   function handleCmd(e) {
     try {
       var msg = JSON.parse(e.data);
-      if (msg.type==='highlight'&&msg.id&&markers[msg.id]) { map.flyTo(markers[msg.id].getLatLng(),16,{duration:0.8}); markers[msg.id].setIcon(highlightIcon); markers[msg.id].openPopup(); }
-      if (msg.type==='clearHighlight'&&msg.id&&markers[msg.id]) { var c=customers.find(function(x){return x.id===msg.id}); if(c) markers[msg.id].setIcon(iconMap[c.kind]||redIcon); }
-      if (msg.type==='markVisited'&&msg.id&&markers[msg.id]) { markers[msg.id].setIcon(visitedIcon); var c=customers.find(function(x){return x.id===msg.id}); if(c) c.kind='route-visited'; markers[msg.id].closePopup(); }
+      if (msg.type==='highlight'&&msg.id&&markerRefs[msg.id]) { map.flyTo(markerRefs[msg.id].getLatLng(),16,{duration:0.8}); markerRefs[msg.id].setIcon(highlightIcon); markerRefs[msg.id].openPopup(); }
+      if (msg.type==='clearHighlight'&&msg.id&&markerRefs[msg.id]) { var c=customers.find(function(x){return x.id===msg.id}); if(c) markerRefs[msg.id].setIcon(iconMap[c.kind]||redIcon); }
+      if (msg.type==='markVisited'&&msg.id&&markerRefs[msg.id]) { markerRefs[msg.id].setIcon(visitedIcon); var c=customers.find(function(x){return x.id===msg.id}); if(c) c.kind='route-visited'; markerRefs[msg.id].closePopup(); }
     } catch(err) {}
   }
 <\/script>
