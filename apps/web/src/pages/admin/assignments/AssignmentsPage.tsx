@@ -195,7 +195,7 @@ export default function AssignmentsPage() {
                       </svg>
                       Asignar
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); setViewModalDriverId(driver.id); setViewSearch(''); }}>
+                    <Button size="sm" variant="secondary" className="flex-1" onClick={(e) => { e.stopPropagation(); setViewModalDriverId(driver.id); setViewSearch(''); }}>
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                       </svg>
