@@ -195,10 +195,14 @@ export default function MapScreen() {
     Animated.spring(drawerAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, speed: 20, bounciness: 0 }).start(() => setDrawerOpen(false));
   }
 
-  // Re-mount map when route data changes
+  // Re-mount map when route or customer data changes
   useEffect(() => {
     if (routeData !== undefined) setMapKey((k) => k + 1);
   }, [routeData]);
+
+  useEffect(() => {
+    if (myCustomers !== undefined) setMapKey((k) => k + 1);
+  }, [myCustomers]);
 
   // Route alert
   useEffect(() => {
