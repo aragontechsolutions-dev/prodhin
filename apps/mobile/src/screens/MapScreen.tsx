@@ -263,6 +263,7 @@ export default function MapScreen() {
     } catch { }
   }
 
+  console.log('[MAP] ownCustomers:', ownCustomers.length, 'first lat/lng:', ownCustomers[0]?.lat, ownCustomers[0]?.lng);
   const html = buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds, userLocation?.lat, userLocation?.lng);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
