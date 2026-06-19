@@ -104,14 +104,19 @@ function buildMapHtml(
   var markerRefs = {};
   var customers = ${JSON.stringify(markers)};
 
-  customers.forEach(function(c) {
-    var routeBadge = (c.kind==='route'||c.kind==='route-visited') ? '<br><span style="font-size:9px;background:#16a34a;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+(c.kind==='route-visited'?'✓ VISITADO':'RUTA HOY')+'<\/span>' : '';
-    var delegBadge = c.kind==='delegated' ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA<\/span>' : '';
-    var visitBtn = c.kind==='route' ? '<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Marcar visitado<\/a>' : '';
-    var popup = routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+visitBtn;
-    var m = L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:220}).addTo(map);
-    markerRefs[c.id] = m;
-  });
+  try {
+    customers.forEach(function(c) {
+      var routeBadge = (c.kind==='route'||c.kind==='route-visited') ? '<br><span style="font-size:9px;background:#16a34a;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+(c.kind==='route-visited'?'✓ VISITADO':'RUTA HOY')+'<\/span>' : '';
+      var delegBadge = c.kind==='delegated' ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA<\/span>' : '';
+      var visitBtn = c.kind==='route' ? '<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Marcar visitado<\/a>' : '';
+      var popup = routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+visitBtn;
+      var m = L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:220}).addTo(map);
+      markerRefs[c.id] = m;
+    });
+    window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'markers added: '+customers.length}));
+  } catch(err) {
+    window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'ERROR: '+err.message}));
+  }
 
   ${userMarker}
 
@@ -263,6 +268,9 @@ export default function MapScreen() {
       if (msg.type === 'visited' && msg.id) {
         setVisitedIds((prev) => new Set([...prev, msg.id]));
         sendToMap({ type: 'markVisited', id: msg.id });
+      }
+      if (msg.type === 'debug') {
+        console.log('[WEBVIEW]', msg.msg);
       }
     } catch { }
   }
