@@ -37,6 +37,8 @@ export function useMyCustomers(driverId: string | undefined) {
           .lte('start_date', today)
           .gte('end_date', today);
 
+        console.log('[CUSTOMERS] delegations found:', delegations?.length, 'error:', dErr?.message, 'today:', today);
+
         if (!dErr && delegations && delegations.length > 0) {
           const fromDriverIds = delegations.map((d) => d.from_driver_id);
           const { data: delegatedAssignments, error: daErr } = await supabase
