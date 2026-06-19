@@ -21,7 +21,7 @@ export default function ChangePasswordScreen() {
     setCountdown(4);
     const interval = setInterval(() => {
       setCountdown((n) => {
-        if (n <= 1) { clearInterval(interval); signOut(); return 0; }
+        if (n <= 1) { clearInterval(interval); return 0; }
         return n - 1;
       });
     }, 1000);
@@ -55,6 +55,9 @@ export default function ChangePasswordScreen() {
       if (profErr) throw profErr;
 
       setSuccessVisible(true);
+      // Sign out immediately to prevent onAuthStateChange from re-fetching the
+      // updated profile (must_change_password: false) and navigating to the map.
+      signOut();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Ocurrió un error. Intentá de nuevo.');
     } finally {
