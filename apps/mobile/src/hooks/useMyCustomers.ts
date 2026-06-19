@@ -57,6 +57,7 @@ export function useMyCustomers(driverId: string | undefined) {
 
       const delegatedOnlyIds = delegatedIds.filter((id) => !directIds.includes(id));
       const allIds = [...new Set([...directIds, ...delegatedOnlyIds])];
+      console.log('[CUSTOMERS] delegatedIds:', delegatedIds.length, 'delegatedOnlyIds:', delegatedOnlyIds.length, 'allIds:', allIds.length);
       if (allIds.length === 0) return { own: [], delegated: [] };
 
       const { data, error } = await supabase
