@@ -114,10 +114,7 @@ function buildMapHtml(
       markerRefs[c.id] = m;
     });
     window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'markers added: '+customers.length}));
-    if (customers.length > 0) {
-      var group = L.featureGroup(Object.values(markerRefs));
-      map.fitBounds(group.getBounds().pad(0.15));
-    }
+
   } catch(err) {
     window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'ERROR: '+err.message}));
   }
