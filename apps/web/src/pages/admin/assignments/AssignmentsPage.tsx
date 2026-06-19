@@ -129,7 +129,6 @@ export default function AssignmentsPage() {
     setConfirmUnassign(null);
   }
 
-  const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
   const allChecked = filtered.length > 0 && checkedIds.size === filtered.length;
   const someChecked = checkedIds.size > 0 && !allChecked;
 
