@@ -91,4 +91,14 @@ export class UsersService {
       data: { isActive },
     });
   }
+
+  async resetPassword(id: string, password: string) {
+    await this.findOne(id);
+    const { error } = await this.supabaseAdmin.auth.admin.updateUserById(id, { password });
+    if (error) throw new InternalServerErrorException(error.message);
+    return this.prisma.profile.update({
+      where: { id },
+      data: { mustChangePassword: true },
+    });
+  }
 }

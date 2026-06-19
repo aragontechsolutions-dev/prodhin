@@ -59,6 +59,24 @@ export function useUpdateUser() {
   });
 }
 
+export function useResetPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) =>
+      api.patch(`/users/${id}/password`, { password }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export function useForcePasswordChange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, must_change_password }: { id: string; must_change_password: boolean }) =>
+      api.patch(`/users/${id}`, { must_change_password }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
 export function useCreateUser() {
   const qc = useQueryClient();
 

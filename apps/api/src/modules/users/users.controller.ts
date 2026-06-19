@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, BadRequestException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -33,5 +33,12 @@ export class UsersController {
   @Patch(':id/active')
   toggleActive(@Param('id') id: string, @Body() dto: ToggleActiveDto) {
     return this.usersService.toggleActive(id, dto.is_active);
+  }
+
+  @Patch(':id/password')
+  resetPassword(@Param('id') id: string, @Body() body: { password: string }) {
+    if (!body.password || body.password.length < 6)
+      throw new BadRequestException('La contraseña debe tener al menos 6 caracteres');
+    return this.usersService.resetPassword(id, body.password);
   }
 }
