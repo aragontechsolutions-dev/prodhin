@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Modal,
@@ -14,6 +14,19 @@ export default function ChangePasswordScreen() {
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successVisible, setSuccessVisible] = useState(false);
+  const [countdown, setCountdown] = useState(4);
+
+  useEffect(() => {
+    if (!successVisible) return;
+    setCountdown(4);
+    const interval = setInterval(() => {
+      setCountdown((n) => {
+        if (n <= 1) { clearInterval(interval); signOut(); return 0; }
+        return n - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [successVisible]);
 
   function showError(msg: string) {
     setErrorMsg(msg);
@@ -41,7 +54,6 @@ export default function ChangePasswordScreen() {
         .eq('id', profile!.id);
       if (profErr) throw profErr;
 
-      setProfile({ ...profile!, must_change_password: false });
       setSuccessVisible(true);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Ocurrió un error. Intentá de nuevo.');
@@ -119,7 +131,7 @@ export default function ChangePasswordScreen() {
         </View>
       </Modal>
 
-      {/* Success modal — auto-dismiss handled by setProfile updating must_change_password */}
+      {/* Success modal */}
       <Modal visible={successVisible} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -127,13 +139,9 @@ export default function ChangePasswordScreen() {
               <Text style={[styles.modalIconText, styles.modalIconTextSuccess]}>✓</Text>
             </View>
             <Text style={styles.modalTitle}>¡Contraseña actualizada!</Text>
-            <Text style={styles.modalMessage}>Ya podés usar la app con tu nueva contraseña.</Text>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnSuccess]}
-              onPress={() => setSuccessVisible(false)}
-            >
-              <Text style={styles.modalBtnText}>Continuar</Text>
-            </TouchableOpacity>
+            <Text style={styles.modalMessage}>
+              Tu contraseña fue cambiada correctamente.{'\n'}Serás redirigido al inicio de sesión en {countdown} segundo{countdown !== 1 ? 's' : ''}...
+            </Text>
           </View>
         </View>
       </Modal>
