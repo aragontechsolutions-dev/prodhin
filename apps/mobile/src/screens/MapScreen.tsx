@@ -228,10 +228,13 @@ export default function MapScreen() {
     return () => clearTimeout(t);
   }, [routeAlertVisible, routeAlertCountdown]);
 
+  const [locationDenied, setLocationDenied] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') { setLocationDenied(true); return; }
+      setLocationDenied(false);
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
     })();
@@ -284,9 +287,25 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container} onTouchStart={resetTimers}>
+      {/* Sin conexión — banner compacto */}
       {!isOnline && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>📵  Sin conexión — mostrando datos guardados</Text>
+          <Text style={styles.offlineBannerIcon}>📵</Text>
+          <View>
+            <Text style={styles.offlineBannerTitle}>Sin conexión a internet</Text>
+            <Text style={styles.offlineBannerSub}>Mostrando datos guardados. El mapa puede no estar actualizado.</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Sin GPS — banner compacto */}
+      {locationDenied && (
+        <View style={[styles.offlineBanner, styles.gpsBanner]}>
+          <Text style={styles.offlineBannerIcon}>📍</Text>
+          <View>
+            <Text style={styles.offlineBannerTitle}>Ubicación desactivada</Text>
+            <Text style={styles.offlineBannerSub}>Activá el GPS para ver tu posición en el mapa.</Text>
+          </View>
         </View>
       )}
 
@@ -587,8 +606,14 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  offlineBanner: { backgroundColor: '#dc2626', paddingVertical: 6, paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 6 },
-  offlineBannerText: { color: '#fff', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  offlineBanner: {
+    backgroundColor: '#dc2626', flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 8, paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 8,
+  },
+  gpsBanner: { backgroundColor: '#d97706' },
+  offlineBannerIcon: { fontSize: 20 },
+  offlineBannerTitle: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  offlineBannerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 10,
