@@ -16,11 +16,13 @@ export function useMyCustomers(driverId: string | undefined) {
     networkMode: 'offlineFirst',
     queryFn: async (): Promise<MyCustomers> => {
       const today = new Date().toISOString().split('T')[0];
+      console.log('[CUSTOMERS] driverId:', driverId);
 
       const { data: assignments, error: aErr } = await supabase
         .from('driver_customers')
         .select('customer_id')
         .eq('driver_id', driverId!);
+      console.log('[CUSTOMERS] assignments:', assignments?.length, 'error:', aErr?.message);
       if (aErr) throw aErr;
 
       const directIds = assignments?.map((r) => r.customer_id) ?? [];
@@ -63,10 +65,10 @@ export function useMyCustomers(driverId: string | undefined) {
       const all = (data ?? []) as Customer[];
       const directSet = new Set(directIds);
 
-      return {
-        own: all.filter((c) => directSet.has(c.id)),
-        delegated: all.filter((c) => !directSet.has(c.id)),
-      };
+      const own = all.filter((c) => directSet.has(c.id));
+      const delegated = all.filter((c) => !directSet.has(c.id));
+      console.log('[CUSTOMERS] own:', own.length, 'delegated:', delegated.length, 'total customers from DB:', all.length);
+      return { own, delegated };
     },
   });
 }
