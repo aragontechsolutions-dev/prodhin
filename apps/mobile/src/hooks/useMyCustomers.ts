@@ -41,16 +41,18 @@ export function useMyCustomers(driverId: string | undefined) {
 
         if (!dErr && delegations && delegations.length > 0) {
           const fromDriverIds = delegations.map((d) => d.from_driver_id);
+          console.log('[CUSTOMERS] fromDriverIds:', fromDriverIds);
           const { data: delegatedAssignments, error: daErr } = await supabase
             .from('driver_customers')
             .select('customer_id')
             .in('driver_id', fromDriverIds);
+          console.log('[CUSTOMERS] delegatedAssignments:', delegatedAssignments?.length, 'error:', daErr?.message);
           if (!daErr) {
             delegatedIds = delegatedAssignments?.map((r) => r.customer_id) ?? [];
           }
         }
-      } catch {
-        // Silently skip delegated customers if query fails
+      } catch (e: any) {
+        console.log('[CUSTOMERS] delegation catch error:', e?.message);
       }
 
       const delegatedOnlyIds = delegatedIds.filter((id) => !directIds.includes(id));
