@@ -56,16 +56,19 @@ export default function AssignmentsPage() {
     return map;
   }, [assignments]);
 
-  // Customers already assigned to selected driver
-  const assignedToDriver = useMemo(
-    () => new Set(byDriver.get(selectedDriverId)?.customers.map((c) => c.customerId) ?? []),
-    [byDriver, selectedDriverId],
-  );
+  // All customer IDs already assigned to ANY driver
+  const assignedToAnyDriver = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of byDriver.values()) {
+      for (const c of entry.customers) ids.add(c.customerId);
+    }
+    return ids;
+  }, [byDriver]);
 
-  // Available = active + not yet assigned to this driver
+  // Available = active + not assigned to any driver
   const availableCustomers = useMemo(
-    () => (customers ?? []).filter((c) => c.is_active && !assignedToDriver.has(c.id)),
-    [customers, assignedToDriver],
+    () => (customers ?? []).filter((c) => c.is_active && !assignedToAnyDriver.has(c.id)),
+    [customers, assignedToAnyDriver],
   );
 
   // Filtered by search
@@ -299,7 +302,7 @@ export default function AssignmentsPage() {
                 {filtered.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-8">
                     {availableCustomers.length === 0
-                      ? 'Todos los clientes activos ya están asignados a este chofer'
+                      ? 'Todos los clientes activos ya están asignados a un chofer'
                       : 'Sin resultados para tu búsqueda'}
                   </p>
                 ) : (
