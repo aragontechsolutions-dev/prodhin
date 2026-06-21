@@ -8,6 +8,7 @@ const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scr
 export function useInactivityTimer(onSignOut: () => void, onWarning: (secondsLeft: number) => void, onActive: () => void) {
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityAt = useRef<number>(Date.now());
 
   const clearTimers = useCallback(() => {
     if (warningTimer.current) clearTimeout(warningTimer.current);
@@ -17,13 +18,44 @@ export function useInactivityTimer(onSignOut: () => void, onWarning: (secondsLef
   const reset = useCallback(() => {
     clearTimers();
     onActive();
+    lastActivityAt.current = Date.now();
+
     warningTimer.current = setTimeout(() => {
       onWarning(30);
     }, WARNING_AFTER_MS);
+
     logoutTimer.current = setTimeout(() => {
       onSignOut();
     }, LOGOUT_AFTER_MS);
   }, [clearTimers, onActive, onWarning, onSignOut]);
+
+  // When the tab becomes visible again, browsers may have throttled or frozen
+  // the setTimeout callbacks. Check real elapsed time against last activity.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+
+      const elapsed = Date.now() - lastActivityAt.current;
+
+      if (elapsed >= LOGOUT_AFTER_MS) {
+        clearTimers();
+        onSignOut();
+      } else if (elapsed >= WARNING_AFTER_MS) {
+        clearTimers();
+        const secondsLeft = Math.ceil((LOGOUT_AFTER_MS - elapsed) / 1000);
+        onWarning(secondsLeft);
+        logoutTimer.current = setTimeout(() => onSignOut(), LOGOUT_AFTER_MS - elapsed);
+      } else {
+        // Reschedule for the remaining time
+        clearTimers();
+        warningTimer.current = setTimeout(() => onWarning(30), WARNING_AFTER_MS - elapsed);
+        logoutTimer.current = setTimeout(() => onSignOut(), LOGOUT_AFTER_MS - elapsed);
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [clearTimers, onSignOut, onWarning]);
 
   useEffect(() => {
     reset();
