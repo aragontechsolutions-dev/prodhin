@@ -139,6 +139,22 @@ export function useUnassignCustomer() {
   });
 }
 
+export function useBulkUnassignCustomers() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ driver_id, customer_ids }: { driver_id: string; customer_ids: string[] }) => {
+      const { error } = await supabase
+        .from('driver_customers')
+        .delete()
+        .eq('driver_id', driver_id)
+        .in('customer_id', customer_ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['driver-customers'] }),
+  });
+}
+
 export function useBulkCreateCustomers() {
   const qc = useQueryClient();
 

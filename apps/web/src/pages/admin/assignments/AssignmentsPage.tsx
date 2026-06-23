@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import {
   useDriverCustomers,
   useBulkAssignCustomers,
+  useBulkUnassignCustomers,
   useUnassignCustomer,
   useCustomers,
 } from '../../../hooks/useCustomers';
@@ -26,6 +27,7 @@ export default function AssignmentsPage() {
   const { data: customers } = useCustomers();
   const { data: users } = useUsers();
   const bulkAssign = useBulkAssignCustomers();
+  const bulkUnassign = useBulkUnassignCustomers();
   const unassignCustomer = useUnassignCustomer();
   const { profile } = useAuth();
 
@@ -35,6 +37,8 @@ export default function AssignmentsPage() {
   const [search, setSearch] = useState('');
   const [viewModalDriverId, setViewModalDriverId] = useState<string | null>(null);
   const [viewSearch, setViewSearch] = useState('');
+  const [viewCheckedIds, setViewCheckedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkUnassign, setConfirmBulkUnassign] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState<{ driverId: string; customerId: string; label: string } | null>(null);
   const [expandedDriverId, setExpandedDriverId] = useState<string | null>(null);
 
@@ -223,59 +227,121 @@ export default function AssignmentsPage() {
             (full?.tax_id ?? '').toLowerCase().includes(q)
           );
         });
+        const allFilteredIds = viewFiltered.map((ac) => ac.customerId);
+        const allChecked = allFilteredIds.length > 0 && allFilteredIds.every((id) => viewCheckedIds.has(id));
+        const someChecked = allFilteredIds.some((id) => viewCheckedIds.has(id));
+
+        function toggleViewAll() {
+          if (allChecked) {
+            setViewCheckedIds((prev) => { const n = new Set(prev); allFilteredIds.forEach((id) => n.delete(id)); return n; });
+          } else {
+            setViewCheckedIds((prev) => new Set([...prev, ...allFilteredIds]));
+          }
+        }
+
+        async function handleBulkUnassign() {
+          if (!viewModalDriverId) return;
+          try {
+            await bulkUnassign.mutateAsync({ driver_id: viewModalDriverId, customer_ids: [...viewCheckedIds] });
+            toast.success(`${viewCheckedIds.size} cliente${viewCheckedIds.size !== 1 ? 's' : ''} desasignado${viewCheckedIds.size !== 1 ? 's' : ''}`);
+            setViewCheckedIds(new Set());
+            setConfirmBulkUnassign(false);
+          } catch {
+            toast.error('Error al desasignar los clientes');
+          }
+        }
+
         return (
-          <Modal isOpen={!!viewModalDriverId} onClose={() => setViewModalDriverId(null)} title={`Clientes de ${viewDriver?.full_name ?? ''}`}>
-            <div className="space-y-3">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre, teléfono o RUT..."
-                  value={viewSearch}
-                  onChange={(e) => setViewSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                />
-              </div>
-              <p className="text-xs text-gray-400">{viewEntry?.customers.length ?? 0} cliente{(viewEntry?.customers.length ?? 0) !== 1 ? 's' : ''} asignados</p>
-              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
-                {viewFiltered.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">Sin resultados</p>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {viewFiltered.map((ac) => {
-                      const full = (customers ?? []).find((c) => c.id === ac.customerId);
-                      return (
-                        <div key={ac.customerId} className="px-4 py-2.5 flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">{ac.name}</p>
-                            {full && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{full.phone}</p>}
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <>
+            <Modal isOpen={!!viewModalDriverId} onClose={() => { setViewModalDriverId(null); setViewCheckedIds(new Set()); }} title={`Clientes de ${viewDriver?.full_name ?? ''}`}>
+              <div className="space-y-3">
+                {/* Buscador */}
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, teléfono o RUT..."
+                    value={viewSearch}
+                    onChange={(e) => { setViewSearch(e.target.value); setViewCheckedIds(new Set()); }}
+                    className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                  />
+                </div>
+
+                {/* Barra selección / conteo */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                      onChange={toggleViewAll}
+                      className="w-4 h-4 accent-primary-500 rounded"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {viewCheckedIds.size > 0
+                        ? `${viewCheckedIds.size} seleccionado${viewCheckedIds.size !== 1 ? 's' : ''}`
+                        : `${viewEntry?.customers.length ?? 0} cliente${(viewEntry?.customers.length ?? 0) !== 1 ? 's' : ''} asignados`}
+                    </span>
+                  </label>
+                  {viewCheckedIds.size > 0 && (
+                    <Button size="sm" variant="danger" onClick={() => setConfirmBulkUnassign(true)}>
+                      Quitar {viewCheckedIds.size} seleccionado{viewCheckedIds.size !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Lista */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                  {viewFiltered.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-8">Sin resultados</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {viewFiltered.map((ac) => {
+                        const full = (customers ?? []).find((c) => c.id === ac.customerId);
+                        const isChecked = viewCheckedIds.has(ac.customerId);
+                        return (
+                          <div
+                            key={ac.customerId}
+                            className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer transition ${isChecked ? 'bg-red-50 dark:bg-red-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+                            onClick={() => setViewCheckedIds((prev) => { const n = new Set(prev); isChecked ? n.delete(ac.customerId) : n.add(ac.customerId); return n; })}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 accent-red-500 rounded flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">{ac.name}</p>
+                              {full && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{full.phone}</p>}
+                            </div>
                             {full && (
                               <Badge variant={full.customer_type === 'empresa' ? 'blue' : 'yellow'}>
                                 {full.customer_type === 'empresa' ? 'Empresa' : 'Persona'}
                               </Badge>
                             )}
-                            <button
-                              onClick={() => { setViewModalDriverId(null); setConfirmUnassign({ driverId: viewModalDriverId!, customerId: ac.customerId, label: `${ac.name} de ${viewDriver?.full_name ?? ''}` }); }}
-                              className="p-1 text-gray-400 hover:text-red-500 transition rounded"
-                              title="Quitar asignación"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </Modal>
+            </Modal>
+
+            {/* Confirmar desasignación masiva */}
+            <ConfirmDialog
+              isOpen={confirmBulkUnassign}
+              onClose={() => setConfirmBulkUnassign(false)}
+              onConfirm={handleBulkUnassign}
+              isLoading={bulkUnassign.isPending}
+              title="Quitar clientes asignados"
+              message={`¿Quitar ${viewCheckedIds.size} cliente${viewCheckedIds.size !== 1 ? 's' : ''} asignado${viewCheckedIds.size !== 1 ? 's' : ''} a ${viewDriver?.full_name ?? 'este chofer'}? Esta acción no se puede deshacer.`}
+            />
+          </>
         );
       })()}
 
