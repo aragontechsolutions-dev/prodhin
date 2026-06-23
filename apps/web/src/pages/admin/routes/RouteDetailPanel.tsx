@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouteStops, useAddRouteStop, useRemoveRouteStop } from '../../../hooks/useRoutes';
-import { useCustomers } from '../../../hooks/useCustomers';
+import { useCustomers, useDriverCustomers } from '../../../hooks/useCustomers';
 import type { RouteWithDriver } from '../../../hooks/useRoutes';
 import type { Customer } from '@prodhin/shared';
 
@@ -28,13 +28,24 @@ interface Props {
 export default function RouteDetailPanel({ route, activeDays }: Props) {
   const { data: stops, isLoading: stopsLoading } = useRouteStops(route.id);
   const { data: customers } = useCustomers();
+  const { data: assignments } = useDriverCustomers();
   const addStop = useAddRouteStop();
   const removeStop = useRemoveRouteStop();
 
   const [activeDay, setActiveDay] = useState<number>(activeDays[0] ?? 1);
   const [search, setSearch] = useState('');
 
-  const activeCustomers = (customers ?? []).filter((c) => c.is_active);
+  // Only customers assigned to this route's driver
+  const driverCustomerIds = new Set(
+    (assignments ?? [])
+      .filter((a) => {
+        const d = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles;
+        return (d as { full_name: string } | null) !== null && a.driver_id === route.driver_id;
+      })
+      .map((a) => a.customer_id),
+  );
+
+  const activeCustomers = (customers ?? []).filter((c) => c.is_active && driverCustomerIds.has(c.id));
   const dayStops = (stops ?? []).filter((s) => s.day_of_week === activeDay);
   const dayStopCustomerIds = new Set(dayStops.map((s) => s.customer_id));
 
