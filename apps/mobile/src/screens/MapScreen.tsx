@@ -96,40 +96,60 @@ function buildMapHtml(
 <script>
   var map = L.map('map', { zoomControl: true }).setView([-34.9011, -54.9595], 12);
 
-  // Tile layer with automatic IndexedDB caching — tiles are stored as they're viewed
-  // and served from cache when offline.
-  var baseLayer = L.tileLayer.offline('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-    subdomains: 'abc',
-  });
+  var tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var tileOpts = { attribution: '© OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc' };
+
+  // Detect which offline API is available (v1 patches L, v2 exports LeafletOffline global)
+  var offlineTileLayerFn = (L.tileLayer && typeof L.tileLayer.offline === 'function')
+    ? function(u, o) { return L.tileLayer.offline(u, o); }
+    : (typeof LeafletOffline !== 'undefined' && typeof LeafletOffline.tileLayerOffline === 'function')
+    ? function(u, o) { return LeafletOffline.tileLayerOffline(u, o); }
+    : null;
+
+  var offlineSaveControlFn = (L.control && typeof L.control.savetiles === 'function')
+    ? function(layer, opts) { return L.control.savetiles(layer, opts); }
+    : (typeof LeafletOffline !== 'undefined' && typeof LeafletOffline.ControlSaveTiles === 'function')
+    ? function(layer, opts) { return new LeafletOffline.ControlSaveTiles(layer, opts); }
+    : null;
+
+  var baseLayer;
+  try {
+    baseLayer = offlineTileLayerFn
+      ? offlineTileLayerFn(tileUrl, tileOpts)
+      : L.tileLayer(tileUrl, tileOpts);
+  } catch(e) {
+    baseLayer = L.tileLayer(tileUrl, tileOpts);
+  }
   baseLayer.addTo(map);
 
-  // "Save area" control — lets the driver pre-cache the visible area at zoom 13-17.
-  // Appears as a download icon (⬇) bottom-left. On tap: auto-saves without prompt.
-  var saveControl = L.control.savetiles(baseLayer, {
-    zoomlevels: [13, 14, 15, 16, 17],
-    saveText: '<span style="font-size:18px;line-height:1;">⬇</span>',
-    rmText: '<span style="font-size:18px;line-height:1;">🗑</span>',
-    maxZoom: 17,
-    saveWhatYouSee: true,
-    confirm: function(layer, successCallback) { successCallback(); },
-    confirmRemoval: function(layer, successCallback) { successCallback(); },
-  });
-  saveControl.addTo(map);
+  if (offlineTileLayerFn && offlineSaveControlFn) {
+    try {
+      var saveControl = offlineSaveControlFn(baseLayer, {
+        zoomlevels: [13, 14, 15, 16, 17],
+        saveText: '<span style="font-size:18px;line-height:1;">⬇</span>',
+        rmText: '<span style="font-size:18px;line-height:1;">🗑</span>',
+        maxZoom: 17,
+        saveWhatYouSee: true,
+        confirm: function(layer, successCallback) { successCallback(); },
+        confirmRemoval: function(layer, successCallback) { successCallback(); },
+      });
+      saveControl.addTo(map);
 
-  // Toast feedback for save/remove events
-  function showToast(msg) {
-    var el = document.createElement('div');
-    el.className = 'savetiles-toastmsg';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(function() { el.remove(); }, 2500);
+      function showToast(msg) {
+        var existing = document.querySelector('.savetiles-toastmsg');
+        if (existing) existing.remove();
+        if (!msg) return;
+        var el = document.createElement('div');
+        el.className = 'savetiles-toastmsg';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(function() { el.remove(); }, 2500);
+      }
+      baseLayer.on('savestart', function(e) { showToast('Descargando ' + e.lengthToBeSaved + ' tiles…'); });
+      baseLayer.on('loadend', function(e) { if (e.storagesize > 0) showToast('✓ ' + e.storagesize + ' tiles guardados'); });
+      baseLayer.on('tilesremoved', function() { showToast('Caché de mapa borrado'); });
+    } catch(e) { /* save control not critical */ }
   }
-  baseLayer.on('savestart', function(e) { showToast('Descargando ' + e.lengthToBeSaved + ' tiles…'); });
-  baseLayer.on('savetileend', function() { showToast(''); });
-  baseLayer.on('loadend', function(e) { if (e.storagesize > 0) showToast('✓ ' + e.storagesize + ' tiles guardados'); });
-  baseLayer.on('tilesremoved', function() { showToast('Caché de mapa borrado'); });
 
   var redIcon = L.divIcon({ html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);opacity:0.7;"></div>', iconSize:[14,14],iconAnchor:[7,7],className:'' });
   var orangeIcon = L.divIcon({ html: '<div style="background:#f97316;width:14px;height:14px;border-radius:4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);opacity:0.7;"></div>', iconSize:[14,14],iconAnchor:[7,7],className:'' });
