@@ -78,6 +78,7 @@ function buildMapHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <script src="https://unpkg.com/leaflet.offline@2.2.0/dist/bundle.js"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #f3f4f6; }
@@ -86,13 +87,49 @@ function buildMapHtml(
     .visit-btn { display:inline-block;margin-top:4px;margin-left:4px;padding:4px 10px;background:#16a34a;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(22,163,74,.6)} 70%{box-shadow:0 0 0 10px rgba(22,163,74,0)} 100%{box-shadow:0 0 0 0 rgba(22,163,74,0)} }
     .pulse { animation: pulse 1.8s infinite; border-radius: 50%; }
+    /* Save-tiles control badge */
+    .savetiles-toastmsg { position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;pointer-events:none;z-index:9999; }
   </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
   var map = L.map('map', { zoomControl: true }).setView([-34.9011, -54.9595], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+
+  // Tile layer with automatic IndexedDB caching — tiles are stored as they're viewed
+  // and served from cache when offline.
+  var baseLayer = L.tileLayer.offline('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+    subdomains: 'abc',
+  });
+  baseLayer.addTo(map);
+
+  // "Save area" control — lets the driver pre-cache the visible area at zoom 13-17.
+  // Appears as a download icon (⬇) bottom-left. On tap: auto-saves without prompt.
+  var saveControl = L.control.savetiles(baseLayer, {
+    zoomlevels: [13, 14, 15, 16, 17],
+    saveText: '<span style="font-size:18px;line-height:1;">⬇</span>',
+    rmText: '<span style="font-size:18px;line-height:1;">🗑</span>',
+    maxZoom: 17,
+    saveWhatYouSee: true,
+    confirm: function(layer, successCallback) { successCallback(); },
+    confirmRemoval: function(layer, successCallback) { successCallback(); },
+  });
+  saveControl.addTo(map);
+
+  // Toast feedback for save/remove events
+  function showToast(msg) {
+    var el = document.createElement('div');
+    el.className = 'savetiles-toastmsg';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function() { el.remove(); }, 2500);
+  }
+  baseLayer.on('savestart', function(e) { showToast('Descargando ' + e.lengthToBeSaved + ' tiles…'); });
+  baseLayer.on('savetileend', function() { showToast(''); });
+  baseLayer.on('loadend', function(e) { if (e.storagesize > 0) showToast('✓ ' + e.storagesize + ' tiles guardados'); });
+  baseLayer.on('tilesremoved', function() { showToast('Caché de mapa borrado'); });
 
   var redIcon = L.divIcon({ html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);opacity:0.7;"></div>', iconSize:[14,14],iconAnchor:[7,7],className:'' });
   var orangeIcon = L.divIcon({ html: '<div style="background:#f97316;width:14px;height:14px;border-radius:4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);opacity:0.7;"></div>', iconSize:[14,14],iconAnchor:[7,7],className:'' });
@@ -273,13 +310,10 @@ export default function MapScreen() {
         setVisitedIds((prev) => new Set([...prev, msg.id]));
         sendToMap({ type: 'markVisited', id: msg.id });
       }
-      if (msg.type === 'debug') {
-        console.log('[WEBVIEW]', msg.msg);
-      }
+      // debug messages from WebView are silently ignored in production
     } catch { }
   }
 
-  console.log('[MAP] ownCustomers:', ownCustomers.length, 'first lat/lng:', ownCustomers[0]?.lat, ownCustomers[0]?.lng);
   const html = buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds, userLocation?.lat, userLocation?.lng);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
