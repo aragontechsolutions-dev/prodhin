@@ -77,78 +77,89 @@ function buildMapHtml(
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   <script src="https://unpkg.com/leaflet.offline@2.2.0/dist/bundle.js"><\/script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #f3f4f6; }
     #map { width: 100vw; height: 100vh; }
     .popup-btn { display:inline-block;margin-top:6px;padding:4px 10px;background:#f59e0b;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer; }
+    .nav-btn  { display:inline-block;margin-top:4px;margin-left:4px;padding:4px 10px;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer; }
     .visit-btn { display:inline-block;margin-top:4px;margin-left:4px;padding:4px 10px;background:#16a34a;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(22,163,74,.6)} 70%{box-shadow:0 0 0 10px rgba(22,163,74,0)} 100%{box-shadow:0 0 0 0 rgba(22,163,74,0)} }
     .pulse { animation: pulse 1.8s infinite; border-radius: 50%; }
-    /* Save-tiles control badge */
     .savetiles-toastmsg { position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;pointer-events:none;z-index:9999; }
+    /* Hide default LRM panel — we use our own compact bar */
+    .leaflet-routing-container { display:none !important; }
+    /* Compact nav bar shown while routing */
+    #nav-bar {
+      display:none; position:fixed; top:0; left:0; right:0; z-index:1000;
+      background:#2563eb; color:#fff; padding:10px 14px 8px;
+      font-family:-apple-system,sans-serif;
+    }
+    #nav-bar.visible { display:flex; align-items:flex-start; gap:10px; }
+    #nav-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
+    #nav-text { flex:1; }
+    #nav-instruction { font-size:14px; font-weight:700; line-height:1.3; }
+    #nav-summary { font-size:11px; opacity:0.85; margin-top:2px; }
+    #nav-cancel {
+      background:rgba(255,255,255,0.2); border:none; color:#fff;
+      border-radius:20px; padding:4px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;
+    }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="nav-bar">
+  <div id="nav-icon">🧭</div>
+  <div id="nav-text">
+    <div id="nav-instruction">Calculando ruta…</div>
+    <div id="nav-summary"></div>
+  </div>
+  <button id="nav-cancel" onclick="cancelNavigation()">✕ Cancelar</button>
+</div>
 <script>
   var map = L.map('map', { zoomControl: true }).setView([-34.9011, -54.9595], 12);
 
   var tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   var tileOpts = { attribution: '© OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc' };
 
-  // Detect which offline API is available (v1 patches L, v2 exports LeafletOffline global)
+  // Offline tile layer with fallback to plain tileLayer
   var offlineTileLayerFn = (L.tileLayer && typeof L.tileLayer.offline === 'function')
     ? function(u, o) { return L.tileLayer.offline(u, o); }
     : (typeof LeafletOffline !== 'undefined' && typeof LeafletOffline.tileLayerOffline === 'function')
     ? function(u, o) { return LeafletOffline.tileLayerOffline(u, o); }
     : null;
-
   var offlineSaveControlFn = (L.control && typeof L.control.savetiles === 'function')
     ? function(layer, opts) { return L.control.savetiles(layer, opts); }
     : (typeof LeafletOffline !== 'undefined' && typeof LeafletOffline.ControlSaveTiles === 'function')
     ? function(layer, opts) { return new LeafletOffline.ControlSaveTiles(layer, opts); }
     : null;
-
   var baseLayer;
   try {
-    baseLayer = offlineTileLayerFn
-      ? offlineTileLayerFn(tileUrl, tileOpts)
-      : L.tileLayer(tileUrl, tileOpts);
-  } catch(e) {
-    baseLayer = L.tileLayer(tileUrl, tileOpts);
-  }
+    baseLayer = offlineTileLayerFn ? offlineTileLayerFn(tileUrl, tileOpts) : L.tileLayer(tileUrl, tileOpts);
+  } catch(e) { baseLayer = L.tileLayer(tileUrl, tileOpts); }
   baseLayer.addTo(map);
 
   if (offlineTileLayerFn && offlineSaveControlFn) {
     try {
       var saveControl = offlineSaveControlFn(baseLayer, {
-        zoomlevels: [13, 14, 15, 16, 17],
-        saveText: '<span style="font-size:18px;line-height:1;">⬇</span>',
-        rmText: '<span style="font-size:18px;line-height:1;">🗑</span>',
-        maxZoom: 17,
-        saveWhatYouSee: true,
-        confirm: function(layer, successCallback) { successCallback(); },
-        confirmRemoval: function(layer, successCallback) { successCallback(); },
+        zoomlevels:[13,14,15,16,17], saveText:'<span style="font-size:18px;line-height:1;">⬇</span>',
+        rmText:'<span style="font-size:18px;line-height:1;">🗑</span>', maxZoom:17, saveWhatYouSee:true,
+        confirm:function(l,cb){cb();}, confirmRemoval:function(l,cb){cb();},
       });
       saveControl.addTo(map);
-
       function showToast(msg) {
-        var existing = document.querySelector('.savetiles-toastmsg');
-        if (existing) existing.remove();
-        if (!msg) return;
-        var el = document.createElement('div');
-        el.className = 'savetiles-toastmsg';
-        el.textContent = msg;
-        document.body.appendChild(el);
-        setTimeout(function() { el.remove(); }, 2500);
+        var ex=document.querySelector('.savetiles-toastmsg'); if(ex) ex.remove(); if(!msg) return;
+        var el=document.createElement('div'); el.className='savetiles-toastmsg'; el.textContent=msg;
+        document.body.appendChild(el); setTimeout(function(){el.remove();},2500);
       }
-      baseLayer.on('savestart', function(e) { showToast('Descargando ' + e.lengthToBeSaved + ' tiles…'); });
-      baseLayer.on('loadend', function(e) { if (e.storagesize > 0) showToast('✓ ' + e.storagesize + ' tiles guardados'); });
-      baseLayer.on('tilesremoved', function() { showToast('Caché de mapa borrado'); });
-    } catch(e) { /* save control not critical */ }
+      baseLayer.on('savestart',function(e){showToast('Descargando '+e.lengthToBeSaved+' tiles…');});
+      baseLayer.on('loadend',function(e){if(e.storagesize>0)showToast('✓ '+e.storagesize+' tiles guardados');});
+      baseLayer.on('tilesremoved',function(){showToast('Caché de mapa borrado');});
+    } catch(e) {}
   }
 
   var redIcon = L.divIcon({ html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);opacity:0.7;"></div>', iconSize:[14,14],iconAnchor:[7,7],className:'' });
@@ -160,18 +171,82 @@ function buildMapHtml(
 
   var markerRefs = {};
   var customers = ${JSON.stringify(markers)};
+  var userPos = ${userLat != null && userLng != null ? `[${userLat}, ${userLng}]` : 'null'};
+  var routingControl = null;
+
+  // Direction arrow icons based on maneuver type
+  var TURN_ICONS = {
+    'turn-left':'↰', 'turn-right':'↱', 'turn-slight-left':'↖', 'turn-slight-right':'↗',
+    'turn-sharp-left':'⬅', 'turn-sharp-right':'➡', 'uturn':'↩', 'roundabout':'🔄',
+    'keep-left':'↖', 'keep-right':'↗', 'straight':'⬆', 'arrive':'📍', 'depart':'🚗',
+  };
+  function turnIcon(type) { return TURN_ICONS[type] || '⬆'; }
+  function fmtDist(m) { return m>=1000 ? (m/1000).toFixed(1)+'km' : Math.round(m)+'m'; }
+  function fmtTime(s) { var m=Math.round(s/60); return m<60?m+'min':(Math.floor(m/60)+'h '+(m%60)+'min'); }
+
+  function startNavigation(lat, lng) {
+    if (!userPos) {
+      alert('Ubicación no disponible. Activá el GPS para navegar.');
+      return;
+    }
+    cancelNavigation();
+    var navBar = document.getElementById('nav-bar');
+    var navInstr = document.getElementById('nav-instruction');
+    var navSummary = document.getElementById('nav-summary');
+    navInstr.textContent = 'Calculando ruta…';
+    navSummary.textContent = '';
+    navBar.className = 'visible';
+
+    routingControl = L.Routing.control({
+      waypoints: [ L.latLng(userPos[0], userPos[1]), L.latLng(lat, lng) ],
+      routeWhileDragging: false,
+      showAlternatives: false,
+      fitSelectedRoutes: true,
+      addWaypoints: false,
+      lineOptions: {
+        styles: [{ color:'#2563eb', weight:5, opacity:0.85 }],
+        extendToWaypoints: true,
+        missingRouteTolerance: 0,
+      },
+      createMarker: function() { return null; },
+      router: L.Routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1',
+        profile: 'driving',
+      }),
+    }).addTo(map);
+
+    routingControl.on('routesfound', function(e) {
+      var route = e.routes[0];
+      var steps = route.instructions;
+      var firstStep = steps && steps.length > 0 ? steps[0] : null;
+      if (firstStep) {
+        navInstr.textContent = turnIcon(firstStep.type) + '  ' + firstStep.text;
+      }
+      navSummary.textContent = fmtDist(route.summary.totalDistance) + '  ·  ' + fmtTime(route.summary.totalTime);
+    });
+
+    routingControl.on('routingerror', function() {
+      navInstr.textContent = '⚠ No se pudo calcular la ruta';
+      navSummary.textContent = 'Verificá tu conexión a internet';
+    });
+  }
+
+  function cancelNavigation() {
+    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+    var navBar = document.getElementById('nav-bar');
+    if (navBar) navBar.className = '';
+  }
 
   try {
     customers.forEach(function(c) {
       var routeBadge = (c.kind==='route'||c.kind==='route-visited') ? '<br><span style="font-size:9px;background:#16a34a;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+(c.kind==='route-visited'?'✓ VISITADO':'RUTA HOY')+'<\/span>' : '';
       var delegBadge = c.kind==='delegated' ? '<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA<\/span>' : '';
-      var visitBtn = c.kind==='route' ? '<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Marcar visitado<\/a>' : '';
-      var popup = routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+visitBtn;
-      var m = L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:220}).addTo(map);
+      var visitBtn = c.kind==='route' ? '<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Visitado<\/a>' : '';
+      var navBtn = '<a class="nav-btn" onclick="startNavigation('+c.lat+','+c.lng+')">🧭 Navegar<\/a>';
+      var popup = routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+navBtn+visitBtn;
+      var m = L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:240}).addTo(map);
       markerRefs[c.id] = m;
     });
-    window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'markers added: '+customers.length}));
-
   } catch(err) {
     window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'debug',msg:'ERROR: '+err.message}));
   }
@@ -186,6 +261,7 @@ function buildMapHtml(
       if (msg.type==='highlight'&&msg.id&&markerRefs[msg.id]) { map.flyTo(markerRefs[msg.id].getLatLng(),16,{duration:0.8}); markerRefs[msg.id].setIcon(highlightIcon); markerRefs[msg.id].openPopup(); }
       if (msg.type==='clearHighlight'&&msg.id&&markerRefs[msg.id]) { var c=customers.find(function(x){return x.id===msg.id}); if(c) markerRefs[msg.id].setIcon(iconMap[c.kind]||redIcon); }
       if (msg.type==='markVisited'&&msg.id&&markerRefs[msg.id]) { markerRefs[msg.id].setIcon(visitedIcon); var c=customers.find(function(x){return x.id===msg.id}); if(c) c.kind='route-visited'; markerRefs[msg.id].closePopup(); }
+      if (msg.type==='updatePos') { userPos = [msg.lat, msg.lng]; }
     } catch(err) {}
   }
 <\/script>
@@ -296,6 +372,13 @@ export default function MapScreen() {
       setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
     })();
   }, []);
+
+  // Keep WebView's userPos in sync when location updates
+  useEffect(() => {
+    if (userLocation) {
+      sendToMap({ type: 'updatePos', lat: userLocation.lat, lng: userLocation.lng });
+    }
+  }, [userLocation]);
 
   const searchResults = searchQuery.trim().length >= 1
     ? allCustomers.filter((c) => {
