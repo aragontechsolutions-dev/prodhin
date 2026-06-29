@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -39,8 +39,6 @@ function buildMapHtml(
   delegated: Customer[],
   todayRouteIds: Set<string>,
   visitedIds: Set<string>,
-  userLat?: number,
-  userLng?: number,
 ): string {
   const toMarker = (c: Customer, isDelegated: boolean) => {
     let kind: MarkerKind;
@@ -64,13 +62,6 @@ function buildMapHtml(
     ...own.map((c) => toMarker(c, false)),
     ...delegated.map((c) => toMarker(c, true)),
   ];
-
-  const userMarker =
-    userLat != null && userLng != null
-      ? `L.circleMarker([${userLat}, ${userLng}], {
-          radius: 9, fillColor: '#2563eb', color: '#ffffff', weight: 3, fillOpacity: 1,
-        }).bindPopup('Mi ubicación').addTo(map);`
-      : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -194,7 +185,7 @@ function buildMapHtml(
   /* ── State ── */
   var markerRefs={};
   var customers=${JSON.stringify(markers)};
-  var userPos=${userLat != null && userLng != null ? `[${userLat},${userLng}]` : 'null'};
+  var userPos=null; /* set on first GPS tick via updatePos message */
   var userMarkerRef=null;
   var routingControl=null;
 
@@ -527,7 +518,11 @@ export default function MapScreen() {
     } catch { }
   }
 
-  const html = buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds, userLocation?.lat, userLocation?.lng);
+  // Only rebuild HTML when mapKey changes (data load / explicit refresh).
+  // userLocation and visitedIds changes go via sendToMap injection — never via HTML rebuild,
+  // which would reload the WebView and reset the map view during navigation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const html = useMemo(() => buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds), [mapKey]);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
   const initial = profile?.full_name?.[0]?.toUpperCase() ?? '?';
