@@ -5,6 +5,7 @@ export interface Customer {
   last_name: string | null;
   business_name: string | null;
   contact_name: string | null;
+  tax_id: string | null;
   phone: string;
   email: string | null;
   address: string;

@@ -104,14 +104,24 @@ export default function CustomerDetailScreen() {
           </Text>
         </View>
 
-        {/* Info card */}
+        {/* Datos empresa */}
+        {c.customer_type === 'empresa' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Datos del local / empresa</Text>
+            {c.business_name && <InfoRow icon="🏢" label="Razón social" value={c.business_name} />}
+            {c.tax_id && <InfoRow icon="🪪" label="RUT" value={c.tax_id} />}
+            {c.contact_name && <InfoRow icon="👤" label="Persona de contacto" value={c.contact_name} />}
+            {c.email && <InfoRow icon="✉️" label="Email" value={c.email} />}
+          </View>
+        )}
+
+        {/* Info general */}
         <View style={styles.card}>
-          <InfoRow icon="📞" label="Teléfono" value={c.phone} />
-          {c.email && <InfoRow icon="✉️" label="Email" value={c.email} />}
-          <InfoRow icon="📍" label="Dirección" value={c.address} />
-          {c.contact_name && (
-            <InfoRow icon="👤" label="Contacto" value={c.contact_name} />
+          {c.customer_type === 'persona_fisica' && c.email && (
+            <InfoRow icon="✉️" label="Email" value={c.email} />
           )}
+          <InfoRow icon="📞" label="Teléfono" value={c.phone} />
+          <InfoRow icon="📍" label="Dirección" value={c.address} />
           {c.notes && <InfoRow icon="📝" label="Notas" value={c.notes} />}
         </View>
 
@@ -285,6 +295,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
+  },
+  cardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   coords: {
     textAlign: 'center',
