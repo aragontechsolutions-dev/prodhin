@@ -72,6 +72,7 @@ function buildMapHtml(
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   <script src="https://unpkg.com/leaflet.offline@2.2.0/dist/bundle.js"><\/script>
   <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"><\/script>
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"><\/script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{background:#f3f4f6;}
@@ -149,7 +150,11 @@ function buildMapHtml(
 </div>
 
 <script>
-  var map = L.map('map', {zoomControl:true}).setView([-34.9011,-54.9595],12);
+  /* rotate:true enables setBearing() if leaflet-rotate loaded; ignored otherwise */
+  var mapOpts={zoomControl:true};
+  if(typeof L.Map.mergeOptions==='function'){mapOpts.rotate=true;mapOpts.touchRotate=false;mapOpts.bearing=0;}
+  var map=L.map('map',mapOpts).setView([-34.9011,-54.9595],12);
+  var canRotate=typeof map.setBearing==='function';
 
   /* ── Tile layer (offline-capable with plain fallback) ── */
   var tileUrl='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -194,23 +199,31 @@ function buildMapHtml(
     active:false, steps:[], coords:[], stepIdx:0,
     destLat:0, destLng:0, totalDist:0, totalTime:0,
   };
-  var ARRIVE_DIST=30;  /* metres to trigger arrival */
-  var ADVANCE_DIST=40; /* metres to advance to next step */
+  var ARRIVE_DIST=30;     /* metres to trigger arrival */
+  var ADVANCE_DIST=40;    /* metres to advance to next step */
+  var OFF_ROUTE_DIST=80;  /* metres off-route before recalculating */
+  var offRouteTimer=null; /* fires after 5s off-route */
+  var recalculating=false;
 
-  /* ── User position marker (directional arrow) ── */
-  function setUserMarker(lat,lng,heading){
+  /* ── User position marker ──
+     In heading-up mode (navigation) the map rotates so the driver always faces "up",
+     so the icon must NOT rotate with heading — it would counter-rotate and stay pointing
+     north visually. Instead we keep the arrow pointing up (0°) and let the map do the work.
+     Outside navigation the map is north-up, so we rotate the icon with heading. */
+  function setUserMarker(lat,lng,heading,navMode){
     heading=heading||0;
-    var svg='<svg viewBox="0 0 24 24" width="28" height="28">'
+    var iconRot=navMode?0:heading; /* map rotates in navMode, icon stays up */
+    var svg='<svg viewBox="0 0 24 24" width="30" height="30">'
       +'<polygon points="12,1 22,22 12,17 2,22" fill="#2563eb" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>'
       +'<\/svg>';
     var icon=L.divIcon({
-      html:'<div style="width:28px;height:28px;transform:rotate('+heading+'deg);transition:transform 0.4s linear;">'+svg+'<\/div>',
-      iconSize:[28,28],iconAnchor:[14,14],className:''
+      html:'<div style="width:30px;height:30px;transform:rotate('+iconRot+'deg);transition:transform 0.35s linear;">'+svg+'<\/div>',
+      iconSize:[30,30],iconAnchor:[15,15],className:''
     });
     if(userMarkerRef) map.removeLayer(userMarkerRef);
     userMarkerRef=L.marker([lat,lng],{icon:icon,zIndexOffset:1000}).addTo(map);
   }
-  if(userPos) setUserMarker(userPos[0],userPos[1],0);
+  if(userPos) setUserMarker(userPos[0],userPos[1],0,false);
 
   /* ── Helpers ── */
   function haversine(lat1,lng1,lat2,lng2){
@@ -220,6 +233,19 @@ function buildMapHtml(
   }
   function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
   function fmtTime(s){var m=Math.round(s/60);return m<60?m+' min':(Math.floor(m/60)+'h '+(m%60)+'min');}
+
+  /* Minimum distance from point to any sampled point on the route polyline */
+  function distToRoute(lat,lng){
+    if(!NAV.coords||NAV.coords.length<2) return 0;
+    var min=Infinity;
+    /* sample every 3rd coord for performance; good enough for 80m threshold */
+    for(var i=0;i<NAV.coords.length;i+=3){
+      var c=NAV.coords[i];
+      var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
+      if(d<min) min=d;
+    }
+    return min;
+  }
 
   /* LRM instruction type → arrow emoji */
   var ARROWS={
@@ -284,9 +310,10 @@ function buildMapHtml(
       NAV.totalTime=route.summary.totalTime;
       NAV.active=true;
       NAV.stepIdx=0;
+      recalculating=false;
+      document.getElementById('nav-arrived').style.display='none';
       document.getElementById('nav-eta').textContent=fmtTime(NAV.totalTime);
       document.getElementById('nav-total-dist').textContent=fmtDist(NAV.totalDist);
-      /* Start following */
       if(userPos) map.setView([userPos[0],userPos[1]],17,{animate:false});
       refreshHUD();
     });
@@ -297,27 +324,61 @@ function buildMapHtml(
 
   function cancelNavigation(){
     NAV.active=false;
+    recalculating=false;
+    if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
     if(routingControl){map.removeControl(routingControl);routingControl=null;}
+    /* Reset map to north-up */
+    if(canRotate) map.setBearing(0);
     document.getElementById('nav-hud').className='';
   }
 
   /* ── Position update (called from React Native on every GPS tick) ── */
   function onPositionUpdate(lat,lng,heading){
     userPos=[lat,lng];
-    setUserMarker(lat,lng,heading);
+    setUserMarker(lat,lng,heading,NAV.active);
 
     if(!NAV.active) return;
 
-    /* Follow mode — keep user centred at zoom 17 */
-    map.setView([lat,lng],Math.max(map.getZoom(),17),{animate:true,duration:0.6,easeLinearity:0.6});
+    /* ── Heading-up: rotate map so direction of travel is always "up" ── */
+    if(canRotate&&heading!=null){
+      map.setBearing(heading,{animate:false});
+    }
+
+    /* Follow mode — keep user centred */
+    map.setView([lat,lng],Math.max(map.getZoom(),17),{animate:true,duration:0.5,easeLinearity:0.5,noMoveStart:true});
 
     /* Check arrival at final destination */
     if(haversine(lat,lng,NAV.destLat,NAV.destLng)<ARRIVE_DIST){
       NAV.active=false;
+      if(canRotate) map.setBearing(0);
+      if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
       document.getElementById('nav-arrived').style.display='block';
       document.getElementById('nav-dist-next').textContent='';
       document.getElementById('nav-street').textContent='Llegaste';
       return;
+    }
+
+    /* ── Off-route detection ── */
+    if(!recalculating){
+      var offDist=distToRoute(lat,lng);
+      if(offDist>OFF_ROUTE_DIST){
+        if(!offRouteTimer){
+          offRouteTimer=setTimeout(function(){
+            offRouteTimer=null;
+            if(!NAV.active||!userPos) return;
+            recalculating=true;
+            document.getElementById('nav-street').textContent='🔄 Recalculando ruta…';
+            document.getElementById('nav-dist-next').textContent='';
+            /* Remove old route and recalculate from current position */
+            if(routingControl){map.removeControl(routingControl);routingControl=null;}
+            NAV.active=false;
+            NAV.steps=[]; NAV.coords=[]; NAV.stepIdx=0;
+            startNavigation(NAV.destLat,NAV.destLng);
+          },5000);
+        }
+      } else {
+        if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
+      }
     }
 
     /* Advance steps when close enough to next turn */
