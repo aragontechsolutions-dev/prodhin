@@ -84,6 +84,8 @@ function buildMapHtml(
     .pulse{animation:pulse 1.8s infinite;border-radius:50%;}
     .savetiles-toastmsg{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;pointer-events:none;z-index:9999;}
     .leaflet-routing-container{display:none !important;}
+    /* Smooth map rotation */
+    .leaflet-map-pane{transition:transform 0.4s linear !important;}
 
     /* ── Navigation HUD ── */
     #nav-hud{
@@ -205,25 +207,33 @@ function buildMapHtml(
   var offRouteTimer=null; /* fires after 5s off-route */
   var recalculating=false;
 
+  /* Route progress polylines (drawn by us; LRM line is hidden) */
+  var routeLineTravelled=null; /* grey */
+  var routeLineRemaining=null; /* blue */
+  var nearestCoordIdx=0;       /* last known position on route */
+
+  /* Smooth heading — low-pass filter avoids jitter */
+  var smoothHeading=0;
+
   /* ── User position marker ──
-     In heading-up mode (navigation) the map rotates so the driver always faces "up",
-     so the icon must NOT rotate with heading — it would counter-rotate and stay pointing
-     north visually. Instead we keep the arrow pointing up (0°) and let the map do the work.
-     Outside navigation the map is north-up, so we rotate the icon with heading. */
-  function setUserMarker(lat,lng,heading,navMode){
+     leaflet-rotate rotates the map pane by -bearing, so every element in the pane
+     rotates by -bearing visually. To make the arrow point "up" on screen (= direction
+     of travel when map is rotated to heading-up), the icon CSS must add +heading so
+     the net visual rotation is -heading + heading = 0 = screen-up = direction of travel.
+     This same formula works in non-nav mode too: map bearing=0, icon rotate=heading → points at heading. */
+  function setUserMarker(lat,lng,heading){
     heading=heading||0;
-    var iconRot=navMode?0:heading; /* map rotates in navMode, icon stays up */
     var svg='<svg viewBox="0 0 24 24" width="30" height="30">'
       +'<polygon points="12,1 22,22 12,17 2,22" fill="#2563eb" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>'
       +'<\/svg>';
     var icon=L.divIcon({
-      html:'<div style="width:30px;height:30px;transform:rotate('+iconRot+'deg);transition:transform 0.35s linear;">'+svg+'<\/div>',
+      html:'<div style="width:30px;height:30px;transform:rotate('+heading+'deg);transition:transform 0.4s linear;">'+svg+'<\/div>',
       iconSize:[30,30],iconAnchor:[15,15],className:''
     });
     if(userMarkerRef) map.removeLayer(userMarkerRef);
     userMarkerRef=L.marker([lat,lng],{icon:icon,zIndexOffset:1000}).addTo(map);
   }
-  if(userPos) setUserMarker(userPos[0],userPos[1],0,false);
+  if(userPos) setUserMarker(userPos[0],userPos[1],0);
 
   /* ── Helpers ── */
   function haversine(lat1,lng1,lat2,lng2){
@@ -234,17 +244,61 @@ function buildMapHtml(
   function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
   function fmtTime(s){var m=Math.round(s/60);return m<60?m+' min':(Math.floor(m/60)+'h '+(m%60)+'min');}
 
-  /* Minimum distance from point to any sampled point on the route polyline */
+  /* Minimum distance from point to any sampled point on the route polyline.
+     Searches forward from the last known nearest index to avoid O(n) every tick. */
   function distToRoute(lat,lng){
     if(!NAV.coords||NAV.coords.length<2) return 0;
     var min=Infinity;
-    /* sample every 3rd coord for performance; good enough for 80m threshold */
-    for(var i=0;i<NAV.coords.length;i+=3){
+    var start=Math.max(0,nearestCoordIdx-20);
+    for(var i=start;i<NAV.coords.length;i+=2){
       var c=NAV.coords[i];
       var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
       if(d<min) min=d;
     }
     return min;
+  }
+
+  /* Split route into grey (travelled) + blue (remaining) polylines */
+  function updateRouteProgress(lat,lng){
+    if(!NAV.coords||NAV.coords.length<2) return;
+    var min=Infinity,idx=nearestCoordIdx;
+    var start=Math.max(0,nearestCoordIdx-5);
+    for(var i=start;i<NAV.coords.length;i++){
+      var c=NAV.coords[i];
+      var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
+      if(d<min){min=d;idx=i;}
+      else if(i>nearestCoordIdx+30) break; /* stop scanning far ahead */
+    }
+    nearestCoordIdx=idx;
+
+    var toLatLng=function(c){return[c.lat||c[0],c.lng||c[1]];};
+    var travelled=NAV.coords.slice(0,idx+1).map(toLatLng);
+    var remaining=NAV.coords.slice(idx).map(toLatLng);
+
+    if(travelled.length>1){
+      if(!routeLineTravelled) routeLineTravelled=L.polyline([],{color:'#9ca3af',weight:5,opacity:0.6,interactive:false}).addTo(map);
+      routeLineTravelled.setLatLngs(travelled);
+    }
+    if(remaining.length>1){
+      if(!routeLineRemaining) routeLineRemaining=L.polyline([],{color:'#2563eb',weight:6,opacity:0.9,interactive:false}).addTo(map);
+      routeLineRemaining.setLatLngs(remaining);
+    }
+  }
+
+  /* Clear both progress polylines */
+  function clearRouteLines(){
+    if(routeLineTravelled){map.removeLayer(routeLineTravelled);routeLineTravelled=null;}
+    if(routeLineRemaining){map.removeLayer(routeLineRemaining);routeLineRemaining=null;}
+    nearestCoordIdx=0;
+  }
+
+  /* Smooth bearing with low-pass filter to avoid jittery rotation */
+  function applyBearing(rawHeading){
+    if(!canRotate||rawHeading==null) return;
+    /* Shortest angular path */
+    var diff=((rawHeading-smoothHeading+540)%360)-180;
+    smoothHeading=(smoothHeading+diff*0.35+360)%360;
+    map.setBearing(smoothHeading);
   }
 
   /* LRM instruction type → arrow emoji */
@@ -296,8 +350,10 @@ function buildMapHtml(
     routingControl=L.Routing.control({
       waypoints:[L.latLng(userPos[0],userPos[1]),L.latLng(lat,lng)],
       routeWhileDragging:false,showAlternatives:false,
-      fitSelectedRoutes:true,addWaypoints:false,
-      lineOptions:{styles:[{color:'#2563eb',weight:6,opacity:0.9}],extendToWaypoints:true,missingRouteTolerance:0},
+      /* fitSelectedRoutes MUST be false — we control zoom via panTo; auto-fit causes the zoom-reset loop */
+      fitSelectedRoutes:false,addWaypoints:false,
+      /* LRM line is invisible — we draw our own grey/blue progress polylines */
+      lineOptions:{styles:[{color:'transparent',weight:0,opacity:0}],extendToWaypoints:false,missingRouteTolerance:0},
       createMarker:function(){return null;},
       router:L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1',profile:'driving'}),
     }).addTo(map);
@@ -310,10 +366,16 @@ function buildMapHtml(
       NAV.totalTime=route.summary.totalTime;
       NAV.active=true;
       NAV.stepIdx=0;
+      nearestCoordIdx=0;
       recalculating=false;
       document.getElementById('nav-arrived').style.display='none';
       document.getElementById('nav-eta').textContent=fmtTime(NAV.totalTime);
       document.getElementById('nav-total-dist').textContent=fmtDist(NAV.totalDist);
+      /* Draw initial full route as blue remaining line */
+      clearRouteLines();
+      var allLatLng=NAV.coords.map(function(c){return[c.lat||c[0],c.lng||c[1]];});
+      routeLineRemaining=L.polyline(allLatLng,{color:'#2563eb',weight:6,opacity:0.9,interactive:false}).addTo(map);
+      /* Centre on user at nav zoom without touching zoom level */
       if(userPos) map.setView([userPos[0],userPos[1]],17,{animate:false});
       refreshHUD();
     });
@@ -325,9 +387,10 @@ function buildMapHtml(
   function cancelNavigation(){
     NAV.active=false;
     recalculating=false;
+    smoothHeading=0;
     if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
     if(routingControl){map.removeControl(routingControl);routingControl=null;}
-    /* Reset map to north-up */
+    clearRouteLines();
     if(canRotate) map.setBearing(0);
     document.getElementById('nav-hud').className='';
   }
@@ -335,19 +398,20 @@ function buildMapHtml(
   /* ── Position update (called from React Native on every GPS tick) ── */
   function onPositionUpdate(lat,lng,heading){
     userPos=[lat,lng];
-    setUserMarker(lat,lng,heading,NAV.active);
+    setUserMarker(lat,lng,heading);
 
     if(!NAV.active) return;
 
-    /* ── Heading-up: rotate map so direction of travel is always "up" ── */
-    if(canRotate&&heading!=null){
-      map.setBearing(heading,{animate:false});
-    }
+    /* Heading-up: smooth-rotate map so direction of travel is always "up" */
+    applyBearing(heading);
 
-    /* Follow mode — keep user centred */
-    map.setView([lat,lng],Math.max(map.getZoom(),17),{animate:true,duration:0.5,easeLinearity:0.5,noMoveStart:true});
+    /* Follow: keep user centred without touching zoom */
+    map.panTo([lat,lng],{animate:true,duration:0.5,easeLinearity:0.5,noMoveStart:true});
 
-    /* Check arrival at final destination */
+    /* Update grey/blue route progress */
+    updateRouteProgress(lat,lng);
+
+    /* Check arrival */
     if(haversine(lat,lng,NAV.destLat,NAV.destLng)<ARRIVE_DIST){
       NAV.active=false;
       if(canRotate) map.setBearing(0);
@@ -358,7 +422,7 @@ function buildMapHtml(
       return;
     }
 
-    /* ── Off-route detection ── */
+    /* Off-route detection */
     if(!recalculating){
       var offDist=distToRoute(lat,lng);
       if(offDist>OFF_ROUTE_DIST){
@@ -369,10 +433,9 @@ function buildMapHtml(
             recalculating=true;
             document.getElementById('nav-street').textContent='🔄 Recalculando ruta…';
             document.getElementById('nav-dist-next').textContent='';
-            /* Remove old route and recalculate from current position */
             if(routingControl){map.removeControl(routingControl);routingControl=null;}
-            NAV.active=false;
-            NAV.steps=[]; NAV.coords=[]; NAV.stepIdx=0;
+            clearRouteLines();
+            NAV.active=false; NAV.steps=[]; NAV.coords=[]; NAV.stepIdx=0;
             startNavigation(NAV.destLat,NAV.destLng);
           },5000);
         }
@@ -381,13 +444,12 @@ function buildMapHtml(
       }
     }
 
-    /* Advance steps when close enough to next turn */
+    /* Advance steps */
     while(NAV.stepIdx<NAV.steps.length-1){
       var nxt=NAV.steps[NAV.stepIdx+1];
       var nc=NAV.coords[nxt.index];
       if(!nc) break;
-      var d=haversine(lat,lng,nc.lat||nc[0],nc.lng||nc[1]);
-      if(d<ADVANCE_DIST){NAV.stepIdx++;}else{break;}
+      if(haversine(lat,lng,nc.lat||nc[0],nc.lng||nc[1])<ADVANCE_DIST){NAV.stepIdx++;}else{break;}
     }
     refreshHUD();
   }
