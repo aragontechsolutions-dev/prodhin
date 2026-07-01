@@ -295,10 +295,59 @@ function buildMapHtml(
   /* Smooth bearing with low-pass filter to avoid jittery rotation */
   function applyBearing(rawHeading){
     if(!canRotate||rawHeading==null) return;
-    /* Shortest angular path */
     var diff=((rawHeading-smoothHeading+540)%360)-180;
     smoothHeading=(smoothHeading+diff*0.35+360)%360;
     map.setBearing(smoothHeading);
+  }
+
+  /* ── Voice announcements (Web Speech API) ── */
+  var voiceAnnounced={}; /* stepIdx -> {far: bool, near: bool} */
+  var VOICE_FAR=300;  /* metres — first warning */
+  var VOICE_NEAR=50;  /* metres — imminent warning */
+
+  var TURN_VOICE={
+    Left:'gire a la izquierda',Right:'gire a la derecha',
+    SlightLeft:'mantenga la izquierda',SlightRight:'mantenga la derecha',
+    SharpLeft:'giro cerrado a la izquierda',SharpRight:'giro cerrado a la derecha',
+    TurnLeft:'gire a la izquierda',TurnRight:'gire a la derecha',
+    Continue:'continúe recto',Roundabout:'tome la rotonda',Uturn:'dé media vuelta',
+    DestinationReached:'llegaste a tu destino',Depart:'comenzá a conducir',
+    Head:'continúe recto',
+    'straight':'continúe recto','turn-left':'gire a la izquierda','turn-right':'gire a la derecha',
+    'turn-slight-left':'mantenga la izquierda','turn-slight-right':'mantenga la derecha',
+    'turn-sharp-left':'giro cerrado a la izquierda','turn-sharp-right':'giro cerrado a la derecha',
+    'uturn':'dé media vuelta','roundabout':'tome la rotonda',
+    'arrive':'llegaste a tu destino','depart':'comenzá a conducir',
+  };
+
+  function speak(text){
+    if(!window.speechSynthesis||!text) return;
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang='es-UY'; u.rate=1.0; u.pitch=1.0; u.volume=1.0;
+    window.speechSynthesis.speak(u);
+  }
+
+  function checkVoiceAnnouncements(lat,lng){
+    if(!NAV.active||NAV.steps.length===0) return;
+    /* Announce for the NEXT step (not the current one being displayed) */
+    var nextIdx=NAV.stepIdx+1;
+    if(nextIdx>=NAV.steps.length) return;
+    var nextStep=NAV.steps[nextIdx];
+    var nc=NAV.coords[nextStep.index];
+    if(!nc) return;
+    var dist=haversine(lat,lng,nc.lat||nc[0],nc.lng||nc[1]);
+    var key=nextIdx;
+    if(!voiceAnnounced[key]) voiceAnnounced[key]={far:false,near:false};
+
+    var turnText=TURN_VOICE[nextStep.type]||'continúe';
+    if(!voiceAnnounced[key].far&&dist<=VOICE_FAR&&dist>VOICE_NEAR){
+      voiceAnnounced[key].far=true;
+      speak('En '+Math.round(dist/10)*10+' metros, '+turnText);
+    } else if(!voiceAnnounced[key].near&&dist<=VOICE_NEAR){
+      voiceAnnounced[key].near=true;
+      speak(turnText.charAt(0).toUpperCase()+turnText.slice(1));
+    }
   }
 
   /* LRM instruction type → arrow emoji */
@@ -377,6 +426,7 @@ function buildMapHtml(
       routeLineRemaining=L.polyline(allLatLng,{color:'#2563eb',weight:6,opacity:0.9,interactive:false}).addTo(map);
       /* Centre on user at nav zoom without touching zoom level */
       if(userPos) map.setView([userPos[0],userPos[1]],17,{animate:false});
+      speak('Ruta calculada. '+fmtDist(NAV.totalDist)+', '+fmtTime(NAV.totalTime)+'.');
       refreshHUD();
     });
     routingControl.on('routingerror',function(){
@@ -388,6 +438,8 @@ function buildMapHtml(
     NAV.active=false;
     recalculating=false;
     smoothHeading=0;
+    voiceAnnounced={};
+    if(window.speechSynthesis) window.speechSynthesis.cancel();
     if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
     if(routingControl){map.removeControl(routingControl);routingControl=null;}
     clearRouteLines();
@@ -416,11 +468,15 @@ function buildMapHtml(
       NAV.active=false;
       if(canRotate) map.setBearing(0);
       if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
+      speak('Llegaste a tu destino');
       document.getElementById('nav-arrived').style.display='block';
       document.getElementById('nav-dist-next').textContent='';
       document.getElementById('nav-street').textContent='Llegaste';
       return;
     }
+
+    /* Voice turn warnings */
+    checkVoiceAnnouncements(lat,lng);
 
     /* Off-route detection */
     if(!recalculating){
@@ -436,6 +492,7 @@ function buildMapHtml(
             if(routingControl){map.removeControl(routingControl);routingControl=null;}
             clearRouteLines();
             NAV.active=false; NAV.steps=[]; NAV.coords=[]; NAV.stepIdx=0;
+            voiceAnnounced={};
             startNavigation(NAV.destLat,NAV.destLng);
           },5000);
         }
