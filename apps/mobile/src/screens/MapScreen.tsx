@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import * as Speech from 'expo-speech';
 import {
   View,
   Text,
@@ -321,11 +322,9 @@ function buildMapHtml(
   };
 
   function speak(text){
-    if(!window.speechSynthesis||!text) return;
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    u.lang='es-UY'; u.rate=1.0; u.pitch=1.0; u.volume=1.0;
-    window.speechSynthesis.speak(u);
+    if(!text) return;
+    /* Delegate to React Native native TTS — speechSynthesis is sandboxed in WebView */
+    window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'speak',text:text}));
   }
 
   function checkVoiceAnnouncements(lat,lng){
@@ -439,7 +438,7 @@ function buildMapHtml(
     recalculating=false;
     smoothHeading=0;
     voiceAnnounced={};
-    if(window.speechSynthesis) window.speechSynthesis.cancel();
+    speak(''); /* signal RN to stop any ongoing speech */
     if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
     if(routingControl){map.removeControl(routingControl);routingControl=null;}
     clearRouteLines();
@@ -694,7 +693,10 @@ export default function MapScreen() {
         setVisitedIds((prev) => new Set([...prev, msg.id]));
         sendToMap({ type: 'markVisited', id: msg.id });
       }
-      // debug messages from WebView are silently ignored in production
+      if (msg.type === 'speak') {
+        Speech.stop();
+        if (msg.text) Speech.speak(msg.text, { language: 'es-419', rate: 1.0, pitch: 1.0 });
+      }
     } catch { }
   }
 
