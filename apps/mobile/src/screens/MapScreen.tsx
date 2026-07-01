@@ -85,71 +85,99 @@ function buildMapHtml(
     .pulse{animation:pulse 1.8s infinite;border-radius:50%;}
     .savetiles-toastmsg{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;pointer-events:none;z-index:9999;}
     .leaflet-routing-container{display:none !important;}
-    /* Smooth map rotation */
-    .leaflet-map-pane{transition:transform 0.4s linear !important;}
+    .leaflet-map-pane{transition:transform 0.45s linear !important;}
 
-    /* ── Navigation HUD ── */
-    #nav-hud{
-      display:none;position:fixed;top:0;left:0;right:0;z-index:2000;
-      font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+    /* ── Navigation bottom sheet ── */
+    #nav-sheet{
+      display:none;position:fixed;bottom:0;left:0;right:0;z-index:2000;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      border-radius:20px 20px 0 0;overflow:hidden;
+      box-shadow:0 -6px 24px rgba(0,0,0,0.18);
     }
-    #nav-hud.active{display:block;}
+    #nav-sheet.active{display:block;}
 
-    /* Main instruction strip */
-    #nav-main{
+    /* Turn instruction row */
+    #nav-turn-row{
       background:#1d4ed8;color:#fff;
-      display:flex;align-items:center;gap:12px;
-      padding:12px 14px 10px;
+      display:flex;align-items:center;gap:14px;
+      padding:16px 18px 14px;
     }
-    #nav-arrow{
-      width:52px;height:52px;background:rgba(255,255,255,0.15);
-      border-radius:12px;display:flex;align-items:center;justify-content:center;
-      font-size:28px;flex-shrink:0;
+    #nav-turn-icon{
+      width:58px;height:58px;background:rgba(255,255,255,0.18);
+      border-radius:16px;display:flex;align-items:center;justify-content:center;
+      font-size:32px;flex-shrink:0;
     }
-    #nav-texts{flex:1;min-width:0;}
-    #nav-dist-next{font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1;}
-    #nav-street{font-size:13px;opacity:0.85;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    #nav-close{
-      width:36px;height:36px;background:rgba(255,255,255,0.15);border:none;color:#fff;
-      border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;
-      display:flex;align-items:center;justify-content:center;
+    #nav-turn-texts{flex:1;min-width:0;}
+    #nav-turn-dist{font-size:26px;font-weight:800;color:#fff;letter-spacing:-0.5px;line-height:1.1;}
+    #nav-turn-street{font-size:13px;color:rgba(255,255,255,0.82);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #nav-close-btn{
+      width:38px;height:38px;background:rgba(255,255,255,0.18);
+      border:none;color:#fff;border-radius:50%;font-size:18px;
+      cursor:pointer;flex-shrink:0;line-height:38px;text-align:center;
     }
 
-    /* Summary strip below */
-    #nav-summary{
-      background:#1e40af;color:#fff;
-      display:flex;justify-content:space-between;align-items:center;
-      padding:6px 14px;font-size:12px;
+    /* Info row */
+    #nav-info-row{
+      background:#fff;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:11px 18px 22px;border-top:1px solid #f0f0f0;
     }
-    #nav-eta{font-weight:700;}
-    #nav-total-dist{opacity:0.75;}
-    #nav-step-count{opacity:0.6;font-size:11px;}
+    #nav-remaining{font-size:15px;font-weight:700;color:#111827;}
+    #nav-eta-text{font-size:13px;color:#6b7280;margin-top:1px;}
+    #nav-step-badge{
+      background:#f3f4f6;border-radius:20px;padding:4px 10px;
+      font-size:11px;font-weight:600;color:#6b7280;
+    }
 
-    /* Arrival banner */
-    #nav-arrived{
-      display:none;background:#16a34a;color:#fff;
-      padding:14px 16px;text-align:center;font-size:15px;font-weight:700;
+    /* Recalculating banner */
+    #nav-recalc{
+      display:none;background:#f59e0b;color:#fff;
+      padding:8px 18px;font-size:13px;font-weight:700;text-align:center;
+    }
+
+    /* Arrival overlay (full-screen) */
+    #nav-arrived-overlay{
+      display:none;position:fixed;inset:0;z-index:3000;
+      background:rgba(22,163,74,0.92);
+      align-items:center;justify-content:center;flex-direction:column;gap:12px;
+    }
+    #nav-arrived-overlay.visible{display:flex;}
+    #nav-arrived-icon{font-size:56px;}
+    #nav-arrived-text{font-size:22px;font-weight:800;color:#fff;}
+    #nav-arrived-sub{font-size:14px;color:rgba(255,255,255,0.85);}
+    #nav-arrived-close{
+      margin-top:8px;background:#fff;color:#166534;border:none;
+      border-radius:24px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;
     }
   </style>
 </head>
 <body>
 <div id="map"></div>
 
-<div id="nav-hud">
-  <div id="nav-main">
-    <div id="nav-arrow">⬆</div>
-    <div id="nav-texts">
-      <div id="nav-dist-next">—</div>
-      <div id="nav-street">Calculando ruta…</div>
+<div id="nav-sheet">
+  <div id="nav-recalc">🔄 Recalculando ruta…</div>
+  <div id="nav-turn-row">
+    <div id="nav-turn-icon">⬆</div>
+    <div id="nav-turn-texts">
+      <div id="nav-turn-dist">—</div>
+      <div id="nav-turn-street">Calculando ruta…</div>
     </div>
-    <button id="nav-close" onclick="cancelNavigation()">✕</button>
+    <button id="nav-close-btn" onclick="cancelNavigation()">✕</button>
   </div>
-  <div id="nav-summary">
-    <span id="nav-eta">—</span>
-    <span id="nav-total-dist"></span>
-    <span id="nav-step-count"></span>
+  <div id="nav-info-row">
+    <div>
+      <div id="nav-remaining">—</div>
+      <div id="nav-eta-text">—</div>
+    </div>
+    <div id="nav-step-badge">0/0</div>
   </div>
-  <div id="nav-arrived">📍 Llegaste a destino</div>
+</div>
+
+<div id="nav-arrived-overlay">
+  <div id="nav-arrived-icon">📍</div>
+  <div id="nav-arrived-text">¡Llegaste!</div>
+  <div id="nav-arrived-sub">Destino alcanzado</div>
+  <button id="nav-arrived-close" onclick="cancelNavigation()">Cerrar</button>
 </div>
 
 <script>
@@ -222,15 +250,24 @@ function buildMapHtml(
      of travel when map is rotated to heading-up), the icon CSS must add +heading so
      the net visual rotation is -heading + heading = 0 = screen-up = direction of travel.
      This same formula works in non-nav mode too: map bearing=0, icon rotate=heading → points at heading. */
+  /* GPS-style user marker: blue dot + direction cone, heading rotates the whole assembly */
   function setUserMarker(lat,lng,heading){
     heading=heading||0;
-    var svg='<svg viewBox="0 0 24 24" width="30" height="30">'
-      +'<polygon points="12,1 22,22 12,17 2,22" fill="#2563eb" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>'
-      +'<\/svg>';
-    var icon=L.divIcon({
-      html:'<div style="width:30px;height:30px;transform:rotate('+heading+'deg);transition:transform 0.4s linear;">'+svg+'<\/div>',
-      iconSize:[30,30],iconAnchor:[15,15],className:''
-    });
+    var html=
+      '<div style="width:44px;height:44px;transform:rotate('+heading+'deg);transition:transform 0.4s linear;position:relative;">'
+      /* Direction cone above the dot */
+      +'<svg style="position:absolute;top:-10px;left:7px;" width="30" height="20" viewBox="0 0 30 20">'
+      +'<polygon points="15,0 24,20 15,14 6,20" fill="rgba(37,99,235,0.45)"/>'
+      +'<\/svg>'
+      /* Outer glow ring */
+      +'<div style="position:absolute;top:7px;left:7px;width:30px;height:30px;border-radius:50%;background:rgba(37,99,235,0.18);"></div>'
+      /* White border */
+      +'<div style="position:absolute;top:10px;left:10px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.3);">'
+      /* Blue dot */
+      +'<div style="position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:#2563eb;"></div>'
+      +'<\/div>'
+      +'<\/div>';
+    var icon=L.divIcon({html:html,iconSize:[44,44],iconAnchor:[22,22],className:''});
     if(userMarkerRef) map.removeLayer(userMarkerRef);
     userMarkerRef=L.marker([lat,lng],{icon:icon,zIndexOffset:1000}).addTo(map);
   }
@@ -360,23 +397,36 @@ function buildMapHtml(
   };
   function arrow(type){return ARROWS[type]||'⬆';}
 
-  /* ── HUD update ── */
+  /* ── Sheet update ── */
   function refreshHUD(){
     if(!NAV.active||NAV.steps.length===0) return;
     var step=NAV.steps[NAV.stepIdx];
     var nextStep=NAV.steps[NAV.stepIdx+1];
 
-    /* Distance to next turn */
-    var distTxt='';
+    var distTxt='—';
     if(nextStep&&NAV.coords.length>nextStep.index&&userPos){
       var nc=NAV.coords[nextStep.index];
       distTxt=fmtDist(haversine(userPos[0],userPos[1],nc.lat||nc[0],nc.lng||nc[1]));
     }
 
-    document.getElementById('nav-arrow').textContent=arrow(step.type);
-    document.getElementById('nav-dist-next').textContent=distTxt||'—';
-    document.getElementById('nav-street').textContent=step.text||'Continúa';
-    document.getElementById('nav-step-count').textContent=(NAV.stepIdx+1)+'/'+NAV.steps.length;
+    document.getElementById('nav-turn-icon').textContent=arrow(step.type);
+    document.getElementById('nav-turn-dist').textContent=distTxt;
+    document.getElementById('nav-turn-street').textContent=step.text||'Continúa recto';
+    document.getElementById('nav-step-badge').textContent=(NAV.stepIdx+1)+'/'+NAV.steps.length;
+  }
+
+  /* Pan keeping user in lower third of visible map (more look-ahead ahead) */
+  function panWithLookAhead(lat,lng){
+    try{
+      var pt=map.latLngToContainerPoint([lat,lng]);
+      var sz=map.getSize();
+      /* Shift center up so user appears at ~68% from top (bottom third) */
+      var offset=sz.y*0.18;
+      var shifted=map.containerPointToLatLng(L.point(pt.x,pt.y-offset));
+      map.panTo(shifted,{animate:true,duration:0.5,easeLinearity:0.5,noMoveStart:true});
+    }catch(e){
+      map.panTo([lat,lng],{animate:true,duration:0.5,noMoveStart:true});
+    }
   }
 
   /* ── Navigation core ── */
@@ -386,14 +436,14 @@ function buildMapHtml(
     NAV.destLat=lat; NAV.destLng=lng;
     NAV.active=false; NAV.stepIdx=0; NAV.steps=[]; NAV.coords=[];
 
-    var hud=document.getElementById('nav-hud');
-    hud.className='active';
-    document.getElementById('nav-arrived').style.display='none';
-    document.getElementById('nav-dist-next').textContent='—';
-    document.getElementById('nav-street').textContent='Calculando…';
-    document.getElementById('nav-eta').textContent='—';
-    document.getElementById('nav-total-dist').textContent='';
-    document.getElementById('nav-step-count').textContent='';
+    document.getElementById('nav-sheet').className='active';
+    document.getElementById('nav-arrived-overlay').className='';
+    document.getElementById('nav-recalc').style.display='none';
+    document.getElementById('nav-turn-dist').textContent='—';
+    document.getElementById('nav-turn-street').textContent='Calculando ruta…';
+    document.getElementById('nav-remaining').textContent='—';
+    document.getElementById('nav-eta-text').textContent='';
+    document.getElementById('nav-step-badge').textContent='';
 
     routingControl=L.Routing.control({
       waypoints:[L.latLng(userPos[0],userPos[1]),L.latLng(lat,lng)],
@@ -416,9 +466,9 @@ function buildMapHtml(
       NAV.stepIdx=0;
       nearestCoordIdx=0;
       recalculating=false;
-      document.getElementById('nav-arrived').style.display='none';
-      document.getElementById('nav-eta').textContent=fmtTime(NAV.totalTime);
-      document.getElementById('nav-total-dist').textContent=fmtDist(NAV.totalDist);
+      document.getElementById('nav-recalc').style.display='none';
+      document.getElementById('nav-remaining').textContent=fmtDist(NAV.totalDist)+' restantes';
+      document.getElementById('nav-eta-text').textContent='Llegada estimada en '+fmtTime(NAV.totalTime);
       /* Draw initial full route as blue remaining line */
       clearRouteLines();
       var allLatLng=NAV.coords.map(function(c){return[c.lat||c[0],c.lng||c[1]];});
@@ -438,12 +488,14 @@ function buildMapHtml(
     recalculating=false;
     smoothHeading=0;
     voiceAnnounced={};
-    speak(''); /* signal RN to stop any ongoing speech */
+    speak('');
     if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
     if(routingControl){map.removeControl(routingControl);routingControl=null;}
     clearRouteLines();
     if(canRotate) map.setBearing(0);
-    document.getElementById('nav-hud').className='';
+    document.getElementById('nav-sheet').className='';
+    document.getElementById('nav-arrived-overlay').className='';
+    document.getElementById('nav-recalc').style.display='none';
   }
 
   /* ── Position update (called from React Native on every GPS tick) ── */
@@ -456,8 +508,8 @@ function buildMapHtml(
     /* Heading-up: smooth-rotate map so direction of travel is always "up" */
     applyBearing(heading);
 
-    /* Follow: keep user centred without touching zoom */
-    map.panTo([lat,lng],{animate:true,duration:0.5,easeLinearity:0.5,noMoveStart:true});
+    /* Follow with look-ahead: user appears in lower third of map */
+    panWithLookAhead(lat,lng);
 
     /* Update grey/blue route progress */
     updateRouteProgress(lat,lng);
@@ -468,9 +520,8 @@ function buildMapHtml(
       if(canRotate) map.setBearing(0);
       if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
       speak('Llegaste a tu destino');
-      document.getElementById('nav-arrived').style.display='block';
-      document.getElementById('nav-dist-next').textContent='';
-      document.getElementById('nav-street').textContent='Llegaste';
+      document.getElementById('nav-sheet').className='';
+      document.getElementById('nav-arrived-overlay').className='visible';
       return;
     }
 
@@ -486,8 +537,8 @@ function buildMapHtml(
             offRouteTimer=null;
             if(!NAV.active||!userPos) return;
             recalculating=true;
-            document.getElementById('nav-street').textContent='🔄 Recalculando ruta…';
-            document.getElementById('nav-dist-next').textContent='';
+            document.getElementById('nav-recalc').style.display='block';
+            document.getElementById('nav-turn-dist').textContent='';
             if(routingControl){map.removeControl(routingControl);routingControl=null;}
             clearRouteLines();
             NAV.active=false; NAV.steps=[]; NAV.coords=[]; NAV.stepIdx=0;
