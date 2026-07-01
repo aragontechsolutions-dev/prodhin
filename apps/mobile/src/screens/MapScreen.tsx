@@ -232,7 +232,7 @@ function buildMapHtml(
   };
   var ARRIVE_DIST=30;     /* metres to trigger arrival */
   var ADVANCE_DIST=40;    /* metres to advance to next step */
-  var OFF_ROUTE_DIST=80;  /* metres off-route before recalculating */
+  var OFF_ROUTE_DIST=100; /* metres off-route before recalculating (GPS error ~30-50m) */
   var offRouteTimer=null; /* fires after 5s off-route */
   var recalculating=false;
 
@@ -282,13 +282,15 @@ function buildMapHtml(
   function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
   function fmtTime(s){var m=Math.round(s/60);return m<60?m+' min':(Math.floor(m/60)+'h '+(m%60)+'min');}
 
-  /* Minimum distance from point to any sampled point on the route polyline.
-     Searches forward from the last known nearest index to avoid O(n) every tick. */
+  /* Minimum distance from user to the route polyline.
+     Searches a window around nearestCoordIdx — wide enough to handle GPS jitter
+     and bursts of speed, but not the whole route (O(n) on long routes). */
   function distToRoute(lat,lng){
     if(!NAV.coords||NAV.coords.length<2) return 0;
     var min=Infinity;
-    var start=Math.max(0,nearestCoordIdx-20);
-    for(var i=start;i<NAV.coords.length;i+=2){
+    var start=Math.max(0,nearestCoordIdx-30);
+    var end=Math.min(NAV.coords.length,nearestCoordIdx+200);
+    for(var i=start;i<end;i++){
       var c=NAV.coords[i];
       var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
       if(d<min) min=d;
@@ -296,18 +298,20 @@ function buildMapHtml(
     return min;
   }
 
-  /* Split route into grey (travelled) + blue (remaining) polylines */
+  /* Split route into grey (travelled) + blue (remaining) polylines.
+     nearestCoordIdx only ever moves FORWARD — GPS jitter never shrinks the grey segment. */
   function updateRouteProgress(lat,lng){
     if(!NAV.coords||NAV.coords.length<2) return;
     var min=Infinity,idx=nearestCoordIdx;
-    var start=Math.max(0,nearestCoordIdx-5);
-    for(var i=start;i<NAV.coords.length;i++){
+    var start=Math.max(0,nearestCoordIdx-10);
+    var end=Math.min(NAV.coords.length,nearestCoordIdx+150);
+    for(var i=start;i<end;i++){
       var c=NAV.coords[i];
       var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
       if(d<min){min=d;idx=i;}
-      else if(i>nearestCoordIdx+30) break; /* stop scanning far ahead */
     }
-    nearestCoordIdx=idx;
+    /* Only advance — never let jitter shrink the travelled segment */
+    nearestCoordIdx=Math.max(nearestCoordIdx,idx);
 
     var toLatLng=function(c){return[c.lat||c[0],c.lng||c[1]];};
     var travelled=NAV.coords.slice(0,idx+1).map(toLatLng);
