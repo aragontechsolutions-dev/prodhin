@@ -283,17 +283,20 @@ function buildMapHtml(
   function fmtTime(s){var m=Math.round(s/60);return m<60?m+' min':(Math.floor(m/60)+'h '+(m%60)+'min');}
 
   /* Minimum distance from user to the route polyline.
-     Searches a window around nearestCoordIdx — wide enough to handle GPS jitter
-     and bursts of speed, but not the whole route (O(n) on long routes). */
+     Window scales with speed: at 80km/h GPS ticks every 2s = ~45m per tick,
+     so we need to look well ahead. We always scan the full remaining route
+     (from nearestCoordIdx onward) to avoid false off-route at high speed. */
   function distToRoute(lat,lng){
     if(!NAV.coords||NAV.coords.length<2) return 0;
     var min=Infinity;
-    var start=Math.max(0,nearestCoordIdx-30);
-    var end=Math.min(NAV.coords.length,nearestCoordIdx+200);
-    for(var i=start;i<end;i++){
+    var start=Math.max(0,nearestCoordIdx-50);
+    /* scan to end — route coords are typically 200-800 points, negligible cost */
+    for(var i=start;i<NAV.coords.length;i++){
       var c=NAV.coords[i];
       var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
       if(d<min) min=d;
+      /* early exit once we've passed the closest point and distance is growing */
+      if(d>min+50&&i>nearestCoordIdx+100) break;
     }
     return min;
   }
@@ -303,12 +306,13 @@ function buildMapHtml(
   function updateRouteProgress(lat,lng){
     if(!NAV.coords||NAV.coords.length<2) return;
     var min=Infinity,idx=nearestCoordIdx;
-    var start=Math.max(0,nearestCoordIdx-10);
-    var end=Math.min(NAV.coords.length,nearestCoordIdx+150);
-    for(var i=start;i<end;i++){
+    var start=Math.max(0,nearestCoordIdx-20);
+    /* scan to end of route to handle high speed */
+    for(var i=start;i<NAV.coords.length;i++){
       var c=NAV.coords[i];
       var d=haversine(lat,lng,c.lat||c[0],c.lng||c[1]);
       if(d<min){min=d;idx=i;}
+      if(d>min+80&&i>idx+50) break; /* stop when clearly past the closest section */
     }
     /* Only advance — never let jitter shrink the travelled segment */
     nearestCoordIdx=Math.max(nearestCoordIdx,idx);
@@ -509,11 +513,11 @@ function buildMapHtml(
 
     if(!NAV.active) return;
 
-    /* Heading-up: smooth-rotate map so direction of travel is always "up" */
+    /* Heading-up: smooth-rotate map so direction of travel is always "up".
+       Pan is deferred 50ms so the bearing set is flushed before we compute
+       container-point offsets — avoids jitter during turns. */
     applyBearing(heading);
-
-    /* Follow with look-ahead: user appears in lower third of map */
-    panWithLookAhead(lat,lng);
+    setTimeout(function(){ panWithLookAhead(lat,lng); }, 50);
 
     /* Update grey/blue route progress */
     updateRouteProgress(lat,lng);
