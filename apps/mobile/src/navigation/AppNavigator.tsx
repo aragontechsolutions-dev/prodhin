@@ -5,12 +5,14 @@ import { useAuth } from '../hooks/useAuth';
 import LoginScreen from '../screens/LoginScreen';
 import MapScreen from '../screens/MapScreen';
 import CustomerDetailScreen from '../screens/CustomerDetailScreen';
+import RegisterDeliveryScreen from '../screens/RegisterDeliveryScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
 
 export type RootStackParamList = {
   Map: undefined;
   CustomerDetail: { customer: Customer };
+  RegisterDelivery: { customer: Customer };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -35,6 +37,7 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Map" component={MapScreen} />
         <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
+        <Stack.Screen name="RegisterDelivery" component={RegisterDeliveryScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

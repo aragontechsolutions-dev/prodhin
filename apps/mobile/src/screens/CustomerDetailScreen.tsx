@@ -125,6 +125,15 @@ export default function CustomerDetailScreen() {
           {c.notes && <InfoRow icon="📝" label="Notas" value={c.notes} />}
         </View>
 
+        {/* Registrar entrega */}
+        <TouchableOpacity
+          style={styles.deliveryBtn}
+          onPress={() => navigation.navigate('RegisterDelivery', { customer: c })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.deliveryBtnText}>🥚  Registrar entrega</Text>
+        </TouchableOpacity>
+
         {/* Botón llamar */}
         <TouchableOpacity style={styles.callBtn} onPress={callPhone}>
           <Text style={styles.callBtnText}>📞  Llamar al cliente</Text>
@@ -259,6 +268,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
     marginTop: 1,
+  },
+  deliveryBtn: {
+    backgroundColor: '#1d4ed8',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  deliveryBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
   callBtn: {
     backgroundColor: '#dcfce7',

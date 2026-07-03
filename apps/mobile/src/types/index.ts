@@ -13,6 +13,48 @@ export interface Customer {
   lng: number;
   notes: string | null;
   is_active: boolean;
+  preferred_egg_type_id: string | null;
+}
+
+export interface EggType {
+  id: string;
+  name: string;
+  color: 'rojo' | 'blanco' | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export type DeliveryStatus =
+  | 'entregado'
+  | 'cliente_ausente'
+  | 'rechazado'
+  | 'sin_stock';
+
+export interface DeliveryItem {
+  id: string;
+  delivery_id: string;
+  egg_type_id: string;
+  cajas_plasticas: number;
+}
+
+export interface Delivery {
+  id: string;
+  customer_id: string;
+  driver_id: string;
+  status: DeliveryStatus;
+  notes: string | null;
+  delivered_at: string;
+}
+
+// 1 cajón = 2 cajas plásticas. La cantidad se guarda en cajas plásticas.
+export function cajasPlasticasToCajones(cajasPlasticas: number): number {
+  return cajasPlasticas / 2;
+}
+
+// "2", "2.5", etc. — sin decimales innecesarios
+export function formatCajones(cajasPlasticas: number): string {
+  const cajones = cajasPlasticasToCajones(cajasPlasticas);
+  return Number.isInteger(cajones) ? String(cajones) : cajones.toFixed(1);
 }
 
 export interface Profile {
