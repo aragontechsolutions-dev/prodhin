@@ -53,6 +53,7 @@ export default function DashboardPage() {
     { to: '/admin/clientes', emoji: '📍', label: 'Clientes', desc: 'Gestionar clientes en el mapa' },
     { to: '/admin/asignaciones', emoji: '📋', label: 'Asignaciones', desc: 'Asignar clientes a choferes' },
     { to: '/admin/rutas', emoji: '🗺️', label: 'Rutas', desc: 'Configurar rutas por día' },
+    { to: '/admin/reportes', emoji: '📊', label: 'Reportes', desc: 'Entregas de huevo por chofer' },
     { to: '/admin/manual', emoji: '📖', label: 'Manual', desc: 'Guía completa del sistema' },
   ];
 

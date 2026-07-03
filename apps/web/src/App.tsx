@@ -10,6 +10,7 @@ import UsersPage from './pages/admin/users/UsersPage';
 import CustomersPage from './pages/admin/customers/CustomersPage';
 import AssignmentsPage from './pages/admin/assignments/AssignmentsPage';
 import RoutesPage from './pages/admin/routes/RoutesPage';
+import ReportsPage from './pages/admin/reports/ReportsPage';
 import ManualPage from './pages/admin/manual/ManualPage';
 
 function NoAutorizado() {
@@ -61,6 +62,7 @@ function App() {
           <Route path="/admin/clientes" element={<CustomersPage />} />
           <Route path="/admin/asignaciones" element={<AssignmentsPage />} />
           <Route path="/admin/rutas" element={<RoutesPage />} />
+          <Route path="/admin/reportes" element={<ReportsPage />} />
           <Route path="/admin/manual" element={<ManualPage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
