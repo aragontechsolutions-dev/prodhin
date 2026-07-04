@@ -6,6 +6,14 @@ import NetInfo from '@react-native-community/netinfo';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CREATE_DELIVERY_KEY, createDelivery } from './src/lib/deliveries';
+import {
+  ADD_PREFERENCE_KEY,
+  REMOVE_PREFERENCE_KEY,
+  SET_PRIMARY_PREFERENCE_KEY,
+  addPreference,
+  removePreference,
+  setPrimaryPreference,
+} from './src/lib/preferences';
 
 // React Query sabe si hay conexión a través de NetInfo. Cuando no hay red,
 // las mutaciones quedan "pausadas" y se persisten; al reconectar se reanudan.
@@ -35,6 +43,9 @@ const queryClient = new QueryClient({
 queryClient.setMutationDefaults(CREATE_DELIVERY_KEY, {
   mutationFn: createDelivery,
 });
+queryClient.setMutationDefaults(ADD_PREFERENCE_KEY, { mutationFn: addPreference });
+queryClient.setMutationDefaults(REMOVE_PREFERENCE_KEY, { mutationFn: removePreference });
+queryClient.setMutationDefaults(SET_PRIMARY_PREFERENCE_KEY, { mutationFn: setPrimaryPreference });
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,

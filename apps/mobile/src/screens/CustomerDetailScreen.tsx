@@ -11,9 +11,16 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import { getDisplayName } from '../types';
+import { getDisplayName, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
+import { useEggTypes } from '../hooks/useEggTypes';
+import {
+  useCustomerPreferences,
+  useAddPreference,
+  useRemovePreference,
+  useSetPrimaryPreference,
+} from '../hooks/useCustomerPreferences';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerDetail'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CustomerDetail'>;
@@ -125,6 +132,9 @@ export default function CustomerDetailScreen() {
           {c.notes && <InfoRow icon="📝" label="Notas" value={c.notes} />}
         </View>
 
+        {/* Tipos de huevo habituales */}
+        <EggPreferencesCard customerId={c.id} />
+
         {/* Registrar entrega */}
         <TouchableOpacity
           style={styles.deliveryBtn}
@@ -168,6 +178,69 @@ export default function CustomerDetailScreen() {
           {c.lat.toFixed(6)}, {c.lng.toFixed(6)}
         </Text>
       </ScrollView>
+    </View>
+  );
+}
+
+function eggDotColor(color: EggType['color']): string {
+  if (color === 'rojo') return '#ef4444';
+  if (color === 'blanco') return '#d1d5db';
+  return '#f59e0b';
+}
+
+function EggPreferencesCard({ customerId }: { customerId: string }) {
+  const { data: eggTypes } = useEggTypes();
+  const { data: preferences } = useCustomerPreferences();
+  const addPref = useAddPreference();
+  const removePref = useRemovePreference();
+  const setPrimary = useSetPrimaryPreference();
+
+  const myPrefs = (preferences ?? []).filter((p) => p.customer_id === customerId);
+  const selectedIds = new Set(myPrefs.map((p) => p.egg_type_id));
+  const primaryId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? null;
+
+  function toggle(eggTypeId: string) {
+    if (selectedIds.has(eggTypeId)) {
+      removePref.mutate({ customer_id: customerId, egg_type_id: eggTypeId });
+    } else {
+      // Si es el primero que se agrega, queda como principal
+      const makePrimary = myPrefs.length === 0;
+      addPref.mutate({ customer_id: customerId, egg_type_id: eggTypeId, make_primary: makePrimary });
+    }
+  }
+
+  function makePrimary(eggTypeId: string) {
+    if (primaryId === eggTypeId) return;
+    setPrimary.mutate({ customer_id: customerId, egg_type_id: eggTypeId });
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Tipos de huevo habituales</Text>
+      <Text style={styles.prefHint}>
+        Tocá para agregar o quitar. Mantené presionado un tipo seleccionado para marcarlo como principal ⭐. En la entrega podés elegir cualquiera.
+      </Text>
+      <View style={styles.prefChips}>
+        {(eggTypes ?? []).map((t) => {
+          const selected = selectedIds.has(t.id);
+          const isPrimary = primaryId === t.id;
+          return (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.prefChip, selected && styles.prefChipSelected, isPrimary && styles.prefChipPrimary]}
+              onPress={() => toggle(t.id)}
+              onLongPress={() => selected && makePrimary(t.id)}
+              delayLongPress={280}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.prefDot, { backgroundColor: eggDotColor(t.color) }]} />
+              <Text style={[styles.prefChipText, selected && styles.prefChipTextSelected]}>
+                {isPrimary ? '⭐ ' : ''}{t.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -324,6 +397,39 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 2,
   },
+  prefHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+    lineHeight: 17,
+    marginBottom: 4,
+  },
+  prefChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  prefChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  prefChipSelected: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  prefChipPrimary: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fcd34d',
+  },
+  prefDot: { width: 9, height: 9, borderRadius: 5 },
+  prefChipText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
+  prefChipTextSelected: { color: '#1d4ed8' },
   coords: {
     textAlign: 'center',
     fontSize: 11,

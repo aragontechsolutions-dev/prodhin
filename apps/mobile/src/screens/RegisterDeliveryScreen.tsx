@@ -17,6 +17,7 @@ import { getDisplayName, formatCajones, type DeliveryStatus, type EggType } from
 import { useAuth } from '../hooks/useAuth';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
+import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { uuidv4 } from '../lib/uuid';
 
@@ -38,22 +39,30 @@ export default function RegisterDeliveryScreen() {
   const { isOnline } = useNetworkStatus();
 
   const { data: eggTypes, isLoading: loadingTypes } = useEggTypes();
+  const { data: preferences } = useCustomerPreferences();
   const createDelivery = useCreateDelivery();
+  const addPref = useAddPreference();
 
   const [status, setStatus] = useState<DeliveryStatus>('entregado');
-  const [eggTypeId, setEggTypeId] = useState<string | null>(
-    c.preferred_egg_type_id ?? null,
-  );
+  const [eggTypeId, setEggTypeId] = useState<string | null>(null);
   const [cajasPlasticas, setCajasPlasticas] = useState(2); // 2 plásticas = 1 cajón
   const [notes, setNotes] = useState('');
 
   const isDelivered = status === 'entregado';
 
-  // Prellenar tipo con la preferencia; si no hay, el primero del catálogo
+  // Preferencias de este cliente (principal primero)
+  const myPrefs = useMemo(
+    () => (preferences ?? []).filter((p) => p.customer_id === c.id),
+    [preferences, c.id],
+  );
+  const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? null;
+
+  // Prellenar: selección manual > tipo principal del cliente > primer tipo del catálogo
   const effectiveEggTypeId = useMemo(() => {
     if (eggTypeId) return eggTypeId;
+    if (primaryPrefId) return primaryPrefId;
     return eggTypes && eggTypes.length > 0 ? eggTypes[0].id : null;
-  }, [eggTypeId, eggTypes]);
+  }, [eggTypeId, primaryPrefId, eggTypes]);
 
   function inc() {
     setCajasPlasticas((n) => Math.min(n + 1, 99));
@@ -84,6 +93,35 @@ export default function RegisterDeliveryScreen() {
         delivered_at: new Date().toISOString(),
         items,
       });
+
+      // Auto-sugerencia: si entregó un tipo que no está en los habituales, ofrecer agregarlo
+      const deliveredNew =
+        isDelivered &&
+        effectiveEggTypeId &&
+        !myPrefs.some((p) => p.egg_type_id === effectiveEggTypeId);
+      if (deliveredNew) {
+        const egg = eggTypes?.find((t) => t.id === effectiveEggTypeId);
+        Alert.alert(
+          'Agregar a habituales',
+          `¿Agregar "${egg?.name ?? 'este tipo'}" a los tipos habituales de este cliente?`,
+          [
+            { text: 'No', style: 'cancel', onPress: () => navigation.goBack() },
+            {
+              text: 'Sí, agregar',
+              onPress: () => {
+                addPref.mutate({
+                  customer_id: c.id,
+                  egg_type_id: effectiveEggTypeId,
+                  make_primary: myPrefs.length === 0,
+                });
+                navigation.goBack();
+              },
+            },
+          ],
+        );
+        return;
+      }
+
       navigation.goBack();
     } catch (e: any) {
       // Sin conexión la mutación queda pausada y se reintenta sola: no es error.

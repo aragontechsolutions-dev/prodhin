@@ -16,6 +16,7 @@ import { getDisplayName, type Customer, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useMyCustomers } from '../hooks/useMyCustomers';
 import { useEggTypes } from '../hooks/useEggTypes';
+import { useCustomerPreferences } from '../hooks/useCustomerPreferences';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CustomerPreferences'>;
 
@@ -32,6 +33,7 @@ export default function CustomerPreferencesScreen() {
   const { profile } = useAuth();
   const { data: myCustomers, isLoading } = useMyCustomers(profile?.id);
   const { data: eggTypes } = useEggTypes();
+  const { data: preferences } = useCustomerPreferences();
 
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -41,6 +43,22 @@ export default function CustomerPreferencesScreen() {
     (eggTypes ?? []).forEach((t) => m.set(t.id, t));
     return m;
   }, [eggTypes]);
+
+  // customer_id -> lista de tipos (principal primero)
+  const prefsByCustomer = useMemo(() => {
+    const m = new Map<string, { egg: EggType; isPrimary: boolean }[]>();
+    for (const p of preferences ?? []) {
+      const egg = eggMap.get(p.egg_type_id);
+      if (!egg) continue;
+      const arr = m.get(p.customer_id) ?? [];
+      arr.push({ egg, isPrimary: p.is_primary });
+      m.set(p.customer_id, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => (a.isPrimary === b.isPrimary ? a.egg.sort_order - b.egg.sort_order : a.isPrimary ? -1 : 1));
+    }
+    return m;
+  }, [preferences, eggMap]);
 
   const allCustomers = useMemo(() => {
     const own = myCustomers?.own ?? [];
@@ -56,12 +74,12 @@ export default function CustomerPreferencesScreen() {
     return allCustomers.filter((c) => {
       const name = getDisplayName(c).toLowerCase();
       const addr = (c.address ?? '').toLowerCase();
-      const egg = c.preferred_egg_type_id
-        ? (eggMap.get(c.preferred_egg_type_id)?.name ?? '').toLowerCase()
-        : '';
-      return name.includes(q) || addr.includes(q) || egg.includes(q);
+      const eggs = (prefsByCustomer.get(c.id) ?? [])
+        .map((p) => p.egg.name.toLowerCase())
+        .join(' ');
+      return name.includes(q) || addr.includes(q) || eggs.includes(q);
     });
-  }, [allCustomers, query, eggMap]);
+  }, [allCustomers, query, prefsByCustomer]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -73,7 +91,7 @@ export default function CustomerPreferencesScreen() {
   }
 
   function renderItem({ item: c }: { item: Customer }) {
-    const egg = c.preferred_egg_type_id ? eggMap.get(c.preferred_egg_type_id) : undefined;
+    const eggs = prefsByCustomer.get(c.id) ?? [];
     return (
       <TouchableOpacity
         style={styles.card}
@@ -83,17 +101,24 @@ export default function CustomerPreferencesScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.name} numberOfLines={1}>{getDisplayName(c)}</Text>
           <Text style={styles.addr} numberOfLines={1}>{c.address}</Text>
+          {eggs.length > 0 ? (
+            <View style={styles.eggRow}>
+              {eggs.map((p) => (
+                <View key={p.egg.id} style={[styles.eggChip, p.isPrimary && styles.eggChipPrimary]}>
+                  <View style={[styles.eggDot, { backgroundColor: eggDotColor(p.egg.color) }]} />
+                  <Text style={styles.eggName}>{p.isPrimary ? '⭐ ' : ''}{p.egg.name}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.eggRow}>
+              <View style={styles.noEggChip}>
+                <Text style={styles.noEggText}>Sin tipos asignados</Text>
+              </View>
+            </View>
+          )}
         </View>
-        {egg ? (
-          <View style={styles.eggChip}>
-            <View style={[styles.eggDot, { backgroundColor: eggDotColor(egg.color) }]} />
-            <Text style={styles.eggName}>{egg.name}</Text>
-          </View>
-        ) : (
-          <View style={styles.noEggChip}>
-            <Text style={styles.noEggText}>Sin preferencia</Text>
-          </View>
-        )}
+        <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
     );
   }
@@ -235,27 +260,29 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 15, fontWeight: '700', color: '#111827' },
   addr: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  eggRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   eggChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#eff6ff',
     borderRadius: 999,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: '#dbeafe',
-    maxWidth: 150,
   },
-  eggDot: { width: 10, height: 10, borderRadius: 5 },
+  eggChipPrimary: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
+  eggDot: { width: 9, height: 9, borderRadius: 5 },
   eggName: { fontSize: 12, fontWeight: '700', color: '#1d4ed8' },
   noEggChip: {
     backgroundColor: '#f3f4f6',
     borderRadius: 999,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 10,
   },
   noEggText: { fontSize: 12, fontWeight: '600', color: '#9ca3af' },
+  chevron: { fontSize: 24, color: '#d1d5db', fontWeight: '300', marginLeft: 6 },
   empty: { alignItems: 'center', marginTop: 60, gap: 8 },
   emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 14, color: '#9ca3af' },

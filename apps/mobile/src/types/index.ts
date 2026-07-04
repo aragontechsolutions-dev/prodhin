@@ -13,7 +13,13 @@ export interface Customer {
   lng: number;
   notes: string | null;
   is_active: boolean;
-  preferred_egg_type_id: string | null;
+}
+
+export interface CustomerEggPreference {
+  id: string;
+  customer_id: string;
+  egg_type_id: string;
+  is_primary: boolean;
 }
 
 export interface EggType {
