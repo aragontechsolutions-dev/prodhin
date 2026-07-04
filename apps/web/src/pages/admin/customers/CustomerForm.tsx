@@ -4,6 +4,7 @@ import { useCreateCustomer, useUpdateCustomer, useCustomers } from '../../../hoo
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
+import Modal from '../../../components/ui/Modal';
 import LocationPicker from '../../../components/map/LocationPicker';
 import { normalizeUruguayPhone } from '../../../utils/phone';
 import type { Customer } from '@prodhin/shared';
@@ -43,6 +44,8 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
   });
 
   const [error, setError] = useState<string | null>(null);
+  // Aviso (no bloqueante) de teléfono repetido: nombres de los clientes que ya lo usan
+  const [phoneDupNames, setPhoneDupNames] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -87,7 +90,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
     }
 
     // Teléfono repetido (aviso, NO bloqueante): puede ser el mismo dueño
-    // con varias empresas/locales.
+    // con varias empresas/locales. Abrimos un modal de confirmación.
     const normalizedPhone = normalizeUruguayPhone(form.phone);
     const dupPhone = others.filter(
       (c) => normalizeUruguayPhone(c.phone) === normalizedPhone,
@@ -97,12 +100,15 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
         .map((c) => c.business_name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim())
         .filter(Boolean)
         .join(', ');
-      const ok = window.confirm(
-        `Este teléfono ya lo usa: ${names}.\n\nPuede ser el mismo dueño con otra empresa/local. ¿Crear el cliente de todas formas?`,
-      );
-      if (!ok) return;
+      setPhoneDupNames(names);
+      return;
     }
 
+    await doSave();
+  }
+
+  async function doSave() {
+    const rut = form.tax_id.trim();
     try {
       const payload = {
         customer_type: form.customer_type as 'empresa' | 'persona_fisica',
@@ -112,7 +118,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
         tax_id: rut || null,
         business_type: form.customer_type === 'empresa' ? form.business_type || null : null,
         contact_name: form.contact_name || null,
-        phone: normalizedPhone,
+        phone: normalizeUruguayPhone(form.phone),
         email: form.email || null,
         address: form.address,
         lat: form.lat!,
@@ -281,6 +287,44 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
           {isEditing ? 'Guardar cambios' : 'Crear cliente'}
         </Button>
       </div>
+
+      {/* Aviso de teléfono repetido (no bloqueante) */}
+      <Modal
+        isOpen={phoneDupNames !== null}
+        onClose={() => setPhoneDupNames(null)}
+        title="Teléfono repetido"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-300">
+              <p>
+                Este teléfono ya lo usa: <span className="font-semibold text-gray-900 dark:text-gray-100">{phoneDupNames}</span>.
+              </p>
+              <p className="mt-2 text-gray-500 dark:text-gray-400">
+                Puede ser el mismo dueño con otra empresa o local. ¿Querés crear el cliente de todas formas?
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button type="button" variant="secondary" onClick={() => setPhoneDupNames(null)} disabled={isLoading}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => { setPhoneDupNames(null); void doSave(); }}
+              isLoading={isLoading}
+            >
+              Crear de todas formas
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </form>
   );
 }
