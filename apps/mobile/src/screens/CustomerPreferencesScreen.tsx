@@ -32,14 +32,15 @@ export default function CustomerPreferencesScreen() {
   const navigation = useNavigation<Nav>();
   const { profile } = useAuth();
   const { data: myCustomers, isLoading } = useMyCustomers(profile?.id);
-  const { data: eggTypes } = useEggTypes();
+  const { data: eggTypes, refetch: refetchEggTypes } = useEggTypes();
   const { data: preferences, refetch: refetchPrefs } = useCustomerPreferences();
 
   // Al volver a esta pantalla, revalida (por si cambió desde la web)
   useFocusEffect(
     useCallback(() => {
       refetchPrefs();
-    }, [refetchPrefs]),
+      refetchEggTypes();
+    }, [refetchPrefs, refetchEggTypes]),
   );
 
   const [query, setQuery] = useState('');
