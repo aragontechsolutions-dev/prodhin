@@ -19,8 +19,13 @@ const PREFS_KEY = ['customer-egg-prefs'];
 export function useCustomerPreferences() {
   return useQuery({
     queryKey: PREFS_KEY,
-    staleTime: 1000 * 60 * 5,
+    // Siempre revalida al montar/enfocar: los cambios hechos desde la web
+    // (u otro dispositivo) deben verse enseguida. Offline sigue mostrando
+    // lo último cacheado gracias a gcTime + networkMode offlineFirst.
+    staleTime: 0,
     gcTime: 1000 * 60 * 60 * 24,
+    refetchOnMount: 'always',
+    refetchOnReconnect: true,
     networkMode: 'offlineFirst',
     queryFn: async (): Promise<CustomerEggPreference[]> => {
       const { data, error } = await supabase

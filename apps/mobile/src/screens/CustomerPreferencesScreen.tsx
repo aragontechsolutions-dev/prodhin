@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getDisplayName, type Customer, type EggType } from '../types';
@@ -33,7 +33,14 @@ export default function CustomerPreferencesScreen() {
   const { profile } = useAuth();
   const { data: myCustomers, isLoading } = useMyCustomers(profile?.id);
   const { data: eggTypes } = useEggTypes();
-  const { data: preferences } = useCustomerPreferences();
+  const { data: preferences, refetch: refetchPrefs } = useCustomerPreferences();
+
+  // Al volver a esta pantalla, revalida (por si cambió desde la web)
+  useFocusEffect(
+    useCallback(() => {
+      refetchPrefs();
+    }, [refetchPrefs]),
+  );
 
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
