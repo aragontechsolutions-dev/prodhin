@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
@@ -42,7 +43,27 @@ export class UsersService {
     return profile;
   }
 
+  /** El teléfono debe ser único entre usuarios (si se proporciona). */
+  private async assertPhoneUnique(phone?: string | null, excludeId?: string) {
+    const trimmed = phone?.trim();
+    if (!trimmed) return;
+    const existing = await this.prisma.profile.findFirst({
+      where: {
+        phone: trimmed,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { id: true, fullName: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe un usuario con el teléfono ${trimmed} (${existing.fullName})`,
+      );
+    }
+  }
+
   async create(dto: CreateUserDto) {
+    await this.assertPhoneUnique(dto.phone);
+
     const { data, error } = await this.supabaseAdmin.auth.admin.createUser({
       email: dto.email,
       password: dto.password,
@@ -65,6 +86,12 @@ export class UsersService {
     } catch (prismaError) {
       // Revertir: eliminar el usuario de Auth para no dejar inconsistencia
       await this.supabaseAdmin.auth.admin.deleteUser(data.user.id);
+      // Índice único de teléfono (uq_profiles_phone) → motivo claro
+      if ((prismaError as { code?: string })?.code === 'P2002') {
+        throw new ConflictException(
+          `Ya existe un usuario con el teléfono ${dto.phone?.trim() ?? ''}`,
+        );
+      }
       throw new InternalServerErrorException('Error al configurar el perfil del usuario');
     }
 
@@ -73,6 +100,9 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto) {
     await this.findOne(id);
+    if (dto.phone !== undefined) {
+      await this.assertPhoneUnique(dto.phone, id);
+    }
     return this.prisma.profile.update({
       where: { id },
       data: {

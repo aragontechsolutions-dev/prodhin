@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useCreateCustomer, useUpdateCustomer } from '../../../hooks/useCustomers';
+import { useCreateCustomer, useUpdateCustomer, useCustomers } from '../../../hooks/useCustomers';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
@@ -24,6 +24,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
   const isEditing = !!customer;
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
+  const { data: allCustomers } = useCustomers();
 
   const [form, setForm] = useState({
     customer_type: customer?.customer_type ?? 'empresa',
@@ -69,16 +70,49 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
       return;
     }
 
+    const others = (allCustomers ?? []).filter((c) => c.id !== customer?.id);
+
+    // RUT único (bloqueante): solo aplica a empresa con tax_id
+    const rut = form.tax_id.trim();
+    if (rut) {
+      const dupRut = others.find((c) => (c.tax_id ?? '').trim() === rut);
+      if (dupRut) {
+        const msg = `Ya existe un cliente con el RUT ${rut}: ${
+          dupRut.business_name ?? dupRut.first_name ?? 'cliente'
+        }`;
+        toast.error(msg);
+        setError(msg);
+        return;
+      }
+    }
+
+    // Teléfono repetido (aviso, NO bloqueante): puede ser el mismo dueño
+    // con varias empresas/locales.
+    const normalizedPhone = normalizeUruguayPhone(form.phone);
+    const dupPhone = others.filter(
+      (c) => normalizeUruguayPhone(c.phone) === normalizedPhone,
+    );
+    if (dupPhone.length > 0) {
+      const names = dupPhone
+        .map((c) => c.business_name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim())
+        .filter(Boolean)
+        .join(', ');
+      const ok = window.confirm(
+        `Este teléfono ya lo usa: ${names}.\n\nPuede ser el mismo dueño con otra empresa/local. ¿Crear el cliente de todas formas?`,
+      );
+      if (!ok) return;
+    }
+
     try {
       const payload = {
         customer_type: form.customer_type as 'empresa' | 'persona_fisica',
         first_name: form.customer_type === 'persona_fisica' ? form.first_name || null : null,
         last_name: form.customer_type === 'persona_fisica' ? form.last_name || null : null,
         business_name: form.customer_type === 'empresa' ? form.business_name || null : null,
-        tax_id: form.tax_id || null,
+        tax_id: rut || null,
         business_type: form.customer_type === 'empresa' ? form.business_type || null : null,
         contact_name: form.contact_name || null,
-        phone: normalizeUruguayPhone(form.phone),
+        phone: normalizedPhone,
         email: form.email || null,
         address: form.address,
         lat: form.lat!,
@@ -96,8 +130,13 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
 
       onSuccess();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar el cliente');
-      setError(err instanceof Error ? err.message : 'Error al guardar el cliente');
+      // Violación de índice único de RUT en la BD (por si dos admin crean a la vez)
+      const raw = err instanceof Error ? err.message : String(err);
+      const friendly = /uq_customers_tax_id|duplicate key|23505/i.test(raw)
+        ? `Ya existe un cliente con el RUT ${rut}`
+        : raw || 'Error al guardar el cliente';
+      toast.error(friendly);
+      setError(friendly);
     }
   }
 
