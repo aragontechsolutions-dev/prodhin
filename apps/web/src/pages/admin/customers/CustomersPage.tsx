@@ -11,6 +11,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import type { Customer } from '@prodhin/shared';
 import CustomerForm from './CustomerForm';
 import CustomerImportModal from './CustomerImportModal';
+import EggPreferencesModal from './EggPreferencesModal';
 
 const CustomerMapView = lazy(() => import('./CustomerMapView'));
 
@@ -31,6 +32,7 @@ export default function CustomersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [confirmCustomer, setConfirmCustomer] = useState<Customer | null>(null);
+  const [prefsCustomer, setPrefsCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
 
@@ -177,6 +179,9 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2 justify-end">
+                            <Button size="sm" variant="ghost" onClick={() => setPrefsCustomer(c)}>
+                              🥚 Huevos
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => openEdit(c)}>
                               Editar
                             </Button>
@@ -215,6 +220,9 @@ export default function CustomersPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setPrefsCustomer(c)} className="flex-1">
+                        🥚
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => openEdit(c)} className="flex-1">
                         Editar
                       </Button>
@@ -242,6 +250,9 @@ export default function CustomersPage() {
           )}
         </div>
       )}
+
+      {/* Modal tipos de huevo habituales */}
+      <EggPreferencesModal customer={prefsCustomer} onClose={() => setPrefsCustomer(null)} />
 
       {/* Modal formulario cliente */}
       <Modal
