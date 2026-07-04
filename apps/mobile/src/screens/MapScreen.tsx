@@ -951,6 +951,13 @@ export default function MapScreen() {
               )}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerNavItem}
+            onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('CustomerPreferences'), 300); }}
+          >
+            <Text style={styles.drawerNavIcon}>🥚</Text>
+            <Text style={styles.drawerNavLabel}>Tipos de huevo</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Route view inside drawer */}
