@@ -27,6 +27,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
+import { useVisited, markVisited, getVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 type MarkerKind = 'route' | 'route-visited' | 'own' | 'delegated';
@@ -614,7 +615,8 @@ export default function MapScreen() {
   const webViewRef = useRef<WebView>(null);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
+  // "Visitado" vive en un store compartido: registrar una entrega lo marca
+  const visitedIds = useVisited();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
@@ -732,6 +734,18 @@ export default function MapScreen() {
     );
   }, []);
 
+  // Inyecta al mapa cada cliente recién marcado como visitado (por el botón
+  // del popup o por registrar una entrega). Idempotente vía injectedVisited.
+  const injectedVisited = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    visitedIds.forEach((id) => {
+      if (!injectedVisited.current.has(id)) {
+        injectedVisited.current.add(id);
+        sendToMap({ type: 'markVisited', id });
+      }
+    });
+  }, [visitedIds, sendToMap]);
+
   function handleSelectSearchResult(customer: Customer) {
     if (lastHighlighted && lastHighlighted !== customer.id) sendToMap({ type: 'clearHighlight', id: lastHighlighted });
     sendToMap({ type: 'highlight', id: customer.id });
@@ -749,8 +763,7 @@ export default function MapScreen() {
         if (customer) navigation.navigate('CustomerDetail', { customer });
       }
       if (msg.type === 'visited' && msg.id) {
-        setVisitedIds((prev) => new Set([...prev, msg.id]));
-        sendToMap({ type: 'markVisited', id: msg.id });
+        markVisited(msg.id);
       }
       if (msg.type === 'speak') {
         Speech.stop();

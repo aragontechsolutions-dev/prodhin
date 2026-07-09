@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
 import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { markVisited } from '../lib/visitedStore';
 import { uuidv4 } from '../lib/uuid';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RegisterDelivery'>;
@@ -44,8 +45,8 @@ export default function RegisterDeliveryScreen() {
   const addPref = useAddPreference();
 
   const [status, setStatus] = useState<DeliveryStatus>('entregado');
-  const [eggTypeId, setEggTypeId] = useState<string | null>(null);
-  const [cajasPlasticas, setCajasPlasticas] = useState(2); // 2 plásticas = 1 cajón
+  // Una línea por tipo de huevo entregado
+  const [lines, setLines] = useState<{ egg_type_id: string; cajas: number }[]>([]);
   const [notes, setNotes] = useState('');
 
   const isDelivered = status === 'entregado';
@@ -57,31 +58,45 @@ export default function RegisterDeliveryScreen() {
   );
   const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? null;
 
-  // Prellenar: selección manual > tipo principal del cliente > primer tipo del catálogo
-  const effectiveEggTypeId = useMemo(() => {
-    if (eggTypeId) return eggTypeId;
-    if (primaryPrefId) return primaryPrefId;
-    return eggTypes && eggTypes.length > 0 ? eggTypes[0].id : null;
-  }, [eggTypeId, primaryPrefId, eggTypes]);
+  // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas
+  const inited = useRef(false);
+  useEffect(() => {
+    if (inited.current) return;
+    if (!eggTypes || preferences === undefined) return;
+    inited.current = true;
+    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2 }]);
+  }, [eggTypes, preferences, primaryPrefId]);
 
-  function inc() {
-    setCajasPlasticas((n) => Math.min(n + 1, 99));
+  const selectedIds = new Set(lines.map((l) => l.egg_type_id));
+  const totalCajas = lines.reduce((s, l) => s + (l.cajas || 0), 0);
+
+  function toggleType(id: string) {
+    setLines((prev) =>
+      prev.some((l) => l.egg_type_id === id)
+        ? prev.filter((l) => l.egg_type_id !== id)
+        : [...prev, { egg_type_id: id, cajas: 2 }],
+    );
   }
-  function dec() {
-    setCajasPlasticas((n) => Math.max(n - 1, 0));
+
+  function setCajas(id: string, value: number) {
+    const v = Math.max(0, Math.min(99999, Math.floor(value) || 0));
+    setLines((prev) => prev.map((l) => (l.egg_type_id === id ? { ...l, cajas: v } : l)));
   }
 
   async function onSave() {
     if (!profile) return;
-    if (isDelivered && !effectiveEggTypeId) {
-      Alert.alert('Falta el tipo', 'Elegí una categoría de huevo.');
+
+    const items = isDelivered
+      ? lines.filter((l) => l.cajas > 0).map((l) => ({
+          egg_type_id: l.egg_type_id,
+          cajas_plasticas: l.cajas,
+        }))
+      : [];
+
+    if (isDelivered && items.length === 0) {
+      Alert.alert('Falta la cantidad', 'Agregá al menos un tipo de huevo con cantidad.');
       return;
     }
-
-    const items =
-      isDelivered && effectiveEggTypeId
-        ? [{ egg_type_id: effectiveEggTypeId, cajas_plasticas: cajasPlasticas }]
-        : [];
 
     try {
       await createDelivery.mutateAsync({
@@ -94,26 +109,32 @@ export default function RegisterDeliveryScreen() {
         items,
       });
 
-      // Auto-sugerencia: si entregó un tipo que no está en los habituales, ofrecer agregarlo
-      const deliveredNew =
-        isDelivered &&
-        effectiveEggTypeId &&
-        !myPrefs.some((p) => p.egg_type_id === effectiveEggTypeId);
-      if (deliveredNew) {
-        const egg = eggTypes?.find((t) => t.id === effectiveEggTypeId);
+      // Registrar la visita automáticamente
+      markVisited(c.id);
+
+      // Auto-sugerencia: tipos entregados que no están en los habituales
+      const newTypes = items
+        .map((it) => it.egg_type_id)
+        .filter((id) => !myPrefs.some((p) => p.egg_type_id === id));
+      if (newTypes.length > 0) {
+        const names = newTypes
+          .map((id) => eggTypes?.find((t) => t.id === id)?.name ?? 'tipo')
+          .join(', ');
         Alert.alert(
           'Agregar a habituales',
-          `¿Agregar "${egg?.name ?? 'este tipo'}" a los tipos habituales de este cliente?`,
+          `¿Agregar ${names} a los tipos habituales de este cliente?`,
           [
             { text: 'No', style: 'cancel', onPress: () => navigation.goBack() },
             {
               text: 'Sí, agregar',
               onPress: () => {
-                addPref.mutate({
-                  customer_id: c.id,
-                  egg_type_id: effectiveEggTypeId,
-                  make_primary: myPrefs.length === 0,
-                });
+                newTypes.forEach((id, i) =>
+                  addPref.mutate({
+                    customer_id: c.id,
+                    egg_type_id: id,
+                    make_primary: myPrefs.length === 0 && i === 0,
+                  }),
+                );
                 navigation.goBack();
               },
             },
@@ -174,23 +195,24 @@ export default function RegisterDeliveryScreen() {
 
         {isDelivered && (
           <>
-            {/* Tipo de huevo */}
-            <Text style={styles.label}>Tipo de huevo</Text>
+            {/* Tipos de huevo (multi-selección) */}
+            <Text style={styles.label}>Tipos de huevo</Text>
+            <Text style={styles.subHint}>Tocá los tipos que se entregan. Podés registrar varios.</Text>
             {loadingTypes ? (
               <ActivityIndicator color="#f59e0b" style={{ marginVertical: 12 }} />
             ) : (
               <View style={styles.chipRow}>
                 {(eggTypes ?? []).map((t: EggType) => {
-                  const selected = effectiveEggTypeId === t.id;
+                  const selected = selectedIds.has(t.id);
                   return (
                     <TouchableOpacity
                       key={t.id}
                       style={[styles.chip, selected && styles.chipActive]}
-                      onPress={() => setEggTypeId(t.id)}
+                      onPress={() => toggleType(t.id)}
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.chipText, selected && styles.chipTextActive]}>
-                        {t.name}
+                        {selected ? '✓ ' : ''}{t.name}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -198,21 +220,48 @@ export default function RegisterDeliveryScreen() {
               </View>
             )}
 
-            {/* Cantidad */}
-            <Text style={styles.label}>Cantidad (cajas plásticas)</Text>
-            <View style={styles.stepper}>
-              <TouchableOpacity style={styles.stepBtn} onPress={dec} activeOpacity={0.7}>
-                <Text style={styles.stepBtnText}>−</Text>
-              </TouchableOpacity>
-              <Text style={styles.stepValue}>{cajasPlasticas}</Text>
-              <TouchableOpacity style={styles.stepBtn} onPress={inc} activeOpacity={0.7}>
-                <Text style={styles.stepBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.equiv}>
-              = {formatCajones(cajasPlasticas)}{' '}
-              {formatCajones(cajasPlasticas) === '1' ? 'cajón' : 'cajones'}
-            </Text>
+            {/* Cantidad por tipo seleccionado */}
+            {lines.length > 0 && (
+              <View style={styles.linesWrap}>
+                {lines.map((l) => {
+                  const t = eggTypes?.find((x) => x.id === l.egg_type_id);
+                  return (
+                    <View key={l.egg_type_id} style={styles.lineCard}>
+                      <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
+                      <View style={styles.qtyRow}>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => setCajas(l.egg_type_id, l.cajas - 1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.qtyBtnText}>−</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                          style={styles.qtyInput}
+                          value={String(l.cajas)}
+                          onChangeText={(txt) => setCajas(l.egg_type_id, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0)}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                          selectTextOnFocus
+                        />
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => setCajas(l.egg_type_id, l.cajas + 1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.qtyBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.lineEquiv}>{formatCajones(l.cajas)} cj</Text>
+                    </View>
+                  );
+                })}
+                <Text style={styles.totalEquiv}>
+                  Total: {totalCajas} cajas plásticas = {formatCajones(totalCajas)}{' '}
+                  {formatCajones(totalCajas) === '1' ? 'cajón' : 'cajones'}
+                </Text>
+              </View>
+            )}
           </>
         )}
 
@@ -308,6 +357,47 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
   chipText: { fontSize: 14, color: '#374151', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
+  subHint: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  linesWrap: { marginTop: 12, gap: 8 },
+  lineCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  lineName: { flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qtyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: { fontSize: 22, color: '#1d4ed8', fontWeight: '700' },
+  qtyInput: {
+    width: 62,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    padding: 0,
+  },
+  lineEquiv: { fontSize: 12, color: '#059669', fontWeight: '700', minWidth: 44, textAlign: 'right' },
+  totalEquiv: { fontSize: 14, color: '#059669', fontWeight: '700', marginTop: 4 },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
