@@ -7,6 +7,8 @@ import MapScreen from '../screens/MapScreen';
 import CustomerDetailScreen from '../screens/CustomerDetailScreen';
 import RegisterDeliveryScreen from '../screens/RegisterDeliveryScreen';
 import CustomerPreferencesScreen from '../screens/CustomerPreferencesScreen';
+import DeliveriesHistoryScreen from '../screens/DeliveriesHistoryScreen';
+import DailyLoadScreen from '../screens/DailyLoadScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
 
@@ -15,6 +17,8 @@ export type RootStackParamList = {
   CustomerDetail: { customer: Customer };
   RegisterDelivery: { customer: Customer };
   CustomerPreferences: undefined;
+  DeliveriesHistory: undefined;
+  DailyLoad: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -41,6 +45,8 @@ export default function AppNavigator() {
         <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
         <Stack.Screen name="RegisterDelivery" component={RegisterDeliveryScreen} />
         <Stack.Screen name="CustomerPreferences" component={CustomerPreferencesScreen} />
+        <Stack.Screen name="DeliveriesHistory" component={DeliveriesHistoryScreen} />
+        <Stack.Screen name="DailyLoad" component={DailyLoadScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
