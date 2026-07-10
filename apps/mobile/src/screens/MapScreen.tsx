@@ -929,7 +929,7 @@ export default function MapScreen() {
 
       {/* ── Drawer ── */}
       {drawerOpen && (
-        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={closeDrawer} />
+        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={() => { setDrawerView('map'); closeDrawer(); }} />
       )}
       <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
         {/* Greeting */}
