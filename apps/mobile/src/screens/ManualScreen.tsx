@@ -33,7 +33,8 @@ const SECTIONS: Item[] = [
     body: [
       'Al abrir la app ves tus clientes en el mapa.',
       'Verde pulsante: cliente de tu ruta de hoy (pendiente).',
-      'Gris con ✓: ya lo visitaste hoy.',
+      'Verde con ✓: le registraste una entrega (con venta).',
+      'Gris con ✓: lo visitaste pero sin venta (ausente / no quiso / sin stock).',
       'Rojo: cliente tuyo que hoy no está en la ruta.',
       'Naranja (rombo): cliente que estás cubriendo por otro chofer.',
     ],

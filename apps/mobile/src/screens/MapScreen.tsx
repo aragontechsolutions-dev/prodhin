@@ -28,10 +28,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
-import { useVisited, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
+import { useVisited, useVisitedKinds, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
-type MarkerKind = 'route' | 'route-visited' | 'own' | 'delegated';
+type MarkerKind = 'route' | 'route-visited' | 'route-delivered' | 'own' | 'delegated';
 type DrawerView = 'map' | 'route';
 
 const DRAWER_WIDTH = Dimensions.get('window').width * 0.78;
@@ -42,11 +42,12 @@ function buildMapHtml(
   delegated: Customer[],
   todayRouteIds: Set<string>,
   visitedIds: Set<string>,
+  deliveredIds: Set<string>,
 ): string {
   const toMarker = (c: Customer, isDelegated: boolean) => {
     let kind: MarkerKind;
     if (todayRouteIds.has(c.id)) {
-      kind = visitedIds.has(c.id) ? 'route-visited' : 'route';
+      kind = deliveredIds.has(c.id) ? 'route-delivered' : visitedIds.has(c.id) ? 'route-visited' : 'route';
     } else {
       kind = isDelegated ? 'delegated' : 'own';
     }
@@ -217,8 +218,9 @@ function buildMapHtml(
   var orangeIcon=L.divIcon({html:'<div style="background:#f97316;width:14px;height:14px;border-radius:4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transform:rotate(45deg);opacity:0.7;"></div>',iconSize:[14,14],iconAnchor:[7,7],className:''});
   var routeIcon=L.divIcon({html:'<div class="pulse" style="background:#16a34a;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''});
   var visitedIcon=L.divIcon({html:'<div style="background:#9ca3af;width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:10px;font-weight:bold;">✓<\/span><\/div>',iconSize:[16,16],iconAnchor:[8,8],className:''});
+  var deliveredIcon=L.divIcon({html:'<div style="background:#16a34a;width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:11px;font-weight:bold;">✓<\/span><\/div>',iconSize:[18,18],iconAnchor:[9,9],className:''});
   var highlightIcon=L.divIcon({html:'<div style="background:#7c3aed;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(124,58,237,0.4);"></div>',iconSize:[22,22],iconAnchor:[11,11],className:''});
-  var iconMap={route:routeIcon,'route-visited':visitedIcon,own:redIcon,delegated:orangeIcon};
+  var iconMap={route:routeIcon,'route-visited':visitedIcon,'route-delivered':deliveredIcon,own:redIcon,delegated:orangeIcon};
 
   /* ── State ── */
   var markerRefs={};
@@ -606,7 +608,12 @@ function buildMapHtml(
   /* ── Customer markers ── */
   try{
     customers.forEach(function(c){
-      var routeBadge=(c.kind==='route'||c.kind==='route-visited')?'<br><span style="font-size:9px;background:#16a34a;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+(c.kind==='route-visited'?'✓ VISITADO':'RUTA HOY')+'<\/span>':'';
+      var routeBadge='';
+      if(c.kind==='route'||c.kind==='route-visited'||c.kind==='route-delivered'){
+        var badgeBg=c.kind==='route-visited'?'#9ca3af':'#16a34a';
+        var badgeTxt=c.kind==='route-delivered'?'✓ ENTREGADO':(c.kind==='route-visited'?'✓ VISITADO (sin venta)':'RUTA HOY');
+        routeBadge='<br><span style="font-size:9px;background:'+badgeBg+';color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+badgeTxt+'<\/span>';
+      }
       var delegBadge=c.kind==='delegated'?'<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA<\/span>':'';
       var visitBtn=c.kind==='route'?'<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Visitado<\/a>':'';
       var navBtn='<a class="nav-btn" onclick="startNavigation('+c.lat+','+c.lng+')">🧭 Navegar<\/a>';
@@ -625,7 +632,7 @@ function buildMapHtml(
       var msg=JSON.parse(e.data);
       if(msg.type==='highlight'&&msg.id&&markerRefs[msg.id]){map.flyTo(markerRefs[msg.id].getLatLng(),16,{duration:0.8});markerRefs[msg.id].setIcon(highlightIcon);markerRefs[msg.id].openPopup();}
       if(msg.type==='clearHighlight'&&msg.id&&markerRefs[msg.id]){var c=customers.find(function(x){return x.id===msg.id;});if(c)markerRefs[msg.id].setIcon(iconMap[c.kind]||redIcon);}
-      if(msg.type==='markVisited'&&msg.id&&markerRefs[msg.id]){markerRefs[msg.id].setIcon(visitedIcon);var c=customers.find(function(x){return x.id===msg.id;});if(c)c.kind='route-visited';markerRefs[msg.id].closePopup();}
+      if(msg.type==='markVisited'&&msg.id&&markerRefs[msg.id]){var dk=msg.kind==='delivered';markerRefs[msg.id].setIcon(dk?deliveredIcon:visitedIcon);var c=customers.find(function(x){return x.id===msg.id;});if(c)c.kind=dk?'route-delivered':'route-visited';markerRefs[msg.id].closePopup();}
       if(msg.type==='updatePos'){onPositionUpdate(msg.lat,msg.lng,msg.heading||0);}
     }catch(err){}
   }
@@ -651,6 +658,11 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   // "Visitado" vive en un store compartido: registrar una entrega lo marca
   const visitedIds = useVisited();
+  const visitedKinds = useVisitedKinds();
+  const deliveredIds = useMemo(
+    () => new Set([...visitedKinds].filter(([, k]) => k === 'delivered').map(([id]) => id)),
+    [visitedKinds],
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
@@ -778,23 +790,25 @@ export default function MapScreen() {
     if (!myDeliveries) return;
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const ids = myDeliveries
-      .filter((d) => new Date(d.delivered_at).getTime() >= startOfToday)
-      .map((d) => d.customer_id);
-    if (ids.length) markVisitedMany(ids);
+    const today = myDeliveries.filter((d) => new Date(d.delivered_at).getTime() >= startOfToday);
+    const delivered = today.filter((d) => d.status === 'entregado').map((d) => d.customer_id);
+    const visitedOnly = today.filter((d) => d.status !== 'entregado').map((d) => d.customer_id);
+    if (delivered.length) markVisitedMany(delivered, 'delivered');
+    if (visitedOnly.length) markVisitedMany(visitedOnly, 'visited');
   }, [myDeliveries]);
 
-  // Inyecta al mapa cada cliente recién marcado como visitado (por el botón
-  // del popup o por registrar una entrega). Idempotente vía injectedVisited.
+  // Inyecta al mapa cada cliente marcado (o cuando cambia su tipo). Idempotente
+  // vía injectedVisited (clave id:tipo, así un ascenso a "entregado" se reinyecta).
   const injectedVisited = useRef<Set<string>>(new Set());
   useEffect(() => {
-    visitedIds.forEach((id) => {
-      if (!injectedVisited.current.has(id)) {
-        injectedVisited.current.add(id);
-        sendToMap({ type: 'markVisited', id });
+    visitedKinds.forEach((kind, id) => {
+      const tag = id + ':' + kind;
+      if (!injectedVisited.current.has(tag)) {
+        injectedVisited.current.add(tag);
+        sendToMap({ type: 'markVisited', id, kind });
       }
     });
-  }, [visitedIds, sendToMap]);
+  }, [visitedKinds, sendToMap]);
 
   function handleSelectSearchResult(customer: Customer) {
     if (lastHighlighted && lastHighlighted !== customer.id) sendToMap({ type: 'clearHighlight', id: lastHighlighted });
@@ -826,7 +840,7 @@ export default function MapScreen() {
   // userLocation and visitedIds changes go via sendToMap injection — never via HTML rebuild,
   // which would reload the WebView and reset the map view during navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const html = useMemo(() => buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds), [mapKey]);
+  const html = useMemo(() => buildMapHtml(ownCustomers, delegatedCustomers, todayRouteIds, visitedIds, deliveredIds), [mapKey]);
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
   const initial = profile?.full_name?.[0]?.toUpperCase() ?? '?';

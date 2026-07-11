@@ -109,8 +109,8 @@ export default function RegisterDeliveryScreen() {
         items,
       });
 
-      // Registrar la visita automáticamente
-      markVisited(c.id);
+      // Registrar la visita automáticamente (con venta o sin venta)
+      markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
 
       // Auto-sugerencia: tipos entregados que no están en los habituales
       const newTypes = items

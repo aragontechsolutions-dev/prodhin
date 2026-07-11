@@ -414,7 +414,8 @@ export default function ManualPage() {
           <SubTitle>Leyenda de marcadores</SubTitle>
           <div className="border border-gray-100 dark:border-gray-800 rounded-xl divide-y divide-gray-50 dark:divide-gray-800 mb-4">
             <MarkerLegend color="bg-green-500" shape="circle" label="Verde pulsante — Ruta de hoy" desc="Cliente incluido en la ruta del chofer para el día actual. Pendiente de visita." />
-            <MarkerLegend color="bg-gray-400" shape="circle" label="Gris con ✓ — Visitado" desc="El chofer marcó este cliente como visitado durante el día." />
+            <MarkerLegend color="bg-green-600" shape="circle" label="Verde con ✓ — Entregado" desc="El chofer registró una entrega con venta a este cliente hoy." />
+            <MarkerLegend color="bg-gray-400" shape="circle" label="Gris con ✓ — Visitado sin venta" desc="El chofer visitó al cliente pero no hubo venta (ausente, no quiso o sin stock)." />
             <MarkerLegend color="bg-red-500" shape="circle" label="Rojo — Propio sin ruta hoy" desc="Cliente asignado al chofer pero no está en la ruta del día." />
             <MarkerLegend color="bg-orange-500" shape="diamond" label="Naranja (diamante) — Cobertura" desc="Cliente del chofer ausente que este chofer está cubriendo hoy por delegación." />
           </div>
