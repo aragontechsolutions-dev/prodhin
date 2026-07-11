@@ -27,7 +27,8 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
-import { useVisited, markVisited, getVisited } from '../lib/visitedStore';
+import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useVisited, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 type MarkerKind = 'route' | 'route-visited' | 'own' | 'delegated';
@@ -637,6 +638,7 @@ export default function MapScreen() {
   const { profile, signOut } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
+  const { data: myDeliveries } = useMyDeliveries(profile?.id);
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
   const routeStops = routeData?.stops ?? [];
@@ -765,6 +767,22 @@ export default function MapScreen() {
       `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(msg))} })); true;`
     );
   }, []);
+
+  // Cargar el "visitado" persistido (sobrevive a reinicios de la app/teléfono)
+  useEffect(() => { hydrateVisited(); }, []);
+
+  // Reconstruir "visitado" desde las entregas de HOY (fuente en la BD): así,
+  // aunque se pierda el estado local, los clientes con entrega hoy siguen
+  // marcados como visitados.
+  useEffect(() => {
+    if (!myDeliveries) return;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const ids = myDeliveries
+      .filter((d) => new Date(d.delivered_at).getTime() >= startOfToday)
+      .map((d) => d.customer_id);
+    if (ids.length) markVisitedMany(ids);
+  }, [myDeliveries]);
 
   // Inyecta al mapa cada cliente recién marcado como visitado (por el botón
   // del popup o por registrar una entrega). Idempotente vía injectedVisited.

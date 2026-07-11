@@ -16,6 +16,8 @@ export function useCreateDelivery() {
     mutationFn: createDelivery,
     onSuccess: (_data, variables: CreateDeliveryInput) => {
       qc.invalidateQueries({ queryKey: ['deliveries', variables.customer_id] });
+      // Refrescar el historial del chofer (Mis entregas, Carga del día, mapa)
+      qc.invalidateQueries({ queryKey: ['my-deliveries'] });
     },
   });
 }
