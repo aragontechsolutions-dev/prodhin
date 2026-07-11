@@ -9,6 +9,7 @@ import RegisterDeliveryScreen from '../screens/RegisterDeliveryScreen';
 import CustomerPreferencesScreen from '../screens/CustomerPreferencesScreen';
 import DeliveriesHistoryScreen from '../screens/DeliveriesHistoryScreen';
 import DailyLoadScreen from '../screens/DailyLoadScreen';
+import ManualScreen from '../screens/ManualScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
 
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   CustomerPreferences: undefined;
   DeliveriesHistory: undefined;
   DailyLoad: undefined;
+  Manual: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -47,6 +49,7 @@ export default function AppNavigator() {
         <Stack.Screen name="CustomerPreferences" component={CustomerPreferencesScreen} />
         <Stack.Screen name="DeliveriesHistory" component={DeliveriesHistoryScreen} />
         <Stack.Screen name="DailyLoad" component={DailyLoadScreen} />
+        <Stack.Screen name="Manual" component={ManualScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

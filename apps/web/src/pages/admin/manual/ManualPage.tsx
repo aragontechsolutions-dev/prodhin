@@ -4,8 +4,10 @@ const sections = [
   { id: 'intro', emoji: '🥚', label: 'Introducción' },
   { id: 'usuarios', emoji: '👤', label: 'Usuarios' },
   { id: 'clientes', emoji: '📍', label: 'Clientes' },
+  { id: 'categorias', emoji: '🥚', label: 'Categorías de huevo' },
   { id: 'asignaciones', emoji: '📋', label: 'Asignaciones' },
   { id: 'rutas', emoji: '🗺️', label: 'Rutas' },
+  { id: 'reportes', emoji: '📊', label: 'Reportes' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
 ];
@@ -140,7 +142,7 @@ export default function ManualPage() {
         <section id="intro" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
           <SectionTitle>🥚 Introducción</SectionTitle>
           <P>
-            <strong>Prodhin</strong> es un sistema de gestión de reparto diseñado para empresas de distribución. Permite al administrador organizar choferes, clientes y rutas de entrega, y brinda a cada chofer una app móvil con su mapa personalizado.
+            <strong>Prodhin</strong> es un sistema de gestión de reparto de huevos. Permite al administrador organizar choferes, clientes, categorías de huevo y rutas de entrega, y brinda a cada chofer una app móvil con su mapa, navegación integrada y registro de entregas. Toda entrega registrada por el chofer queda guardada y alimenta los reportes y la sugerencia de carga.
           </P>
           <div className="grid sm:grid-cols-2 gap-4 mt-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
@@ -210,6 +212,55 @@ export default function ManualPage() {
             'Copiar los valores (ej: -34.9011, -54.9595) en los campos Lat y Lng.',
           ]} />
           <Tip>Las coordenadas son esenciales: sin ellas el cliente no aparecerá en el mapa del chofer.</Tip>
+
+          <SubTitle>Validaciones al crear/editar</SubTitle>
+          <div className="space-y-2 mb-3">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">RUT único (bloqueante)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">No se puede crear un cliente con un RUT que ya usa otro cliente. El sistema avisa y no deja guardar.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Teléfono repetido (solo aviso)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Como un mismo dueño puede tener varias empresas/locales con el mismo teléfono, no se bloquea: aparece un aviso "¿crear de todas formas?" para confirmar.</p>
+            </div>
+          </div>
+
+          <SubTitle>🥚 Tipos de huevo habituales del cliente</SubTitle>
+          <P>Cada cliente puede tener asociados los tipos de huevo que suele comprar (uno o varios), con uno marcado como <strong>principal</strong>. Sirve de referencia y prellena la entrega en la app del chofer.</P>
+          <Steps items={[
+            'En la lista de clientes, hacer clic en el botón "🥚 Huevos" de la fila.',
+            'Tocar los tipos que el cliente compra habitualmente (se marcan en azul).',
+            'Con la estrella (⭐/☆) marcar cuál es el principal.',
+            'Los cambios se guardan al instante y el chofer los ve en su app.',
+          ]} />
+          <Tip>El chofer igual puede entregar cualquier tipo, esté o no en los habituales. Además, si entrega un tipo nuevo, la app le ofrece agregarlo a los habituales automáticamente.</Tip>
+        </section>
+
+        {/* Categorías de huevo */}
+        <section id="categorias" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🥚 Módulo Categorías de huevo</SectionTitle>
+          <P>Define los tipos de huevo que existen en el sistema (ej: Rojo Mediano, Blanco Especial, H). Estos tipos aparecen en la app del chofer al registrar entregas y al configurar los habituales de cada cliente.</P>
+
+          <SubTitle>Gestionar categorías</SubTitle>
+          <Steps items={[
+            'Ir a Categorías → "Nueva categoría".',
+            'Escribir el nombre, elegir el color (rojo, blanco o sin color) y el orden de aparición.',
+            'Guardar. La categoría queda activa y disponible en la app.',
+            'Para editar o cambiar el estado, usar los botones de cada fila.',
+          ]} />
+
+          <SubTitle>Desactivar vs. eliminar</SubTitle>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-700">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Desactivar (recomendado)</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">La categoría deja de aparecer en la app pero se conserva todo el historial de entregas. Es la baja segura.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Eliminar</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Solo se puede si la categoría no tiene entregas ni preferencias asociadas. Si las tiene, el sistema pide desactivarla en su lugar.</p>
+            </div>
+          </div>
+          <Warning>Los nombres de categoría no se repiten. Si intentás crear una con un nombre que ya existe, el sistema lo impide.</Warning>
         </section>
 
         {/* Asignaciones */}
@@ -258,9 +309,22 @@ export default function ManualPage() {
             'Ir a Rutas → "Nueva ruta".',
             'Asignar un nombre descriptivo y el chofer responsable.',
             'La ruta se crea activa. Hacer clic en ella para abrirla.',
-            'Seleccionar el día (ej: Miércoles) y agregar clientes desde el panel.',
+            'Seleccionar el día (ej: Miércoles) y agregar clientes desde la lista.',
             'Los clientes aparecerán en el mapa del chofer ese día con marcador verde pulsante.',
           ]} />
+
+          <SubTitle>Agregar/quitar clientes de un día</SubTitle>
+          <P>Al abrir una ruta y elegir un día, se muestra <strong>una sola lista</strong> de los clientes del chofer con un check por cada uno:</P>
+          <Steps items={[
+            'Elegir el día arriba (Lun–Vie, o Lun–Sáb en verano).',
+            'Buscar el cliente por nombre o RUT.',
+            'Tocar la fila para agregarlo (check verde) o quitarlo del día.',
+            'El filtro "Solo en ruta / Todos" y el contador ayudan a revisar de un vistazo.',
+          ]} />
+          <Tip>Los que ya están en ruta aparecen primero, con la etiqueta "EN RUTA". El buscador es clave cuando el chofer tiene muchos clientes.</Tip>
+
+          <SubTitle>🗓️ Copiar día</SubTitle>
+          <P>Si las rutas se repiten (ej: los clientes del lunes son casi los mismos del miércoles), usá "Copiar día": el botón muestra los otros días y, al elegir uno, copia todos sus clientes al día actual (omite los que ya están). Ahorra mucho tiempo de carga.</P>
 
           <SubTitle>Temporada y días disponibles</SubTitle>
           <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -277,6 +341,30 @@ export default function ManualPage() {
           <Warning>Si asignás un cliente a Sábado en temporada normal, ese cliente no aparecerá resaltado en verde porque el Sábado no es día de ruta fuera del verano.</Warning>
         </section>
 
+        {/* Reportes */}
+        <section id="reportes" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>📊 Módulo Reportes</SectionTitle>
+          <P>Muestra las entregas de huevo registradas por los choferes. Sirve para controlar qué se entregó, a quién y cuánto, y para responder consultas de clientes.</P>
+
+          <SubTitle>Filtros disponibles</SubTitle>
+          <div className="space-y-2 mb-3">
+            {[
+              { t: 'Rango de fechas', d: 'Desde / hasta (por defecto los últimos 30 días).' },
+              { t: 'Chofer', d: 'Ver las entregas de un chofer específico o de todos.' },
+              { t: 'Tipo de huevo', d: 'Filtrar por una categoría; las métricas y el detalle se ajustan a esa categoría.' },
+            ].map((f) => (
+              <div key={f.t} className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{f.t}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{f.d}</p>
+              </div>
+            ))}
+          </div>
+
+          <SubTitle>Qué muestra</SubTitle>
+          <P>Tarjetas con totales (cajones entregados, visitas, clientes atendidos, visitas sin venta), un desglose de cajones por tipo de huevo, y una tabla detallada de cada entrega. Se puede <strong>exportar a CSV</strong> para abrir en Excel.</P>
+          <Tip>La unidad base es la caja plástica. 1 cajón = 2 cajas plásticas, por eso podés ver medios cajones (ej: 2,5 cajones = 5 cajas plásticas).</Tip>
+        </section>
+
         {/* App móvil */}
         <section id="app-movil" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
           <SectionTitle>📱 App móvil — Flujo del chofer</SectionTitle>
@@ -286,17 +374,42 @@ export default function ManualPage() {
           <P>Si el administrador creó el usuario con "forzar cambio de contraseña" activado, la app mostrará una pantalla de cambio de contraseña antes de acceder al mapa. El chofer debe ingresar y confirmar su nueva contraseña. Tras confirmar, aparece un mensaje de éxito con cuenta regresiva de 4 segundos y la app redirige al login para ingresar con la nueva contraseña.</P>
 
           <SubTitle>Navegación — Menú lateral</SubTitle>
-          <P>El botón de tres líneas (☰) en la esquina superior izquierda abre un menú lateral deslizante con dos vistas:</P>
+          <P>El botón de tres líneas (☰) arriba a la izquierda abre el menú lateral. Al tocar fuera del menú, se cierra y vuelve a la vista del mapa. Contiene:</P>
           <div className="grid sm:grid-cols-2 gap-3 mb-4">
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📍 Mis clientes</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Lista de todos los clientes asignados con buscador. Al tocar un cliente el mapa vuela a su marcador.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Todos los clientes asignados con buscador. Al tocar uno, el mapa vuela a su marcador.</p>
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🗓️ Ruta de hoy</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Muestra los clientes pendientes (verde) y visitados (gris con ✓) del día. Al tocar un cliente pendiente el mapa vuela a él.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Clientes pendientes (verde) y visitados (gris con ✓) del día, con contador.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🥚 Tipos de huevo</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Los tipos habituales de cada cliente. Buscador y paginación. Se pueden editar desde el detalle del cliente.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🚚 Carga del día</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Sugerencia de cuántas cajas plásticas cargar por tipo para la ruta de hoy, según el historial (+10% de margen).</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📦 Mis entregas</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Historial de entregas con resumen por categoría, filtro por fecha (día o rango), cliente/RUT y tipo de huevo.</p>
             </div>
           </div>
+
+          <SubTitle>Registrar una entrega</SubTitle>
+          <P>Desde el detalle de un cliente, el botón "🥚 Registrar entrega" abre el formulario de entrega:</P>
+          <Steps items={[
+            'Elegir el resultado de la visita (Entregado / Ausente / No quiso / Sin stock).',
+            'Seleccionar uno o varios tipos de huevo (multi-selección). Se prellena con el tipo principal del cliente.',
+            'Indicar la cantidad de cajas plásticas por cada tipo (con +/− o tocando el número para escribirlo).',
+            'Guardar. El cliente queda marcado como visitado automáticamente.',
+          ]} />
+          <Tip>Si no hay señal, la entrega se guarda igual y se envía sola al reconectar. Y si se entrega un tipo que no está en los habituales del cliente, la app ofrece agregarlo.</Tip>
+
+          <SubTitle>Navegación integrada (GPS)</SubTitle>
+          <P>Desde el detalle del cliente se puede navegar hasta él dentro de la app, sin salir a Google Maps. El mapa rota para que la calle por la que se circula quede siempre vertical, con indicaciones de giro por voz y recálculo automático si el chofer se sale de la ruta. Los tiles del mapa se van cacheando para funcionar mejor sin conexión.</P>
 
           <SubTitle>Leyenda de marcadores</SubTitle>
           <div className="border border-gray-100 dark:border-gray-800 rounded-xl divide-y divide-gray-50 dark:divide-gray-800 mb-4">
@@ -375,8 +488,20 @@ export default function ManualPage() {
               a="Actualmente la temporada se calcula de forma automática según el mes: noviembre–febrero = verano (Lun–Sáb), marzo–octubre = normal (Lun–Vie). No requiere configuración manual."
             />
             <FaqItem
-              q="¿Los datos de visitas del chofer se guardan en la base de datos?"
-              a="No. Las marcas de 'visitado' son locales a la sesión de la app. Al cerrar y reabrir la app, los marcadores vuelven a su estado original. Esto es por diseño para no acumular datos históricos innecesarios."
+              q="¿Las entregas del chofer se guardan?"
+              a="Sí. Cada entrega registrada (tipo de huevo, cantidad, estado y fecha) se guarda en la base de datos y aparece en Reportes y en 'Mis entregas' de la app. Funciona también sin conexión: se envía sola al reconectar. En cambio, la marca visual de 'visitado' en el mapa es local a la sesión y se reinicia al reabrir la app."
+            />
+            <FaqItem
+              q="¿Cómo defino qué tipos de huevo compra un cliente?"
+              a="En Clientes → botón '🥚 Huevos' de la fila. Marcá los tipos habituales y elegí el principal con la estrella. El chofer los ve prellenados al registrar la entrega, pero puede entregar cualquier tipo igual."
+            />
+            <FaqItem
+              q="¿Puedo eliminar una categoría de huevo?"
+              a="Solo si no tiene entregas ni preferencias asociadas. Si ya se usó, el sistema no deja borrarla para no perder el historial: en ese caso, desactivala. Una categoría desactivada deja de aparecer en la app pero conserva todo lo registrado."
+            />
+            <FaqItem
+              q="¿Cómo funciona la 'Carga del día' del chofer?"
+              a="Estima cuántas cajas plásticas de cada tipo conviene cargar para la ruta del día, según lo que cada cliente suele comprar (cantidad típica × frecuencia), sumado sobre la ruta y con un 10% de margen. Necesita historial: las primeras semanas será poco precisa y mejora sola a medida que se registran entregas."
             />
             <FaqItem
               q="¿Qué pasa si desactivo un cliente que está en una ruta?"
