@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useRouteStops, useAddRouteStop, useRemoveRouteStop } from '../../../hooks/useRoutes';
+import { useRouteStops, useAddRouteStop, useRemoveRouteStop, useAddRouteStopsBulk } from '../../../hooks/useRoutes';
 import { useCustomers, useDriverCustomers } from '../../../hooks/useCustomers';
 import type { RouteWithDriver } from '../../../hooks/useRoutes';
 import type { Customer } from '@prodhin/shared';
@@ -31,9 +31,12 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
   const { data: assignments } = useDriverCustomers();
   const addStop = useAddRouteStop();
   const removeStop = useRemoveRouteStop();
+  const addBulk = useAddRouteStopsBulk();
 
   const [activeDay, setActiveDay] = useState<number>(activeDays[0] ?? 1);
   const [search, setSearch] = useState('');
+  const [onlyInRoute, setOnlyInRoute] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
 
   // Only customers assigned to this route's driver
   const driverCustomerIds = new Set(
@@ -48,32 +51,60 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
   const activeCustomers = (customers ?? []).filter((c) => c.is_active && driverCustomerIds.has(c.id));
   const dayStops = (stops ?? []).filter((s) => s.day_of_week === activeDay);
   const dayStopCustomerIds = new Set(dayStops.map((s) => s.customer_id));
+  // customer_id -> stop.id (para quitar con un toque)
+  const stopIdByCustomer = new Map(dayStops.map((s) => [s.customer_id, s.id]));
 
   const searchLower = search.toLowerCase();
-  const filteredCustomers = activeCustomers.filter((c) => {
-    if (dayStopCustomerIds.has(c.id)) return false;
-    if (!search) return true;
-    const name = getCustomerName(c).toLowerCase();
-    const tax = (c.tax_id ?? '').toLowerCase();
-    return name.includes(searchLower) || tax.includes(searchLower);
-  });
+  const listCustomers = activeCustomers
+    .filter((c) => {
+      if (onlyInRoute && !dayStopCustomerIds.has(c.id)) return false;
+      if (!search) return true;
+      const name = getCustomerName(c).toLowerCase();
+      const tax = (c.tax_id ?? '').toLowerCase();
+      return name.includes(searchLower) || tax.includes(searchLower);
+    })
+    .sort((a, b) => {
+      // Primero los que están en ruta, luego alfabético
+      const ai = dayStopCustomerIds.has(a.id) ? 0 : 1;
+      const bi = dayStopCustomerIds.has(b.id) ? 0 : 1;
+      if (ai !== bi) return ai - bi;
+      return getCustomerName(a).localeCompare(getCustomerName(b));
+    });
 
-  async function handleAdd(customerId: string) {
-    try {
-      await addStop.mutateAsync({ route_id: route.id, customer_id: customerId, day_of_week: activeDay });
-      toast.success('Cliente agregado a la ruta');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      toast.error(msg.includes('unique') ? 'Este cliente ya está en esta ruta para ese día' : 'Error al agregar');
+  async function toggle(c: Customer) {
+    const stopId = stopIdByCustomer.get(c.id);
+    if (stopId) {
+      try {
+        await removeStop.mutateAsync({ id: stopId, route_id: route.id });
+      } catch {
+        toast.error('Error al quitar el cliente');
+      }
+    } else {
+      try {
+        await addStop.mutateAsync({ route_id: route.id, customer_id: c.id, day_of_week: activeDay });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
+        toast.error(msg.includes('unique') ? 'Ya está en la ruta ese día' : 'Error al agregar');
+      }
     }
   }
 
-  async function handleRemove(stopId: string) {
+  async function copyFromDay(sourceDay: number) {
+    setCopyOpen(false);
+    const sourceIds = (stops ?? [])
+      .filter((s) => s.day_of_week === sourceDay)
+      .map((s) => s.customer_id)
+      // solo clientes válidos del chofer y que no estén ya en el día actual
+      .filter((id) => driverCustomerIds.has(id) && !dayStopCustomerIds.has(id));
+    if (sourceIds.length === 0) {
+      toast.info('No hay clientes nuevos para copiar de ese día');
+      return;
+    }
     try {
-      await removeStop.mutateAsync({ id: stopId, route_id: route.id });
-      toast.success('Cliente quitado de la ruta');
+      await addBulk.mutateAsync({ route_id: route.id, day_of_week: activeDay, customer_ids: sourceIds });
+      toast.success(`${sourceIds.length} cliente${sourceIds.length > 1 ? 's' : ''} copiado${sourceIds.length > 1 ? 's' : ''} a ${DAY_LABELS[activeDay]}`);
     } catch {
-      toast.error('Error al quitar el cliente');
+      toast.error('Error al copiar el día');
     }
   }
 
@@ -112,86 +143,118 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
         })}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800 mt-3">
-        {/* Left: customers in route for this day */}
-        <div className="min-w-0 min-h-[300px] flex flex-col">
-          <p className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            En ruta — {DAY_LABELS[activeDay]}
+      {/* Toolbar: contador + copiar día + filtro + buscador */}
+      <div className="px-4 pt-3 pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+            {dayStops.length} en ruta · {DAY_LABELS[activeDay]}
           </p>
-          {stopsLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : dayStops.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center px-4 text-center">
-              <p className="text-xs text-gray-400 dark:text-gray-600">Sin clientes para este día.<br />Agrega desde la lista →</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-50 dark:divide-gray-800">
-              {dayStops.map((stop) => {
-                const c = activeCustomers.find((x) => x.id === stop.customer_id);
-                if (!c) return null;
-                return (
-                  <div key={stop.id} className="px-4 py-2.5 flex items-center justify-between gap-2 group">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{getCustomerName(c)}</p>
-                      <p className="text-xs text-gray-400 truncate">{c.address}</p>
-                    </div>
-                    <button
-                      onClick={() => handleRemove(stop.id)}
-                      className="p-1 text-gray-300 hover:text-red-500 transition rounded flex-shrink-0"
-                      title="Quitar de la ruta"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right: available customers to add */}
-        <div className="min-w-0 min-h-[300px] flex flex-col">
-          <div className="px-4 py-2">
-            <input
-              type="text"
-              placeholder="Buscar por nombre o RUT..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
-            />
-          </div>
-          <div className="divide-y divide-gray-50 dark:divide-gray-800 overflow-y-auto max-h-80">
-            {filteredCustomers.length === 0 ? (
-              <div className="flex items-center justify-center py-8 px-4 text-center">
-                <p className="text-xs text-gray-400 dark:text-gray-600">
-                  {search ? 'Sin resultados' : 'Todos los clientes ya están en esta ruta'}
-                </p>
-              </div>
-            ) : (
-              filteredCustomers.slice(0, 50).map((c) => (
-                <div key={c.id} className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{getCustomerName(c)}</p>
-                    <p className="text-xs text-gray-400 truncate">{c.address}</p>
-                  </div>
-                  <button
-                    onClick={() => handleAdd(c.id)}
-                    className="p-1 text-gray-300 hover:text-primary-600 transition rounded flex-shrink-0"
-                    title="Agregar a la ruta"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
+          <div className="relative">
+            <button
+              onClick={() => setCopyOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copiar día
+            </button>
+            {copyOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setCopyOpen(false)} />
+                <div className="absolute right-0 mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1">
+                  <p className="px-3 py-1.5 text-[11px] text-gray-400 uppercase tracking-wide">Copiar clientes de:</p>
+                  {activeDays.filter((d) => d !== activeDay).map((d) => {
+                    const cnt = (stops ?? []).filter((s) => s.day_of_week === d).length;
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => copyFromDay(d)}
+                        disabled={cnt === 0 || addBulk.isPending}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-between"
+                      >
+                        <span>{DAY_LABELS[d]}</span>
+                        <span className="text-xs text-gray-400">{cnt}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))
+              </>
             )}
           </div>
         </div>
+
+        <input
+          type="text"
+          placeholder="Buscar por nombre o RUT..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+        />
+
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setOnlyInRoute(false)}
+            className={`text-xs font-semibold px-3 py-1 rounded-full transition ${!onlyInRoute ? 'bg-primary-500 text-gray-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setOnlyInRoute(true)}
+            className={`text-xs font-semibold px-3 py-1 rounded-full transition ${onlyInRoute ? 'bg-primary-500 text-gray-900' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+          >
+            Solo en ruta
+          </button>
+        </div>
+      </div>
+
+      {/* Lista única: tocar para agregar/quitar del día */}
+      <div className="border-t border-gray-100 dark:border-gray-800 min-h-[280px]">
+        {stopsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : listCustomers.length === 0 ? (
+          <div className="flex items-center justify-center py-16 px-4 text-center">
+            <p className="text-sm text-gray-400 dark:text-gray-600">
+              {search ? 'Sin resultados' : onlyInRoute ? 'Sin clientes en la ruta de este día' : 'No hay clientes asignados a este chofer'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50 dark:divide-gray-800 max-h-[26rem] overflow-y-auto">
+            {listCustomers.map((c) => {
+              const inRoute = dayStopCustomerIds.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => toggle(c)}
+                  disabled={addStop.isPending || removeStop.isPending}
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition disabled:opacity-60"
+                >
+                  {/* Check */}
+                  <span className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${inRoute ? 'bg-green-500 border-green-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                    {inRoute && (
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-medium truncate ${inRoute ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {getCustomerName(c)}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{c.address}</p>
+                  </div>
+                  {inRoute && (
+                    <span className="flex-shrink-0 text-[10px] font-bold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                      EN RUTA
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

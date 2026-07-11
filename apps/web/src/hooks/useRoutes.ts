@@ -116,3 +116,21 @@ export function useRemoveRouteStop() {
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['route-stops', v.route_id] }),
   });
 }
+
+// Alta masiva de paradas (para "Copiar día"): inserta varios clientes en un día
+export function useAddRouteStopsBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { route_id: string; day_of_week: number; customer_ids: string[] }) => {
+      if (payload.customer_ids.length === 0) return;
+      const rows = payload.customer_ids.map((customer_id) => ({
+        route_id: payload.route_id,
+        customer_id,
+        day_of_week: payload.day_of_week,
+      }));
+      const { error } = await supabase.from('route_stops').insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['route-stops', v.route_id] }),
+  });
+}
