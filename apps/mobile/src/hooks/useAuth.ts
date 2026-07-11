@@ -36,7 +36,14 @@ export function useAuth() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    // scope 'local' borra la sesión guardada aunque no haya red, así no se
+    // restaura sola al volver al login (evita el "auto-login" tras logout).
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // ignorar errores de red: la sesión local igual se limpia
+    }
+    setProfile(null);
   }
 
   return { profile, setProfile, loading, signIn, signOut };

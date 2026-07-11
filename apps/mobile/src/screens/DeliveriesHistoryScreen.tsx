@@ -84,15 +84,25 @@ export default function DeliveriesHistoryScreen() {
     });
   }, [deliveries, rangeDays, query, eggFilter]);
 
+  // Si hay filtro de categoría, cada entrega muestra SOLO esa categoría
+  // (ítems y total), aunque el cliente haya comprado otras.
+  const view = useMemo(() => {
+    if (!eggFilter) return filtered;
+    return filtered.map((d) => {
+      const items = d.items.filter((it) => it.egg_type_id === eggFilter);
+      return { ...d, items, total_cajas_plasticas: items.reduce((s, it) => s + it.cajas_plasticas, 0) };
+    });
+  }, [filtered, eggFilter]);
+
   const summary = useMemo(() => {
     let cajas = 0;
     const clientes = new Set<string>();
-    for (const d of filtered) {
+    for (const d of view) {
       cajas += d.total_cajas_plasticas;
       clientes.add(d.customer_id);
     }
-    return { entregas: filtered.length, clientes: clientes.size, cajas };
-  }, [filtered]);
+    return { entregas: view.length, clientes: clientes.size, cajas };
+  }, [view]);
 
   function renderItem({ item: d }: { item: MyDeliveryRow }) {
     const delivered = d.status === 'entregado';
@@ -199,7 +209,7 @@ export default function DeliveriesHistoryScreen() {
         <ActivityIndicator color="#f59e0b" size="large" style={{ marginTop: 30 }} />
       ) : (
         <FlatList
-          data={filtered}
+          data={view}
           keyExtractor={(d) => d.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}

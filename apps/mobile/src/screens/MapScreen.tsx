@@ -282,6 +282,30 @@ function buildMapHtml(
   }
   function fmtDist(m){return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
   function fmtTime(s){var m=Math.round(s/60);return m<60?m+' min':(Math.floor(m/60)+'h '+(m%60)+'min');}
+  /* Rumbo (0..360) del punto A al B */
+  function bearingBetween(lat1,lng1,lat2,lng2){
+    var p=Math.PI/180;
+    var y=Math.sin((lng2-lng1)*p)*Math.cos(lat2*p);
+    var x=Math.cos(lat1*p)*Math.sin(lat2*p)-Math.sin(lat1*p)*Math.cos(lat2*p)*Math.cos((lng2-lng1)*p);
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  /* Rumbo de la calle por la que se circula: dirección del tramo de ruta
+     desde la posición actual (nearestCoordIdx) hacia ~15 m adelante. Así la
+     calle queda siempre vertical y la flecha alineada con ella. */
+  function routeCourse(){
+    if(!NAV.coords||NAV.coords.length<2) return null;
+    var i=Math.min(nearestCoordIdx,NAV.coords.length-2);
+    var a=NAV.coords[i];
+    var ax=a.lat||a[0], ay=a.lng||a[1];
+    var b=NAV.coords[i+1];
+    for(var k=i+1;k<NAV.coords.length;k++){
+      var c=NAV.coords[k];
+      b=c;
+      if(haversine(ax,ay,c.lat||c[0],c.lng||c[1])>15) break;
+    }
+    if(!b) return null;
+    return bearingBetween(ax,ay,b.lat||b[0],b.lng||b[1]);
+  }
 
   /* Minimum distance from user to the route polyline.
      Window scales with speed: at 80km/h GPS ticks every 2s = ~45m per tick,
@@ -510,18 +534,26 @@ function buildMapHtml(
   /* ── Position update (called from React Native on every GPS tick) ── */
   function onPositionUpdate(lat,lng,heading){
     userPos=[lat,lng];
-    setUserMarker(lat,lng,heading);
 
-    if(!NAV.active) return;
+    if(!NAV.active){ setUserMarker(lat,lng,heading); return; }
 
-    /* Heading-up: smooth-rotate map so direction of travel is always "up".
-       Pan is deferred 50ms so the bearing set is flushed before we compute
-       container-point offsets — avoids jitter during turns. */
-    applyBearing(heading);
-    setTimeout(function(){ panWithLookAhead(lat,lng); }, 50);
-
-    /* Update grey/blue route progress */
+    /* Actualizar progreso primero para conocer el tramo de ruta actual */
     updateRouteProgress(lat,lng);
+
+    /* Orientar por la dirección de la CALLE (ruta), no por el GPS: así la
+       calle queda vertical y la flecha alineada con ella. Si no hay rumbo de
+       ruta (recalculando), usar el heading del GPS como respaldo. */
+    var course=routeCourse();
+    if(course==null) course=heading;
+
+    /* La flecha apunta "arriba" en la dirección de la calle */
+    setUserMarker(lat,lng,course);
+
+    /* Heading-up: rotar el mapa para que la calle quede vertical.
+       Pan diferido 50ms para que el bearing se aplique antes de calcular
+       el offset de pantalla — evita saltos en los giros. */
+    applyBearing(course);
+    setTimeout(function(){ panWithLookAhead(lat,lng); }, 50);
 
     /* Check arrival */
     if(haversine(lat,lng,NAV.destLat,NAV.destLng)<ARRIVE_DIST){
