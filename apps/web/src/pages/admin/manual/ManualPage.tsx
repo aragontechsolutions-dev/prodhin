@@ -382,7 +382,7 @@ export default function ManualPage() {
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🗓️ Ruta de hoy</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Clientes pendientes (verde) y visitados (gris con ✓) del día, con contador.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Del día: pendientes, entregados (con venta) y visitados sin venta, en listas separadas con contador.</p>
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🥚 Tipos de huevo</p>

@@ -46,7 +46,7 @@ const SECTIONS: Item[] = [
     body: [
       'Tocá las tres líneas (☰) arriba a la izquierda para abrir el menú.',
       '📍 Mis clientes: todos tus clientes.',
-      '🗓️ Ruta de hoy: pendientes y visitados del día.',
+      '🗓️ Ruta de hoy: pendientes, entregados y visitados sin venta.',
       '🥚 Tipos de huevo: qué compra cada cliente.',
       '🚚 Carga del día: cuánto conviene cargar hoy.',
       '📦 Mis entregas: historial de lo que entregaste.',

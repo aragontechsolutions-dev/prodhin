@@ -695,7 +695,8 @@ export default function MapScreen() {
 
   const todayRouteCustomers = allCustomers.filter((c) => todayRouteIds.has(c.id));
   const pendingCustomers = todayRouteCustomers.filter((c) => !visitedIds.has(c.id));
-  const visitedCustomers = todayRouteCustomers.filter((c) => visitedIds.has(c.id));
+  const deliveredCustomers = todayRouteCustomers.filter((c) => deliveredIds.has(c.id));
+  const visitedNoSaleCustomers = todayRouteCustomers.filter((c) => visitedIds.has(c.id) && !deliveredIds.has(c.id));
 
   // Inactivity timer
   const { resetTimers } = useInactivityTimer(
@@ -1102,13 +1103,32 @@ export default function MapScreen() {
                   ))
                 )}
 
-                {/* Visited */}
-                {visitedCustomers.length > 0 && (
+                {/* Entregados (con venta) */}
+                {deliveredCustomers.length > 0 && (
                   <>
                     <Text style={[styles.drawerSectionTitle, { marginTop: 16 }]}>
-                      ✅ Visitados ({visitedCustomers.length})
+                      ✅ Entregados ({deliveredCustomers.length})
                     </Text>
-                    {visitedCustomers.map((c) => (
+                    {deliveredCustomers.map((c) => (
+                      <View key={c.id} style={[styles.drawerCustomerCard, styles.drawerCustomerCardDelivered]}>
+                        <View style={[styles.drawerDot, styles.drawerDotDelivered]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.drawerCustomerName}>{getDisplayName(c)}</Text>
+                          <Text style={styles.drawerCustomerAddr}>{c.address}</Text>
+                        </View>
+                        <Text style={styles.drawerCheckmarkDelivered}>✓</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {/* Visitados sin venta */}
+                {visitedNoSaleCustomers.length > 0 && (
+                  <>
+                    <Text style={[styles.drawerSectionTitle, { marginTop: 16 }]}>
+                      ⚪ Visitados sin venta ({visitedNoSaleCustomers.length})
+                    </Text>
+                    {visitedNoSaleCustomers.map((c) => (
                       <View key={c.id} style={[styles.drawerCustomerCard, styles.drawerCustomerCardVisited]}>
                         <View style={[styles.drawerDot, styles.drawerDotVisited]} />
                         <View style={{ flex: 1 }}>
@@ -1262,12 +1282,15 @@ const styles = StyleSheet.create({
   drawerSectionTitle: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   drawerCustomerCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#f0fdf4', borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: '#bbf7d0' },
   drawerCustomerCardVisited: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
+  drawerCustomerCardDelivered: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
   drawerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#16a34a', flexShrink: 0 },
   drawerDotVisited: { backgroundColor: '#9ca3af' },
+  drawerDotDelivered: { backgroundColor: '#16a34a' },
   drawerCustomerName: { fontSize: 13, fontWeight: '600', color: '#111827' },
   drawerCustomerNameVisited: { color: '#9ca3af' },
   drawerCustomerAddr: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   drawerCheckmark: { fontSize: 14, color: '#9ca3af', fontWeight: '700' },
+  drawerCheckmarkDelivered: { fontSize: 14, color: '#16a34a', fontWeight: '700' },
   drawerEmpty: { alignItems: 'center', paddingTop: 40, gap: 8 },
   drawerEmptyIcon: { fontSize: 36 },
   drawerEmptyText: { fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'center' },
