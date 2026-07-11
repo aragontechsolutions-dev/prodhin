@@ -74,7 +74,7 @@ export default function CustomersPage() {
             {customers?.length ?? 0} clientes registrados
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
           {/* Toggle vista */}
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1">
             <button

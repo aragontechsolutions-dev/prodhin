@@ -114,7 +114,7 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
 
       <div className="grid grid-cols-2 gap-0 divide-x divide-gray-100 dark:divide-gray-800 mt-3">
         {/* Left: customers in route for this day */}
-        <div className="min-h-[300px] flex flex-col">
+        <div className="min-w-0 min-h-[300px] flex flex-col">
           <p className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             En ruta — {DAY_LABELS[activeDay]}
           </p>
@@ -154,7 +154,7 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
         </div>
 
         {/* Right: available customers to add */}
-        <div className="min-h-[300px] flex flex-col">
+        <div className="min-w-0 min-h-[300px] flex flex-col">
           <div className="px-4 py-2">
             <input
               type="text"
