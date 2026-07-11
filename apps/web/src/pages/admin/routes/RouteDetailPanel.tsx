@@ -119,7 +119,7 @@ export default function RouteDetailPanel({ route, activeDays }: Props) {
       </div>
 
       {/* Day tabs */}
-      <div className="flex gap-1 px-4 pt-3 pb-0 overflow-x-auto">
+      <div className="flex flex-wrap gap-1.5 px-4 pt-3 pb-0">
         {activeDays.map((d) => {
           const count = (stops ?? []).filter((s) => s.day_of_week === d).length;
           return (
