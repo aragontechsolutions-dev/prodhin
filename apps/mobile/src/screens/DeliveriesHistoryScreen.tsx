@@ -100,7 +100,7 @@ export default function DeliveriesHistoryScreen() {
   const animKey = customRange ? `c${customRange.from}-${customRange.to}` : rangeKey;
 
   // base = rango + búsqueda (sin filtro de categoría) → alimenta el resumen por categoría
-  const { view, summary, categorySummary } = useMemo(() => {
+  const { view, summary, categorySummary, totalCp } = useMemo(() => {
     const since = customRange ? customRange.from : startOfRange(rangeDays);
     const until = customRange ? customRange.to : Date.now();
     const q = query.trim().toLowerCase();
@@ -137,11 +137,13 @@ export default function DeliveriesHistoryScreen() {
       if (d.status !== 'entregado') continue;
       for (const it of d.items) cpByType.set(it.egg_type_id, (cpByType.get(it.egg_type_id) ?? 0) + it.cajas_plasticas);
     }
-    const categorySummary = (eggTypes ?? []).map((t) => ({
-      id: t.id, name: t.name, color: t.color, cp: cpByType.get(t.id) ?? 0,
-    }));
+    // Solo las categorías que tuvieron entregas en el período
+    const categorySummary = (eggTypes ?? [])
+      .map((t) => ({ id: t.id, name: t.name, color: t.color, cp: cpByType.get(t.id) ?? 0 }))
+      .filter((c) => c.cp > 0);
+    const totalCp = categorySummary.reduce((s, c) => s + c.cp, 0);
 
-    return { view, summary, categorySummary };
+    return { view, summary, categorySummary, totalCp };
   }, [deliveries, eggTypes, rangeDays, customRange, query, eggFilter]);
 
   const rangeTitle = customRange
@@ -187,14 +189,22 @@ export default function DeliveriesHistoryScreen() {
       {/* Resumen por categoría (animado) */}
       <View style={styles.catSection}>
         <Text style={styles.catSectionTitle}>Resumen · {rangeTitle}</Text>
-        <View style={styles.catGrid} key={animKey}>
-          {categorySummary.map((c, i) => (
-            <CategoryTile key={c.id} index={i} name={c.name} color={c.color} cp={c.cp} />
-          ))}
-          {categorySummary.length === 0 && (
-            <Text style={styles.catEmpty}>No hay categorías configuradas</Text>
-          )}
-        </View>
+        {categorySummary.length > 0 ? (
+          <>
+            <View style={styles.catTotalRow}>
+              <Text style={styles.catTotalLbl}>Total entregado</Text>
+              <Text style={styles.catTotalVal}>{totalCp} cp · {formatCajones(totalCp)} cajones</Text>
+            </View>
+            <Text style={styles.catNote}>Solo se muestran las categorías que tuvieron entregas.</Text>
+            <View style={styles.catGrid} key={animKey}>
+              {categorySummary.map((c, i) => (
+                <CategoryTile key={c.id} index={i} name={c.name} color={c.color} cp={c.cp} />
+              ))}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.catEmpty}>Sin entregas en el período seleccionado</Text>
+        )}
       </View>
 
       {/* Rango de fechas */}
@@ -320,6 +330,13 @@ const styles = StyleSheet.create({
 
   catSection: { paddingHorizontal: 16, paddingTop: 14 },
   catSectionTitle: { fontSize: 13, fontWeight: '800', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  catTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#1d4ed8', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14,
+  },
+  catTotalLbl: { color: '#bfdbfe', fontSize: 13, fontWeight: '600' },
+  catTotalVal: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  catNote: { fontSize: 12, color: '#9ca3af', marginTop: 8, marginBottom: 4 },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catTile: {
     width: '48%', backgroundColor: '#fff', borderRadius: 14, padding: 12,
