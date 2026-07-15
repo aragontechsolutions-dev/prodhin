@@ -31,6 +31,12 @@ import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useVisited, useVisitedKinds, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
+// Alias tipado laxo: los .d.ts de react-native-webview chocan con la versión
+// de @types/react del monorepo y marcan las props como `never`. El componente
+// funciona igual; el cast evita el falso error de TS sin afectar el runtime.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MapWebView = WebView as any;
+
 type MarkerKind = 'route' | 'route-visited' | 'route-delivered' | 'own' | 'delegated';
 type DrawerView = 'map' | 'route';
 
@@ -714,6 +720,13 @@ export default function MapScreen() {
     Animated.spring(drawerAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, speed: 20, bounciness: 0 }).start(() => setDrawerOpen(false));
   }
 
+  // Inyecta JS al WebView del mapa. Declarado antes de los efectos que lo usan.
+  const sendToMap = useCallback((msg: object) => {
+    webViewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(msg))} })); true;`
+    );
+  }, []);
+
   // Re-mount map when route or customer data changes
   useEffect(() => {
     if (routeData !== undefined) setMapKey((k) => k + 1);
@@ -774,12 +787,6 @@ export default function MapScreen() {
         return getDisplayName(c).toLowerCase().includes(q) || (c.tax_id ?? '').toLowerCase().includes(q);
       }).slice(0, 6)
     : [];
-
-  const sendToMap = useCallback((msg: object) => {
-    webViewRef.current?.injectJavaScript(
-      `window.dispatchEvent(new MessageEvent('message', { data: ${JSON.stringify(JSON.stringify(msg))} })); true;`
-    );
-  }, []);
 
   // Cargar el "visitado" persistido (sobrevive a reinicios de la app/teléfono)
   useEffect(() => { hydrateVisited(); }, []);
@@ -937,7 +944,7 @@ export default function MapScreen() {
       </View>
 
       {/* Map */}
-      <WebView
+      <MapWebView
         key={mapKey}
         ref={webViewRef}
         style={styles.map}
@@ -1254,7 +1261,7 @@ const styles = StyleSheet.create({
   searchItemSub: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   map: { flex: 1 },
   webviewLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: '#6b7280' },
   routeBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#f0fdf4', borderTopWidth: 1, borderTopColor: '#bbf7d0' },
   routeBannerOff: { backgroundColor: '#f9fafb', borderTopColor: '#e5e7eb' },
@@ -1267,7 +1274,7 @@ const styles = StyleSheet.create({
   statusTextOffline: { color: '#991b1b' },
 
   // Drawer
-  drawerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 40 },
+  drawerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 40 },
   drawer: {
     position: 'absolute', top: 0, left: 0, bottom: 0,
     width: DRAWER_WIDTH, backgroundColor: '#fff',
