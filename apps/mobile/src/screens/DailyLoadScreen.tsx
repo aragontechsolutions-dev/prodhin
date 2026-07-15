@@ -16,6 +16,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useMyCustomers } from '../hooks/useMyCustomers';
 import { useMyRoute, getTodayDayOfWeek, isSummerSeason } from '../hooks/useMyRoute';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { computeStock } from '../lib/truck';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'DailyLoad'>;
 
@@ -48,8 +50,15 @@ export default function DailyLoadScreen() {
   const { data: myCustomers } = useMyCustomers(profile?.id);
   const { data: routeData } = useMyRoute(profile?.id);
   const { data: deliveries, isLoading } = useMyDeliveries(profile?.id);
+  const { data: truckCounts } = useTruckCounts(profile?.id);
+  const { data: truckLoads } = useTruckLoads(profile?.id);
 
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const stock = useMemo(
+    () => computeStock(truckCounts ?? [], truckLoads ?? [], deliveries ?? []),
+    [truckCounts, truckLoads, deliveries],
+  );
 
   const allCustomers = useMemo(
     () => [...(myCustomers?.own ?? []), ...(myCustomers?.delegated ?? [])],
@@ -133,7 +142,18 @@ export default function DailyLoadScreen() {
     return { suggestions: list, deliveriesUsed: delivered.length, withHistory: customersWithHistory.size };
   }, [deliveries, routeCustomers]);
 
-  const totalCajas = suggestions.reduce((s, t) => s + t.suggested, 0);
+  // Descontar lo que ya está en el camión: A cargar = máx(0, demanda − stock)
+  const rows = useMemo(
+    () => suggestions.map((s) => {
+      const inTruck = stock.get(s.eggTypeId) ?? 0;
+      return { ...s, inTruck, toLoad: Math.max(0, s.suggested - inTruck) };
+    }),
+    [suggestions, stock],
+  );
+
+  const totalToLoad = rows.reduce((s, t) => s + t.toLoad, 0);
+  const totalDemand = rows.reduce((s, t) => s + t.suggested, 0);
+  const totalInTruck = useMemo(() => { let t = 0; for (const v of stock.values()) t += v; return t; }, [stock]);
 
   return (
     <View style={styles.container}>
@@ -161,26 +181,35 @@ export default function DailyLoadScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {/* Resumen */}
           <View style={styles.hero}>
-            <Text style={styles.heroLabel}>Sugerencia de carga (con +10% de margen)</Text>
+            <Text style={styles.heroLabel}>A cargar hoy (demanda − lo que hay en el camión)</Text>
             <Text style={styles.heroTotal}>
-              {totalCajas} <Text style={styles.heroUnit}>cajas plásticas</Text>
+              {totalToLoad} <Text style={styles.heroUnit}>cajas plásticas</Text>
             </Text>
-            <Text style={styles.heroSub}>= {formatCajones(totalCajas)} cajones · {suggestions.length} tipos</Text>
+            <Text style={styles.heroSub}>= {formatCajones(totalToLoad)} cajones</Text>
+            <View style={styles.heroBreak}>
+              <Text style={styles.heroBreakItem}>Demanda: {totalDemand} cp</Text>
+              <Text style={styles.heroBreakItem}>En camión: {totalInTruck} cp</Text>
+            </View>
           </View>
+
+          <TouchableOpacity style={styles.stockLink} onPress={() => navigation.navigate('TruckStock')} activeOpacity={0.8}>
+            <Text style={styles.stockLinkText}>🚚 Ver / actualizar stock del camión</Text>
+            <Text style={styles.stockLinkArrow}>›</Text>
+          </TouchableOpacity>
 
           <Text style={styles.note}>
             Basado en {deliveriesUsed} entregas de los últimos 90 días.
             {' '}{withHistory}/{routeCustomers.length} clientes de la ruta tienen historial.
           </Text>
 
-          {suggestions.length === 0 ? (
+          {rows.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📊</Text>
               <Text style={styles.emptyText}>Aún no hay historial suficiente</Text>
               <Text style={styles.emptySub}>Registrá entregas y la sugerencia irá mejorando.</Text>
             </View>
           ) : (
-            suggestions.map((s) => {
+            rows.map((s) => {
               const open = expanded === s.eggTypeId;
               return (
                 <View key={s.eggTypeId} style={styles.typeCard}>
@@ -192,9 +221,14 @@ export default function DailyLoadScreen() {
                     <View style={[styles.typeDot, { backgroundColor: eggDotColor(s.color) }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.typeName}>{s.name}</Text>
-                      <Text style={styles.typeSub}>{formatCajones(s.suggested)} cajones · {s.contributors.length} clientes</Text>
+                      <Text style={styles.typeSub}>
+                        demanda {s.suggested} · en camión {s.inTruck} cp
+                      </Text>
                     </View>
-                    <Text style={styles.typeQty}>{s.suggested}</Text>
+                    <View style={styles.toLoadBox}>
+                      <Text style={[styles.typeQty, s.toLoad === 0 && styles.typeQtyDone]}>{s.toLoad}</Text>
+                      <Text style={styles.toLoadLbl}>a cargar</Text>
+                    </View>
                     <Text style={styles.chevron}>{open ? '▾' : '▸'}</Text>
                   </TouchableOpacity>
                   {open && (
@@ -245,6 +279,18 @@ const styles = StyleSheet.create({
   heroTotal: { color: '#fff', fontSize: 34, fontWeight: '800', marginTop: 4 },
   heroUnit: { fontSize: 16, fontWeight: '700', color: '#dbeafe' },
   heroSub: { color: '#dbeafe', fontSize: 13, fontWeight: '600', marginTop: 2 },
+  heroBreak: { flexDirection: 'row', gap: 14, marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 8 },
+  heroBreakItem: { color: '#dbeafe', fontSize: 12, fontWeight: '600' },
+  toLoadBox: { alignItems: 'flex-end', minWidth: 52 },
+  toLoadLbl: { fontSize: 9, color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' },
+  typeQtyDone: { color: '#16a34a' },
+  stockLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#99f6e4',
+    paddingVertical: 12, paddingHorizontal: 14,
+  },
+  stockLinkText: { fontSize: 14, fontWeight: '700', color: '#0f766e' },
+  stockLinkArrow: { fontSize: 20, color: '#0f766e', fontWeight: '300' },
   note: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
   typeCard: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden' },
   typeHead: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },

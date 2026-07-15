@@ -1045,6 +1045,13 @@ export default function MapScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.drawerNavItem}
+            onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('TruckStock'), 300); }}
+          >
+            <Text style={styles.drawerNavIcon}>📦</Text>
+            <Text style={styles.drawerNavLabel}>Stock del camión</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerNavItem}
             onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('DeliveriesHistory'), 300); }}
           >
             <Text style={styles.drawerNavIcon}>📦</Text>
