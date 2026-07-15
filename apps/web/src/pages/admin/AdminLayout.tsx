@@ -68,6 +68,18 @@ const navItems = [
     ),
   },
   {
+    to: '/admin/stock',
+    label: 'Stock camiones',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 001 1h2m-3-1V8h4l3 4v4a1 1 0 01-1 1h-1" />
+      </svg>
+    ),
+  },
+  {
     to: '/admin/categorias',
     label: 'Categorías',
     icon: (

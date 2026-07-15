@@ -8,6 +8,7 @@ const sections = [
   { id: 'asignaciones', emoji: '📋', label: 'Asignaciones' },
   { id: 'rutas', emoji: '🗺️', label: 'Rutas' },
   { id: 'reportes', emoji: '📊', label: 'Reportes' },
+  { id: 'stock', emoji: '🚚', label: 'Stock camiones' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
 ];
@@ -365,6 +366,19 @@ export default function ManualPage() {
           <Tip>La unidad base es la caja plástica. 1 cajón = 2 cajas plásticas, por eso podés ver medios cajones (ej: 2,5 cajones = 5 cajas plásticas).</Tip>
         </section>
 
+        {/* Stock camiones */}
+        <section id="stock" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🚚 Stock de camiones</SectionTitle>
+          <P>Muestra qué hay en el camión de cada chofer <strong>ahora mismo</strong>, por tipo de huevo. El chofer mantiene su stock desde la app; acá el admin lo consulta.</P>
+          <SubTitle>Cómo se calcula</SubTitle>
+          <P>El stock se calcula solo, sin cargar nada a mano en el CORE:</P>
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
+            Stock = último recuento + cargas posteriores − entregas con venta posteriores
+          </div>
+          <P>El sobrante pasa solo de un día a otro. Este stock además <strong>apalanca la "Carga del día"</strong> del chofer: la app sugiere cargar solo lo que falta (demanda estimada − lo que ya hay en el camión).</P>
+          <Tip>Si un stock se ve raro, pedile al chofer que haga un "Recuento" en la app (cuenta física): eso fija el valor real y corrige cualquier desvío.</Tip>
+        </section>
+
         {/* App móvil */}
         <section id="app-movil" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
           <SectionTitle>📱 App móvil — Flujo del chofer</SectionTitle>
@@ -390,7 +404,11 @@ export default function ManualPage() {
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">🚚 Carga del día</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Sugerencia de cuántas cajas plásticas cargar por tipo para la ruta de hoy, según el historial (+10% de margen).</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Cuántas cajas plásticas cargar por tipo (demanda estimada según historial, +10%, menos lo que ya hay en el camión).</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📦 Stock del camión</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Lo que hay arriba del camión por tipo. El chofer registra cargas y hace recuentos; las entregas descuentan solas.</p>
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📦 Mis entregas</p>
