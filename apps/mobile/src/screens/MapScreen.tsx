@@ -505,6 +505,7 @@ function buildMapHtml(
       NAV.totalDist=route.summary.totalDistance;
       NAV.totalTime=route.summary.totalTime;
       NAV.active=true;
+      window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'navState',active:true}));
       NAV.stepIdx=0;
       nearestCoordIdx=0;
       recalculating=false;
@@ -527,6 +528,7 @@ function buildMapHtml(
 
   function cancelNavigation(){
     NAV.active=false;
+    window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'navState',active:false}));
     recalculating=false;
     smoothHeading=0;
     voiceAnnounced={};
@@ -541,32 +543,46 @@ function buildMapHtml(
   }
 
   /* ── Position update (called from React Native on every GPS tick) ── */
+  var prevMoveLat=null, prevMoveLng=null, moveHeading=null;
   function onPositionUpdate(lat,lng,heading){
     userPos=[lat,lng];
 
-    if(!NAV.active){ setUserMarker(lat,lng,heading); return; }
+    /* Rumbo de MOVIMIENTO: dirección del desplazamiento entre posiciones.
+       Es la fuente principal (apunta a donde se dirige el punto). Se actualiza
+       solo cuando el chofer se movió lo suficiente para ser fiable. */
+    if(prevMoveLat!=null){
+      var moved=haversine(prevMoveLat,prevMoveLng,lat,lng);
+      if(moved>=4){ moveHeading=bearingBetween(prevMoveLat,prevMoveLng,lat,lng); prevMoveLat=lat; prevMoveLng=lng; }
+    } else { prevMoveLat=lat; prevMoveLng=lng; }
+
+    /* Rumbo efectivo: movimiento > rumbo del GPS (si es válido) */
+    var eff = (moveHeading!=null) ? moveHeading
+              : ((heading!=null && heading>=0) ? heading : null);
+
+    if(!NAV.active){ setUserMarker(lat,lng, eff!=null?eff:0); return; }
 
     /* Actualizar progreso primero para conocer el tramo de ruta actual */
     updateRouteProgress(lat,lng);
 
-    /* Orientar por la dirección de la CALLE (ruta), no por el GPS: así la
-       calle queda vertical y la flecha alineada con ella. Si no hay rumbo de
-       ruta (recalculando), usar el heading del GPS como respaldo. */
-    var course=routeCourse();
-    if(course==null) course=heading;
+    /* En navegación: la flecha apunta en la dirección de movimiento y el mapa
+       gira para coincidir. Respaldo: rumbo de la ruta, y si no, el último. */
+    var dir = eff;
+    if(dir==null) dir = routeCourse();
+    if(dir==null || isNaN(dir)) dir = smoothHeading;
 
-    /* La flecha apunta "arriba" en la dirección de la calle */
-    setUserMarker(lat,lng,course);
+    /* La flecha apunta en la dirección de movimiento */
+    setUserMarker(lat,lng,dir);
 
-    /* Heading-up: rotar el mapa para que la calle quede vertical.
+    /* Heading-up: rotar el mapa para que esa dirección quede vertical.
        Pan diferido 50ms para que el bearing se aplique antes de calcular
        el offset de pantalla — evita saltos en los giros. */
-    applyBearing(course);
+    applyBearing(dir);
     setTimeout(function(){ panWithLookAhead(lat,lng); }, 50);
 
     /* Check arrival */
     if(haversine(lat,lng,NAV.destLat,NAV.destLng)<ARRIVE_DIST){
       NAV.active=false;
+      window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:'navState',active:false}));
       if(canRotate) map.setBearing(0);
       if(offRouteTimer){clearTimeout(offRouteTimer);offRouteTimer=null;}
       speak('Llegaste a tu destino');
@@ -639,7 +655,11 @@ function buildMapHtml(
       if(msg.type==='highlight'&&msg.id&&markerRefs[msg.id]){map.flyTo(markerRefs[msg.id].getLatLng(),16,{duration:0.8});markerRefs[msg.id].setIcon(highlightIcon);markerRefs[msg.id].openPopup();}
       if(msg.type==='clearHighlight'&&msg.id&&markerRefs[msg.id]){var c=customers.find(function(x){return x.id===msg.id;});if(c)markerRefs[msg.id].setIcon(iconMap[c.kind]||redIcon);}
       if(msg.type==='markVisited'&&msg.id&&markerRefs[msg.id]){var dk=msg.kind==='delivered';markerRefs[msg.id].setIcon(dk?deliveredIcon:visitedIcon);var c=customers.find(function(x){return x.id===msg.id;});if(c)c.kind=dk?'route-delivered':'route-visited';markerRefs[msg.id].closePopup();}
-      if(msg.type==='updatePos'){onPositionUpdate(msg.lat,msg.lng,msg.heading||0);}
+      if(msg.type==='updatePos'){onPositionUpdate(msg.lat,msg.lng,(msg.heading==null?-1:msg.heading));}
+      if(msg.type==='recenter'&&userPos){
+        if(NAV.active){ applyBearing(smoothHeading); setTimeout(function(){panWithLookAhead(userPos[0],userPos[1]);},50); }
+        else { map.flyTo(userPos,16,{duration:0.6}); }
+      }
     }catch(err){}
   }
 <\/script>
@@ -673,6 +693,7 @@ export default function MapScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [lastHighlighted, setLastHighlighted] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
+  const [navActive, setNavActive] = useState(false); // navegación activa (para ubicar el botón de recentrar)
 
   // Route alert modal
   const [routeAlertVisible, setRouteAlertVisible] = useState(false);
@@ -774,7 +795,9 @@ export default function MapScreen() {
         (position) => {
           const { latitude: lat, longitude: lng, heading } = position.coords;
           setUserLocation({ lat, lng });
-          sendToMap({ type: 'updatePos', lat, lng, heading: heading ?? 0 });
+          // Enviar el rumbo crudo (puede ser null/-1 si el GPS no lo da);
+          // el mapa calcula el rumbo por desplazamiento cuando falta.
+          sendToMap({ type: 'updatePos', lat, lng, heading: heading == null ? -1 : heading });
         },
       );
     })();
@@ -840,6 +863,9 @@ export default function MapScreen() {
       if (msg.type === 'speak') {
         Speech.stop();
         if (msg.text) Speech.speak(msg.text, { language: 'es-419', rate: 1.0, pitch: 1.0 });
+      }
+      if (msg.type === 'navState') {
+        setNavActive(!!msg.active);
       }
     } catch { }
   }
@@ -967,6 +993,17 @@ export default function MapScreen() {
           <ActivityIndicator size="large" color="#f59e0b" />
           <Text style={styles.loadingText}>Cargando clientes...</Text>
         </View>
+      )}
+
+      {/* Botón recentrar en la posición del chofer (encima del HUD en navegación) */}
+      {!isLoading && (
+        <TouchableOpacity
+          style={[styles.recenterBtn, navActive && styles.recenterBtnNav]}
+          onPress={() => sendToMap({ type: 'recenter' })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.recenterIcon}>📍</Text>
+        </TouchableOpacity>
       )}
 
       {/* Route progress banner */}
@@ -1260,6 +1297,14 @@ const styles = StyleSheet.create({
   searchItemName: { fontSize: 13, fontWeight: '600', color: '#111827' },
   searchItemSub: { fontSize: 11, color: '#6b7280', marginTop: 1 },
   map: { flex: 1 },
+  recenterBtn: {
+    position: 'absolute', right: 16, bottom: 96, width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', zIndex: 30,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
+  },
+  recenterBtnNav: { bottom: 190 }, // encima del bottom sheet de navegación
+  recenterIcon: { fontSize: 22 },
   webviewLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
   loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: '#6b7280' },
