@@ -21,12 +21,31 @@ export function useAuth() {
   }, []);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, role, is_active, must_change_password')
       .eq('id', userId)
-      .single();
-    setProfile(data ?? null);
+      .maybeSingle();
+
+    if (error) {
+      // Error de red u otro problema transitorio: NO cerramos la sesión
+      // (para no desloguear a un chofer que quedó sin conexión), solo no
+      // autenticamos todavía.
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!data || !data.is_active) {
+      // No hay perfil (usuario borrado, p. ej. tras un reset) o está inactivo:
+      // la sesión guardada ya no es válida → limpiarla y volver al login.
+      try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    setProfile(data);
     setLoading(false);
   }
 
