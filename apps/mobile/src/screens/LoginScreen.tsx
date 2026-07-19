@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { consumeSessionExpired } from '../lib/sessionNotice';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -26,6 +27,13 @@ export default function LoginScreen() {
     setErrorMessage(message);
     setErrorVisible(true);
   }
+
+  // Si la sesión se cerró sola por ser inválida, avisar al llegar al login
+  useEffect(() => {
+    if (consumeSessionExpired()) {
+      showError('Sesión expirada', 'Tu sesión expiró. Ingresá de nuevo con tus credenciales.');
+    }
+  }, []);
 
   async function handleLogin() {
     if (!email.trim() || !password) {

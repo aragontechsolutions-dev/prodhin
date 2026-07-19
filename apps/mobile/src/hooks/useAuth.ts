@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { markSessionExpired } from '../lib/sessionNotice';
 import type { Profile } from '../types';
 
 export function useAuth() {
@@ -38,7 +39,8 @@ export function useAuth() {
 
     if (!data || !data.is_active) {
       // No hay perfil (usuario borrado, p. ej. tras un reset) o está inactivo:
-      // la sesión guardada ya no es válida → limpiarla y volver al login.
+      // la sesión guardada ya no es válida → avisar, limpiarla y volver al login.
+      markSessionExpired();
       try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
       setProfile(null);
       setLoading(false);
