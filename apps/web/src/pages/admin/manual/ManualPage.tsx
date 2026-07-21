@@ -456,7 +456,7 @@ export default function ManualPage() {
           <Tip>Si no hay señal, la entrega se guarda igual y se envía sola al reconectar. Y si se entrega un tipo que no está en los habituales del cliente, la app ofrece agregarlo.</Tip>
 
           <SubTitle>Navegación integrada (GPS)</SubTitle>
-          <P>Desde el detalle del cliente se puede navegar hasta él dentro de la app, sin salir a Google Maps. El mapa rota para que la calle por la que se circula quede siempre vertical, con indicaciones de giro por voz y recálculo automático si el chofer se sale de la ruta. Los tiles del mapa se van cacheando para funcionar mejor sin conexión.</P>
+          <P>Desde el detalle del cliente se puede navegar hasta él dentro de la app, sin salir a Google Maps. La flecha del chofer apunta hacia donde se desplaza y el mapa rota para que la calle quede siempre vertical, con indicaciones de giro por voz y recálculo automático si se sale de la ruta. Un botón 📍 (abajo a la derecha) recentra el mapa en la posición del chofer. Los tiles del mapa se van cacheando para funcionar mejor sin conexión.</P>
 
           <SubTitle>Leyenda de marcadores</SubTitle>
           <div className="border border-gray-100 dark:border-gray-800 rounded-xl divide-y divide-gray-50 dark:divide-gray-800 mb-4">
@@ -549,7 +549,23 @@ export default function ManualPage() {
             />
             <FaqItem
               q="¿Cómo funciona la 'Carga del día' del chofer?"
-              a="Estima cuántas cajas plásticas de cada tipo conviene cargar para la ruta del día, según lo que cada cliente suele comprar (cantidad típica × frecuencia), sumado sobre la ruta y con un 10% de margen. Necesita historial: las primeras semanas será poco precisa y mejora sola a medida que se registran entregas."
+              a="Estima cuántas cajas plásticas de cada tipo conviene cargar para la ruta del día, según lo que cada cliente suele comprar (cantidad típica × frecuencia), sumado sobre la ruta y con un 10% de margen, menos lo que ya hay en el camión. Necesita historial: las primeras semanas será poco precisa y mejora sola a medida que se registran entregas."
+            />
+            <FaqItem
+              q="El chofer se equivocó de categoría en una entrega, ¿cómo la corrijo?"
+              a="En Reportes → botón 'Corregir' en la fila de la entrega. Podés cambiar estado, tipos, cantidades, modo y cajas recogidas. Es obligatorio escribir un motivo, que queda registrado en la Auditoría."
+            />
+            <FaqItem
+              q="¿Qué significan las 'Cajas en el local' del cliente?"
+              a="Son las cajas plásticas prestadas que hay en el local del cliente, pendientes de recoger. Se calcula solo: cajas dejadas en las entregas (modo 'deja cajas') menos las cajas recogidas por el chofer en cada visita. Se ve en la lista de clientes (web) y en el detalle del cliente (app)."
+            />
+            <FaqItem
+              q="¿Quién puede hacer recuentos del camión?"
+              a="Solo el administrador, desde Stock camiones (botón 'Hacer recuento'). El chofer únicamente registra cargas desde la app; las entregas descuentan solas. El recuento fija el stock real y corrige desvíos."
+            />
+            <FaqItem
+              q="¿Se registra quién hizo cada cambio?"
+              a="Sí. El módulo Auditoría (solo admin) guarda automáticamente toda creación, edición y borrado en las tablas clave, con el usuario, la acción, el motivo (si aplica) y el detalle del cambio. Se genera a nivel de base de datos, así que no se puede saltear."
             />
             <FaqItem
               q="¿Qué pasa si desactivo un cliente que está en una ruta?"

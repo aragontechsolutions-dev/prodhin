@@ -59,9 +59,10 @@ const SECTIONS: Item[] = [
     title: 'Navegar hasta un cliente',
     body: [
       'Tocá un cliente y luego "Navegar".',
-      'El mapa gira para que la calle por la que vas quede siempre vertical.',
+      'La flecha apunta hacia donde te movés y el mapa gira para que la calle quede vertical.',
       'Te avisa los giros por voz.',
       'Si te salís del camino, recalcula la ruta solo.',
+      'Botón 📍 (abajo a la derecha): vuelve a centrar el mapa en tu posición.',
     ],
     tip: 'No necesitás salir a Google Maps: la navegación es dentro de la app.',
   },
@@ -129,7 +130,8 @@ const SECTIONS: Item[] = [
     body: [
       'La primera vez la app te pide cambiar la contraseña temporal.',
       'Por seguridad, la sesión se cierra sola si no usás la app un buen rato.',
-      'Si te pasa, volvés a ingresar con tu email y contraseña.',
+      'Si ves "Sesión expirada", volvé a ingresar con tu email y contraseña.',
+      'Sin credenciales correctas no se entra.',
     ],
   },
 ];
