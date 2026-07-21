@@ -11,6 +11,7 @@ import {
 import { usePagination, PAGE_SIZE_OPTIONS } from '../../../hooks/usePagination';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
+import EditDeliveryModal from './EditDeliveryModal';
 
 function isoDate(d: Date): string {
   return d.toISOString().split('T')[0];
@@ -63,6 +64,7 @@ export default function ReportsPage() {
   const [to, setTo] = useState(isoDate(TODAY));
   const [driverId, setDriverId] = useState('');
   const [eggTypeId, setEggTypeId] = useState('');
+  const [editing, setEditing] = useState<DeliveryRow | null>(null);
 
   const { data: users } = useUsers();
   const { data: eggTypes } = useEggTypes();
@@ -256,6 +258,7 @@ export default function ReportsPage() {
                         <th className="px-5 py-3 font-medium">Estado</th>
                         <th className="px-5 py-3 font-medium">Detalle</th>
                         <th className="px-5 py-3 font-medium text-right">Cajones</th>
+                        <th className="px-5 py-3" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -276,6 +279,14 @@ export default function ReportsPage() {
                           <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{itemsSummary(r)}</td>
                           <td className="px-5 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">
                             {r.status === 'entregado' ? formatCajones(r.total_cajas_plasticas) : '—'}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button
+                              onClick={() => setEditing(r)}
+                              className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                              Corregir
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -314,6 +325,8 @@ export default function ReportsPage() {
           </div>
         </>
       )}
+
+      <EditDeliveryModal delivery={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }

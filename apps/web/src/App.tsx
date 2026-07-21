@@ -13,6 +13,7 @@ import RoutesPage from './pages/admin/routes/RoutesPage';
 import ReportsPage from './pages/admin/reports/ReportsPage';
 import EggTypesPage from './pages/admin/eggtypes/EggTypesPage';
 import StockPage from './pages/admin/stock/StockPage';
+import AuditPage from './pages/admin/audit/AuditPage';
 import ManualPage from './pages/admin/manual/ManualPage';
 
 function NoAutorizado() {
@@ -67,6 +68,7 @@ function App() {
           <Route path="/admin/reportes" element={<ReportsPage />} />
           <Route path="/admin/categorias" element={<EggTypesPage />} />
           <Route path="/admin/stock" element={<StockPage />} />
+          <Route path="/admin/auditoria" element={<AuditPage />} />
           <Route path="/admin/manual" element={<ManualPage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
 export type DeliveryStatus =
@@ -29,6 +29,8 @@ export interface DeliveryRow {
   driver_id: string;
   driver_name: string;
   status: DeliveryStatus;
+  mode: 'cp' | 'cartones';
+  cajas_recogidas: number;
   notes: string | null;
   delivered_at: string;
   items: DeliveryItemRow[];
@@ -50,6 +52,8 @@ interface RawDelivery {
   customer_id: string;
   driver_id: string;
   status: DeliveryStatus;
+  mode: 'cp' | 'cartones';
+  cajas_recogidas: number;
   notes: string | null;
   delivered_at: string;
   customers: {
@@ -91,7 +95,7 @@ export function useDeliveries(filters: DeliveryFilters) {
       let query = supabase
         .from('deliveries')
         .select(`
-          id, customer_id, driver_id, status, notes, delivered_at,
+          id, customer_id, driver_id, status, mode, cajas_recogidas, notes, delivered_at,
           customers!customer_id(customer_type, first_name, last_name, business_name),
           profiles!driver_id(full_name),
           delivery_items(id, cajas_plasticas, egg_type_id, egg_types(name, color))
@@ -120,6 +124,8 @@ export function useDeliveries(filters: DeliveryFilters) {
           driver_id: d.driver_id,
           driver_name: d.profiles?.full_name ?? 'Chofer',
           status: d.status,
+          mode: d.mode ?? 'cp',
+          cajas_recogidas: d.cajas_recogidas ?? 0,
           notes: d.notes,
           delivered_at: d.delivered_at,
           items,
@@ -143,5 +149,46 @@ export function useDeliveries(filters: DeliveryFilters) {
 
       return rows;
     },
+  });
+}
+
+export interface UpdateDeliveryInput {
+  id: string;
+  status: DeliveryStatus;
+  mode: 'cp' | 'cartones';
+  cajas_recogidas: number;
+  reason: string;
+  items: { egg_type_id: string; cajas_plasticas: number }[];
+}
+
+/** Corrige una entrega (cabecera + líneas). Requiere un motivo, que queda en
+ *  la auditoría (edit_reason). */
+export function useUpdateDelivery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateDeliveryInput) => {
+      const { error: dErr } = await supabase
+        .from('deliveries')
+        .update({
+          status: input.status,
+          mode: input.mode,
+          cajas_recogidas: input.cajas_recogidas,
+          edit_reason: input.reason,
+        })
+        .eq('id', input.id);
+      if (dErr) throw dErr;
+
+      const { error: delErr } = await supabase.from('delivery_items').delete().eq('delivery_id', input.id);
+      if (delErr) throw delErr;
+
+      const rows = input.items
+        .filter((it) => it.egg_type_id && it.cajas_plasticas >= 0)
+        .map((it) => ({ delivery_id: input.id, egg_type_id: it.egg_type_id, cajas_plasticas: it.cajas_plasticas }));
+      if (rows.length > 0) {
+        const { error: iErr } = await supabase.from('delivery_items').insert(rows);
+        if (iErr) throw iErr;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['deliveries'] }),
   });
 }

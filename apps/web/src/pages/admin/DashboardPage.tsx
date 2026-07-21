@@ -56,6 +56,7 @@ export default function DashboardPage() {
     { to: '/admin/reportes', emoji: '📊', label: 'Reportes', desc: 'Entregas de huevo por chofer' },
     { to: '/admin/categorias', emoji: '🥚', label: 'Categorías', desc: 'Tipos de huevo disponibles' },
     { to: '/admin/stock', emoji: '🚚', label: 'Stock camiones', desc: 'Qué hay en cada camión' },
+    { to: '/admin/auditoria', emoji: '📝', label: 'Auditoría', desc: 'Historial de acciones' },
     { to: '/admin/manual', emoji: '📖', label: 'Manual', desc: 'Guía completa del sistema' },
   ];
 

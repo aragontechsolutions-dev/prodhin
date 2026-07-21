@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { toast } from 'sonner';
 import { useCustomers, useDeleteCustomer } from '../../../hooks/useCustomers';
+import { useBoxBalances } from '../../../hooks/useBoxBalances';
 import { useAuth } from '../../../hooks/useAuth';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
@@ -25,6 +26,7 @@ export function getDisplayName(c: Customer): string {
 
 export default function CustomersPage() {
   const { data: customers, isLoading } = useCustomers();
+  const { data: boxBalances } = useBoxBalances();
   const deleteCustomer = useDeleteCustomer();
   const { profile } = useAuth();
 
@@ -152,6 +154,7 @@ export default function CustomersPage() {
                       <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Tipo</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Teléfono</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Dirección</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400" title="Cajas plásticas en el local">📦 Cajas</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-400">Estado</th>
                       <th className="px-5 py-3" />
                     </tr>
@@ -172,6 +175,11 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400">{c.phone}</td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400 max-w-xs truncate">{c.address}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`font-bold ${(boxBalances?.get(c.id) ?? 0) > 0 ? 'text-teal-700 dark:text-teal-400' : 'text-gray-400'}`}>
+                            {boxBalances?.get(c.id) ?? 0}
+                          </span>
+                        </td>
                         <td className="px-5 py-3.5">
                           <Badge variant={c.is_active ? 'green' : 'red'}>
                             {c.is_active ? 'Activo' : 'Inactivo'}
@@ -209,6 +217,7 @@ export default function CustomersPage() {
                         <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{getDisplayName(c)}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{c.address}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{c.phone}</p>
+                        <p className="text-xs text-teal-700 dark:text-teal-400 font-semibold mt-0.5">📦 {boxBalances?.get(c.id) ?? 0} cajas en local</p>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         <Badge variant={c.customer_type === 'empresa' ? 'blue' : 'yellow'}>
