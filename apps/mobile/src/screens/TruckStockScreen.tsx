@@ -17,13 +17,14 @@ import { formatCajones, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
-import { useTruckLoads, useTruckCounts, useRegisterLoads, useRegisterCounts } from '../hooks/useTruckStock';
+import { useTruckLoads, useTruckCounts, useRegisterLoads } from '../hooks/useTruckStock';
 import { computeStock } from '../lib/truck';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { uuidv4 } from '../lib/uuid';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'TruckStock'>;
-type Mode = 'view' | 'load' | 'count';
+// El chofer solo registra CARGAS; los recuentos los hace el admin en la web.
+type Mode = 'view' | 'load';
 
 function eggDotColor(color: EggType['color']): string {
   if (color === 'rojo') return '#ef4444';
@@ -40,7 +41,6 @@ export default function TruckStockScreen() {
   const { data: loads } = useTruckLoads(profile?.id);
   const { data: deliveries } = useMyDeliveries(profile?.id);
   const registerLoads = useRegisterLoads();
-  const registerCounts = useRegisterCounts();
 
   const [mode, setMode] = useState<Mode>('view');
   // valores del formulario por tipo (string para permitir escribir libremente)
@@ -59,12 +59,7 @@ export default function TruckStockScreen() {
 
   function startMode(m: Mode) {
     const init: Record<string, string> = {};
-    if (m === 'count') {
-      // recuento arranca con el stock actual
-      (eggTypes ?? []).forEach((t) => { init[t.id] = String(stock.get(t.id) ?? 0); });
-    } else {
-      (eggTypes ?? []).forEach((t) => { init[t.id] = ''; });
-    }
+    (eggTypes ?? []).forEach((t) => { init[t.id] = ''; });
     setInputs(init);
     setMode(m);
   }
@@ -79,21 +74,13 @@ export default function TruckStockScreen() {
       .map((t) => ({ id: uuidv4(), egg_type_id: t.id, cajas_plasticas: parseInt(inputs[t.id] || '0', 10) || 0 }));
 
     try {
-      if (mode === 'load') {
-        const toLoad = items.filter((it) => it.cajas_plasticas > 0);
-        if (toLoad.length === 0) { Alert.alert('Nada para cargar', 'Ingresá al menos una cantidad.'); return; }
-        await registerLoads.mutateAsync({
-          driver_id: profile.id,
-          created_at: new Date().toISOString(),
-          items: toLoad,
-        });
-      } else if (mode === 'count') {
-        await registerCounts.mutateAsync({
-          driver_id: profile.id,
-          counted_at: new Date().toISOString(),
-          items, // incluye ceros (valor absoluto)
-        });
-      }
+      const toLoad = items.filter((it) => it.cajas_plasticas > 0);
+      if (toLoad.length === 0) { Alert.alert('Nada para cargar', 'Ingresá al menos una cantidad.'); return; }
+      await registerLoads.mutateAsync({
+        driver_id: profile.id,
+        created_at: new Date().toISOString(),
+        items: toLoad,
+      });
       setMode('view');
     } catch (e: any) {
       if (!isOnline) {
@@ -105,7 +92,7 @@ export default function TruckStockScreen() {
     }
   }
 
-  const saving = registerLoads.isPending || registerCounts.isPending;
+  const saving = registerLoads.isPending;
   const editing = mode !== 'view';
 
   return (
@@ -131,7 +118,7 @@ export default function TruckStockScreen() {
           {/* Total */}
           <View style={styles.hero}>
             <Text style={styles.heroLabel}>
-              {mode === 'load' ? 'Registrando carga' : mode === 'count' ? 'Recuento del camión' : 'En el camión ahora'}
+              {mode === 'load' ? 'Registrando carga' : 'En el camión ahora'}
             </Text>
             <Text style={styles.heroTotal}>{totalStock} <Text style={styles.heroUnit}>cp</Text></Text>
             <Text style={styles.heroSub}>= {formatCajones(totalStock)} cajones</Text>
@@ -139,9 +126,7 @@ export default function TruckStockScreen() {
 
           {editing && (
             <Text style={styles.modeHint}>
-              {mode === 'load'
-                ? 'Ingresá cuántas cajas plásticas SUMÁS al camión por cada tipo.'
-                : 'Ingresá cuántas cajas plásticas HAY ahora de cada tipo (valor real contado).'}
+              Ingresá cuántas cajas plásticas SUMÁS al camión por cada tipo.
             </Text>
           )}
 
@@ -180,9 +165,6 @@ export default function TruckStockScreen() {
               <TouchableOpacity style={[styles.actionBtn, styles.loadBtn]} onPress={() => startMode('load')} activeOpacity={0.85}>
                 <Text style={styles.loadBtnText}>➕ Registrar carga</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.countBtn]} onPress={() => startMode('count')} activeOpacity={0.85}>
-                <Text style={styles.countBtnText}>🔢 Hacer recuento</Text>
-              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.actions}>
@@ -196,7 +178,8 @@ export default function TruckStockScreen() {
           )}
 
           <Text style={styles.footnote}>
-            El stock se calcula solo: último recuento + cargas − entregas. El sobrante pasa de un día a otro.
+            El stock se calcula solo: último recuento + cargas − entregas. Vos registrás las cargas;
+            el recuento (ajuste real) lo hace el administrador desde la web.
           </Text>
         </ScrollView>
       )}

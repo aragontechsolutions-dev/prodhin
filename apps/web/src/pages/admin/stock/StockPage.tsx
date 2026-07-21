@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTruckStock } from '../../../hooks/useTruckStock';
 import { useUsers } from '../../../hooks/useUsers';
 import { useEggTypes, type EggType } from '../../../hooks/useEggTypes';
+import RecountModal from './RecountModal';
 
 function dotColor(color: EggType['color']): string {
   if (color === 'rojo') return '#ef4444';
@@ -37,6 +38,19 @@ export default function StockPage() {
     for (const arr of m.values()) arr.sort((a, b) => a.egg.sort_order - b.egg.sort_order);
     return m;
   }, [stock, eggMap]);
+
+  // Stock por chofer como Map<egg_type_id, cp> (para prellenar el recuento)
+  const stockByDriver = useMemo(() => {
+    const m = new Map<string, Map<string, number>>();
+    for (const r of stock ?? []) {
+      const dm = m.get(r.driver_id) ?? new Map<string, number>();
+      dm.set(r.egg_type_id, r.cajas_plasticas);
+      m.set(r.driver_id, dm);
+    }
+    return m;
+  }, [stock]);
+
+  const [recounting, setRecounting] = useState<{ id: string; name: string } | null>(null);
 
   const choferes = (users ?? []).filter((u) => u.role === 'chofer' && u.is_active);
 
@@ -90,6 +104,14 @@ export default function StockPage() {
                     ))}
                   </div>
                 )}
+                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => setRecounting({ id: c.id, name: c.full_name })}
+                    className="w-full text-sm font-semibold text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg py-2 transition"
+                  >
+                    🔢 Hacer recuento
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -97,8 +119,15 @@ export default function StockPage() {
       )}
 
       <p className="text-xs text-gray-400 dark:text-gray-500">
-        cp = cajas plásticas · cj = cajones (1 cajón = 2 cajas plásticas). El chofer actualiza el stock desde la app (cargas y recuentos).
+        cp = cajas plásticas · cj = cajones (1 cajón = 2 cajas plásticas). El chofer registra las cargas desde la app; el recuento (ajuste real) lo hace el admin acá.
       </p>
+
+      <RecountModal
+        driverId={recounting?.id ?? null}
+        driverName={recounting?.name ?? ''}
+        currentStock={recounting ? (stockByDriver.get(recounting.id) ?? new Map()) : new Map()}
+        onClose={() => setRecounting(null)}
+      />
     </div>
   );
 }

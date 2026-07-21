@@ -107,11 +107,11 @@ const SECTIONS: Item[] = [
     body: [
       'Muestra lo que hay arriba del camión por tipo de huevo.',
       '➕ Registrar carga: sumás lo que subís al camión.',
-      '🔢 Hacer recuento: ponés la cantidad real contada (corrige desvíos).',
       'Cada entrega descuenta sola del stock.',
       'El sobrante queda para el día siguiente.',
+      'El recuento (ajuste real) lo hace el administrador desde la web.',
     ],
-    tip: 'A la mañana hacé la carga; a fin del día un recuento rápido deja todo exacto.',
+    tip: 'A la mañana registrás la carga; si el stock quedó desfasado, avisá al admin para que haga un recuento.',
   },
   {
     icon: '📦',
