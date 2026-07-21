@@ -6,12 +6,16 @@ export interface DeliveryLineInput {
   cajas_plasticas: number;
 }
 
+export type DeliveryMode = 'cp' | 'cartones';
+
 export interface CreateDeliveryInput {
   // id generado en el cliente => reintentos offline idempotentes
   id: string;
   customer_id: string;
   driver_id: string;
   status: DeliveryStatus;
+  mode: DeliveryMode;          // 'cp' deja cajas plásticas, 'cartones' no
+  cajas_recogidas: number;     // cajas plásticas vacías recogidas en la visita
   notes?: string | null;
   delivered_at: string; // ISO
   items: DeliveryLineInput[];
@@ -38,6 +42,8 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<void> 
         customer_id: header.customer_id,
         driver_id: header.driver_id,
         status: header.status,
+        mode: header.mode,
+        cajas_recogidas: header.cajas_recogidas,
         notes: header.notes ?? null,
         delivered_at: header.delivered_at,
       },

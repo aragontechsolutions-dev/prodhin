@@ -15,6 +15,7 @@ import { getDisplayName, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useEggTypes } from '../hooks/useEggTypes';
+import { useCustomerBoxBalance } from '../hooks/useCustomerBoxBalance';
 import {
   useCustomerPreferences,
   useAddPreference,
@@ -51,6 +52,7 @@ export default function CustomerDetailScreen() {
   const { customer: c } = route.params;
   const { signOut } = useAuth();
   const { resetTimers } = useInactivityTimer(signOut);
+  const { data: boxBalance } = useCustomerBoxBalance(c.id);
 
   function openGoogleMaps() {
     const url = Platform.select({
@@ -133,6 +135,16 @@ export default function CustomerDetailScreen() {
         </View>
 
         {/* Tipos de huevo habituales */}
+        {/* Cajas plásticas en el local */}
+        <View style={styles.boxCard}>
+          <Text style={styles.boxIcon}>📦</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.boxLabel}>Cajas plásticas en el local</Text>
+            <Text style={styles.boxHint}>Prestadas al cliente, pendientes de recoger</Text>
+          </View>
+          <Text style={[styles.boxValue, (boxBalance ?? 0) < 0 && styles.boxValueNeg]}>{boxBalance ?? 0}</Text>
+        </View>
+
         <EggPreferencesCard customerId={c.id} />
 
         {/* Registrar entrega */}
@@ -258,6 +270,16 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
 }
 
 const styles = StyleSheet.create({
+  boxCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#f3f4f6',
+  },
+  boxIcon: { fontSize: 26 },
+  boxLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  boxHint: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  boxValue: { fontSize: 28, fontWeight: '800', color: '#0f766e' },
+  boxValueNeg: { color: '#dc2626' },
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',

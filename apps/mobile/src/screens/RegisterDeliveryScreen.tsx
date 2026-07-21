@@ -18,6 +18,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
 import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
+import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { computeStock } from '../lib/truck';
+import type { DeliveryMode } from '../lib/deliveries';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { markVisited } from '../lib/visitedStore';
 import { uuidv4 } from '../lib/uuid';
@@ -41,13 +45,24 @@ export default function RegisterDeliveryScreen() {
 
   const { data: eggTypes, isLoading: loadingTypes } = useEggTypes();
   const { data: preferences } = useCustomerPreferences();
+  const { data: myDeliveries } = useMyDeliveries(profile?.id);
+  const { data: truckCounts } = useTruckCounts(profile?.id);
+  const { data: truckLoads } = useTruckLoads(profile?.id);
   const createDelivery = useCreateDelivery();
   const addPref = useAddPreference();
 
   const [status, setStatus] = useState<DeliveryStatus>('entregado');
   // Una línea por tipo de huevo entregado
   const [lines, setLines] = useState<{ egg_type_id: string; cajas: number }[]>([]);
+  const [mode, setMode] = useState<DeliveryMode>('cp');
+  const [cajasRecogidas, setCajasRecogidas] = useState(0);
   const [notes, setNotes] = useState('');
+
+  // Stock actual del camión (para validar que haya suficiente)
+  const stock = useMemo(
+    () => computeStock(truckCounts ?? [], truckLoads ?? [], myDeliveries ?? []),
+    [truckCounts, truckLoads, myDeliveries],
+  );
 
   const isDelivered = status === 'entregado';
 
@@ -98,12 +113,33 @@ export default function RegisterDeliveryScreen() {
       return;
     }
 
+    // Validar stock del camión (bloqueante): no se puede entregar más de lo que hay
+    if (isDelivered) {
+      for (const it of items) {
+        const disponible = stock.get(it.egg_type_id) ?? 0;
+        const nombre = eggTypes?.find((t) => t.id === it.egg_type_id)?.name ?? 'ese tipo';
+        if (disponible <= 0) {
+          Alert.alert('Sin stock', `No hay ${nombre} en el camión actualmente.`);
+          return;
+        }
+        if (it.cajas_plasticas > disponible) {
+          Alert.alert(
+            'Stock insuficiente',
+            `Solo hay ${disponible} cp de ${nombre} en el camión (querés entregar ${it.cajas_plasticas}).`,
+          );
+          return;
+        }
+      }
+    }
+
     try {
       await createDelivery.mutateAsync({
         id: uuidv4(),
         customer_id: c.id,
         driver_id: profile.id,
         status,
+        mode,
+        cajas_recogidas: isDelivered ? cajasRecogidas : 0,
         notes: notes.trim() || null,
         delivered_at: new Date().toISOString(),
         items,
@@ -225,9 +261,16 @@ export default function RegisterDeliveryScreen() {
               <View style={styles.linesWrap}>
                 {lines.map((l) => {
                   const t = eggTypes?.find((x) => x.id === l.egg_type_id);
+                  const disp = stock.get(l.egg_type_id) ?? 0;
+                  const over = l.cajas > disp;
                   return (
                     <View key={l.egg_type_id} style={styles.lineCard}>
-                      <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
+                      <View style={styles.lineNameCol}>
+                        <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
+                        <Text style={[styles.lineStock, over && styles.lineStockOver]}>
+                          en camión: {disp} cp{over ? ' ⚠' : ''}
+                        </Text>
+                      </View>
                       <View style={styles.qtyRow}>
                         <TouchableOpacity
                           style={styles.qtyBtn}
@@ -262,6 +305,50 @@ export default function RegisterDeliveryScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Modo de entrega */}
+            <Text style={styles.label}>Modo de entrega</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, mode === 'cp' && styles.chipActive]}
+                onPress={() => setMode('cp')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, mode === 'cp' && styles.chipTextActive]}>📦 Deja cajas plásticas</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, mode === 'cartones' && styles.chipActive]}
+                onPress={() => setMode('cartones')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, mode === 'cartones' && styles.chipTextActive]}>🥚 En cartones (sin cajas)</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>
+              {mode === 'cp'
+                ? 'Las cajas plásticas quedan en el local y se recogen después.'
+                : 'Se entrega en maples/cartones; no quedan cajas en el local.'}
+            </Text>
+
+            {/* Cajas recogidas */}
+            <Text style={styles.label}>Cajas plásticas recogidas</Text>
+            <View style={styles.stepper}>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasRecogidas((n) => Math.max(0, n - 1))} activeOpacity={0.7}>
+                <Text style={styles.stepBtnText}>−</Text>
+              </TouchableOpacity>
+              <TextInput
+                style={styles.stepInput}
+                value={String(cajasRecogidas)}
+                onChangeText={(txt) => setCajasRecogidas(Math.min(9999, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0))}
+                keyboardType="number-pad"
+                maxLength={4}
+                selectTextOnFocus
+              />
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasRecogidas((n) => Math.min(9999, n + 1))} activeOpacity={0.7}>
+                <Text style={styles.stepBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>Cajas vacías que retirás del local en esta visita (puede ser más o menos que las que dejás).</Text>
           </>
         )}
 
@@ -370,7 +457,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 10,
   },
-  lineName: { flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' },
+  lineNameCol: { flex: 1 },
+  lineName: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  lineStock: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  lineStockOver: { color: '#dc2626', fontWeight: '700' },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qtyBtn: {
     width: 40,
@@ -416,6 +506,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepBtnText: { fontSize: 28, color: '#1d4ed8', fontWeight: '700' },
+  stepInput: { fontSize: 30, fontWeight: '800', color: '#111827', minWidth: 70, textAlign: 'center', padding: 0 },
   stepValue: { fontSize: 34, fontWeight: '800', color: '#111827', minWidth: 50, textAlign: 'center' },
   equiv: { fontSize: 15, color: '#059669', fontWeight: '700', marginTop: 6 },
   notes: {
