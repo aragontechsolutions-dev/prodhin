@@ -9,6 +9,7 @@ const sections = [
   { id: 'rutas', emoji: '🗺️', label: 'Rutas' },
   { id: 'reportes', emoji: '📊', label: 'Reportes' },
   { id: 'stock', emoji: '🚚', label: 'Stock camiones' },
+  { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
 ];
@@ -235,6 +236,9 @@ export default function ManualPage() {
             'Los cambios se guardan al instante y el chofer los ve en su app.',
           ]} />
           <Tip>El chofer igual puede entregar cualquier tipo, esté o no en los habituales. Además, si entrega un tipo nuevo, la app le ofrece agregarlo a los habituales automáticamente.</Tip>
+
+          <SubTitle>📦 Cajas plásticas en el local</SubTitle>
+          <P>La columna "Cajas" de la lista muestra cuántas cajas plásticas hay actualmente en el local de cada cliente (prestadas, pendientes de recoger). Se calcula solo: cajas dejadas en las entregas (modo "deja cajas") menos las cajas recogidas por el chofer en cada visita.</P>
         </section>
 
         {/* Categorías de huevo */}
@@ -364,6 +368,23 @@ export default function ManualPage() {
           <SubTitle>Qué muestra</SubTitle>
           <P>Tarjetas con totales (cajones entregados, visitas, clientes atendidos, visitas sin venta), un desglose de cajones por tipo de huevo, y una tabla detallada de cada entrega. Se puede <strong>exportar a CSV</strong> para abrir en Excel.</P>
           <Tip>La unidad base es la caja plástica. 1 cajón = 2 cajas plásticas, por eso podés ver medios cajones (ej: 2,5 cajones = 5 cajas plásticas).</Tip>
+
+          <SubTitle>Corregir una entrega</SubTitle>
+          <P>Si el chofer se equivocó (por ejemplo, marcó una categoría por otra), el admin puede corregirla:</P>
+          <Steps items={[
+            'En la tabla de detalle, hacer clic en "Corregir" en la fila de la entrega.',
+            'Ajustar estado, tipos y cantidades, modo (deja cajas / cartones) y cajas recogidas.',
+            'Escribir el MOTIVO de la corrección (obligatorio).',
+            'Guardar. El cambio queda registrado en la Auditoría con el motivo.',
+          ]} />
+        </section>
+
+        {/* Auditoría */}
+        <section id="auditoria" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>📝 Módulo Auditoría</SectionTitle>
+          <P>Registra automáticamente <strong>todas las acciones</strong> de los usuarios: creación, edición y borrado de entregas, cargas, recuentos, clientes, usuarios, rutas, categorías, etc. Solo el administrador puede verlo.</P>
+          <P>Cada registro muestra quién lo hizo, qué acción, sobre qué, cuándo y —si aplica— el motivo (por ejemplo, la corrección de una entrega). Se puede filtrar por tabla y por tipo de acción, y desplegar el detalle del cambio.</P>
+          <Tip>La auditoría se genera a nivel de base de datos (no depende de la app), así que no se puede saltear ni desactivar desde la interfaz.</Tip>
         </section>
 
         {/* Stock camiones */}
@@ -421,7 +442,9 @@ export default function ManualPage() {
           <Steps items={[
             'Elegir el resultado de la visita (Entregado / Ausente / No quiso / Sin stock).',
             'Seleccionar uno o varios tipos de huevo (multi-selección). Se prellena con el tipo principal del cliente.',
-            'Indicar la cantidad de cajas plásticas por cada tipo (con +/− o tocando el número para escribirlo).',
+            'Indicar la cantidad de cajas plásticas por cada tipo. La app valida el stock del camión y no deja entregar más de lo que hay.',
+            'Elegir el modo: deja cajas plásticas (quedan en el local) o en cartones (no deja cajas).',
+            'Indicar cuántas cajas plásticas vacías se recogen en la visita.',
             'Guardar. El cliente queda marcado como visitado automáticamente.',
           ]} />
           <Tip>Si no hay señal, la entrega se guarda igual y se envía sola al reconectar. Y si se entrega un tipo que no está en los habituales del cliente, la app ofrece agregarlo.</Tip>
