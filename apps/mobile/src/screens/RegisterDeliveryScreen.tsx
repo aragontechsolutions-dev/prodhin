@@ -19,6 +19,7 @@ import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
 import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useCustomerBoxBalance } from '../hooks/useCustomerBoxBalance';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { computeStock } from '../lib/truck';
 import type { DeliveryMode } from '../lib/deliveries';
@@ -48,6 +49,7 @@ export default function RegisterDeliveryScreen() {
   const { data: myDeliveries } = useMyDeliveries(profile?.id);
   const { data: truckCounts } = useTruckCounts(profile?.id);
   const { data: truckLoads } = useTruckLoads(profile?.id);
+  const { data: boxBalance } = useCustomerBoxBalance(c.id);
   const createDelivery = useCreateDelivery();
   const addPref = useAddPreference();
 
@@ -129,6 +131,16 @@ export default function RegisterDeliveryScreen() {
           );
           return;
         }
+      }
+
+      // No se pueden recoger más cajas de las que hay en el local
+      const enLocal = Math.max(0, boxBalance ?? 0);
+      if (cajasRecogidas > enLocal) {
+        Alert.alert(
+          'Cajas recogidas',
+          `En el local hay ${enLocal} caja${enLocal === 1 ? '' : 's'} plástica${enLocal === 1 ? '' : 's'}; no podés recoger ${cajasRecogidas}.`,
+        );
+        return;
       }
     }
 
@@ -332,6 +344,7 @@ export default function RegisterDeliveryScreen() {
 
             {/* Cajas recogidas */}
             <Text style={styles.label}>Cajas plásticas recogidas</Text>
+            <Text style={styles.subHint}>En el local hay {Math.max(0, boxBalance ?? 0)} caja(s) plástica(s).</Text>
             <View style={styles.stepper}>
               <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasRecogidas((n) => Math.max(0, n - 1))} activeOpacity={0.7}>
                 <Text style={styles.stepBtnText}>−</Text>
