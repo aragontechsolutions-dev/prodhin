@@ -53,7 +53,7 @@ export default function RecountModal({ driverId, driverName, currentStock, onClo
       <div className="p-6 space-y-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Ingresá cuántas cajas plásticas hay REALMENTE en el camión de cada tipo (valor contado).
-          Esto fija el stock y corrige cualquier desvío.
+          Una categoría sin valor se toma como 0. Esto fija el stock y corrige cualquier desvío.
         </p>
         <div className="space-y-2">
           {active.map((t) => (
@@ -62,8 +62,10 @@ export default function RecountModal({ driverId, driverName, currentStock, onClo
               <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{t.name}</span>
               <input
                 type="number" min={0}
+                placeholder="0"
                 value={values[t.id] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [t.id]: e.target.value }))}
+                onBlur={(e) => { if (e.target.value.trim() === '') setValues((v) => ({ ...v, [t.id]: '0' })); }}
                 className="w-24 text-sm px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100 text-center"
               />
               <span className="text-xs text-gray-400 w-6">cp</span>
