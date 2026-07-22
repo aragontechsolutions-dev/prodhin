@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useAuditLog, TABLE_LABELS, type AuditRow } from '../../../hooks/useAuditLog';
 import { useUsers } from '../../../hooks/useUsers';
+import { useCustomers } from '../../../hooks/useCustomers';
+import { useEggTypes } from '../../../hooks/useEggTypes';
 
 const ACTION_LABEL: Record<string, string> = { INSERT: 'Creó', UPDATE: 'Editó', DELETE: 'Borró' };
 const ACTION_STYLE: Record<string, string> = {
@@ -8,6 +10,30 @@ const ACTION_STYLE: Record<string, string> = {
   UPDATE: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
   DELETE: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30',
 };
+
+// Campos internos que no aportan a un lector no técnico
+const HIDDEN = new Set(['id', 'created_at', 'updated_at', 'edit_reason', 'avatar_url', 'delivery_id']);
+
+const FIELD_LABELS: Record<string, string> = {
+  egg_type_id: 'Categoría', customer_id: 'Cliente', driver_id: 'Chofer',
+  cajas_plasticas: 'Cajas plásticas', status: 'Estado', mode: 'Modo',
+  cajas_recogidas: 'Cajas recogidas', notes: 'Notas', is_primary: 'Principal',
+  name: 'Nombre', color: 'Color', sort_order: 'Orden', is_active: 'Activo',
+  full_name: 'Nombre', role: 'Rol', phone: 'Teléfono', email: 'Email',
+  address: 'Dirección', business_name: 'Razón social', tax_id: 'RUT',
+  first_name: 'Nombre', last_name: 'Apellido', contact_name: 'Contacto',
+  customer_type: 'Tipo de cliente', day_of_week: 'Día', route_id: 'Ruta',
+  counted_at: 'Fecha del recuento', delivered_at: 'Fecha de entrega',
+  from_driver_id: 'Chofer ausente', to_driver_id: 'Chofer que cubre',
+  start_date: 'Desde', end_date: 'Hasta', assigned_by: 'Asignado por',
+  created_by: 'Creado por', must_change_password: 'Cambio de contraseña pendiente',
+  preferred_egg_type_id: 'Categoría preferida', note: 'Nota',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  entregado: 'Entregado', cliente_ausente: 'Cliente ausente', rechazado: 'No quiso', sin_stock: 'Sin stock',
+};
+const DAYS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 function fmt(iso: string): string {
   const d = new Date(iso);
@@ -20,12 +46,59 @@ export default function AuditPage() {
   const [action, setAction] = useState('');
   const { data: rows, isLoading } = useAuditLog({ table: table || undefined, action: action || undefined });
   const { data: users } = useUsers();
+  const { data: customers } = useCustomers();
+  const { data: eggTypes } = useEggTypes();
 
-  const userName = useMemo(() => {
+  const userName = useMemo(() => { const m = new Map<string, string>(); (users ?? []).forEach((u) => m.set(u.id, u.full_name)); return m; }, [users]);
+  const eggName = useMemo(() => { const m = new Map<string, string>(); (eggTypes ?? []).forEach((t) => m.set(t.id, t.name)); return m; }, [eggTypes]);
+  const custName = useMemo(() => {
     const m = new Map<string, string>();
-    (users ?? []).forEach((u) => m.set(u.id, u.full_name));
+    (customers ?? []).forEach((c) => {
+      const n = c.customer_type === 'empresa' ? (c.business_name ?? 'Sin nombre')
+        : `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || 'Sin nombre';
+      m.set(c.id, n);
+    });
     return m;
-  }, [users]);
+  }, [customers]);
+
+  function resolve(key: string, val: unknown): string {
+    if (val === null || val === undefined || val === '') return '—';
+    if (key === 'egg_type_id' || key === 'preferred_egg_type_id') return eggName.get(String(val)) ?? 'categoría';
+    if (key === 'customer_id') return custName.get(String(val)) ?? 'cliente';
+    if (['driver_id', 'from_driver_id', 'to_driver_id', 'assigned_by', 'created_by'].includes(key)) return userName.get(String(val)) ?? 'usuario';
+    if (typeof val === 'boolean') return val ? 'Sí' : 'No';
+    if (key === 'status') return STATUS_LABEL[String(val)] ?? String(val);
+    if (key === 'mode') return val === 'cp' ? 'Deja cajas plásticas' : 'En cartones';
+    if (key === 'day_of_week') return DAYS[Number(val)] ?? String(val);
+    if (key === 'customer_type') return val === 'empresa' ? 'Empresa' : 'Persona física';
+    if (key === 'role') return String(val) === 'admin' ? 'Administrador' : 'Chofer';
+    if (key.endsWith('_at')) return fmt(String(val));
+    return String(val);
+  }
+
+  function fieldLabel(key: string): string { return FIELD_LABELS[key] ?? key; }
+
+  // Devuelve las filas legibles (label + antes/después) de un cambio
+  function readableChanges(r: AuditRow): { label: string; before?: string; after?: string; single?: string }[] {
+    const oldObj = r.changed?.old ?? null;
+    const newObj = r.changed?.new ?? null;
+    const out: { label: string; before?: string; after?: string; single?: string }[] = [];
+    const keys = new Set<string>([...Object.keys(oldObj ?? {}), ...Object.keys(newObj ?? {})]);
+    for (const k of keys) {
+      if (HIDDEN.has(k)) continue;
+      const ov = oldObj ? (oldObj as Record<string, unknown>)[k] : undefined;
+      const nv = newObj ? (newObj as Record<string, unknown>)[k] : undefined;
+      if (r.action === 'UPDATE') {
+        if (JSON.stringify(ov) === JSON.stringify(nv)) continue;
+        out.push({ label: fieldLabel(k), before: resolve(k, ov), after: resolve(k, nv) });
+      } else {
+        const v = r.action === 'DELETE' ? ov : nv;
+        if (v === null || v === undefined || v === '') continue;
+        out.push({ label: fieldLabel(k), single: resolve(k, v) });
+      }
+    }
+    return out;
+  }
 
   const [expanded, setExpanded] = useState<number | null>(null);
 
@@ -38,21 +111,14 @@ export default function AuditPage() {
         </p>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap gap-2">
-        <select
-          value={table}
-          onChange={(e) => setTable(e.target.value)}
-          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100"
-        >
-          <option value="">Todas las tablas</option>
+        <select value={table} onChange={(e) => setTable(e.target.value)}
+          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100">
+          <option value="">Todas las secciones</option>
           {Object.entries(TABLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100"
-        >
+        <select value={action} onChange={(e) => setAction(e.target.value)}
+          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100">
           <option value="">Todas las acciones</option>
           <option value="INSERT">Creaciones</option>
           <option value="UPDATE">Ediciones</option>
@@ -69,30 +135,58 @@ export default function AuditPage() {
           <div className="text-center py-16 text-sm text-gray-400">Sin registros.</div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
-            {(rows ?? []).map((r: AuditRow) => (
-              <div key={r.id} className="px-5 py-3">
-                <button className="w-full flex items-center gap-3 text-left" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ACTION_STYLE[r.action]}`}>
-                    {ACTION_LABEL[r.action] ?? r.action}
-                  </span>
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {TABLE_LABELS[r.table_name] ?? r.table_name}
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400 flex-1 truncate">
-                    {r.actor_id ? (userName.get(r.actor_id) ?? 'Usuario') : 'Sistema'}
-                    {r.actor_role ? ` (${r.actor_role})` : ''}
-                    {r.reason ? ` — «${r.reason}»` : ''}
-                  </span>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{fmt(r.created_at)}</span>
-                  <span className="text-gray-400">{expanded === r.id ? '▾' : '▸'}</span>
-                </button>
-                {expanded === r.id && (
-                  <pre className="mt-2 text-xs bg-gray-50 dark:bg-gray-800 rounded-lg p-3 overflow-x-auto text-gray-600 dark:text-gray-300">
-                    {JSON.stringify(r.changed, null, 2)}
-                  </pre>
-                )}
-              </div>
-            ))}
+            {(rows ?? []).map((r: AuditRow) => {
+              const changes = readableChanges(r);
+              const open = expanded === r.id;
+              return (
+                <div key={r.id} className="px-5 py-3">
+                  <button className="w-full flex items-center gap-3 text-left" onClick={() => setExpanded(open ? null : r.id)}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${ACTION_STYLE[r.action]}`}>
+                      {ACTION_LABEL[r.action] ?? r.action}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                      {TABLE_LABELS[r.table_name] ?? r.table_name}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 flex-1 truncate">
+                      {r.actor_id ? (userName.get(r.actor_id) ?? 'Usuario') : 'Sistema'}
+                      {r.reason ? ` — «${r.reason}»` : ''}
+                    </span>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{fmt(r.created_at)}</span>
+                    <span className="text-gray-400">{open ? '▾' : '▸'}</span>
+                  </button>
+
+                  {open && (
+                    <div className="mt-2 ml-1 space-y-1">
+                      {r.reason && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                          <span className="font-semibold">Motivo:</span> {r.reason}
+                        </p>
+                      )}
+                      {changes.length === 0 ? (
+                        <p className="text-sm text-gray-400">Sin detalles.</p>
+                      ) : (
+                        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 space-y-1">
+                          {changes.map((ch, i) => (
+                            <div key={i} className="text-sm flex flex-wrap gap-x-2">
+                              <span className="text-gray-500 dark:text-gray-400 font-medium">{ch.label}:</span>
+                              {ch.single !== undefined ? (
+                                <span className="text-gray-800 dark:text-gray-200">{ch.single}</span>
+                              ) : (
+                                <span className="text-gray-800 dark:text-gray-200">
+                                  <span className="line-through text-gray-400">{ch.before}</span>
+                                  <span className="mx-1">→</span>
+                                  <span className="font-semibold">{ch.after}</span>
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
