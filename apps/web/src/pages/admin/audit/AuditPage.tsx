@@ -3,6 +3,7 @@ import { useAuditLog, TABLE_LABELS, type AuditRow } from '../../../hooks/useAudi
 import { useUsers } from '../../../hooks/useUsers';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useEggTypes } from '../../../hooks/useEggTypes';
+import { PAGE_SIZE_OPTIONS, type PageSize } from '../../../hooks/usePagination';
 
 const ACTION_LABEL: Record<string, string> = { INSERT: 'Creó', UPDATE: 'Editó', DELETE: 'Borró' };
 const ACTION_STYLE: Record<string, string> = {
@@ -44,7 +45,25 @@ function fmt(iso: string): string {
 export default function AuditPage() {
   const [table, setTable] = useState('');
   const [action, setAction] = useState('');
-  const { data: rows, isLoading } = useAuditLog({ table: table || undefined, action: action || undefined });
+  const [actorId, setActorId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(20);
+
+  const { data, isLoading } = useAuditLog({
+    table: table || undefined,
+    action: action || undefined,
+    actorId: actorId || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    page,
+    pageSize,
+  });
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   const { data: users } = useUsers();
   const { data: customers } = useCustomers();
   const { data: eggTypes } = useEggTypes();
@@ -112,18 +131,41 @@ export default function AuditPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <select value={table} onChange={(e) => setTable(e.target.value)}
+        <select value={table} onChange={(e) => { setTable(e.target.value); setPage(1); }}
           className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100">
           <option value="">Todas las secciones</option>
           {Object.entries(TABLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select value={action} onChange={(e) => setAction(e.target.value)}
+        <select value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}
           className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100">
           <option value="">Todas las acciones</option>
           <option value="INSERT">Creaciones</option>
           <option value="UPDATE">Ediciones</option>
           <option value="DELETE">Borrados</option>
         </select>
+        <select value={actorId} onChange={(e) => { setActorId(e.target.value); setPage(1); }}
+          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100">
+          <option value="">Todos los usuarios</option>
+          {(users ?? []).map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+        </select>
+        <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+          Desde
+          <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="text-sm px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100" />
+        </label>
+        <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+          Hasta
+          <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="text-sm px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100" />
+        </label>
+        {(table || action || actorId || dateFrom || dateTo) && (
+          <button
+            onClick={() => { setTable(''); setAction(''); setActorId(''); setDateFrom(''); setDateTo(''); setPage(1); }}
+            className="text-sm px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            Limpiar
+          </button>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -131,11 +173,11 @@ export default function AuditPage() {
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : !(rows ?? []).length ? (
+        ) : !rows.length ? (
           <div className="text-center py-16 text-sm text-gray-400">Sin registros.</div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
-            {(rows ?? []).map((r: AuditRow) => {
+            {rows.map((r: AuditRow) => {
               const changes = readableChanges(r);
               const open = expanded === r.id;
               return (
@@ -189,8 +231,31 @@ export default function AuditPage() {
             })}
           </div>
         )}
+
+        {/* Paginación */}
+        {!isLoading && total > 0 && (
+          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>Por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value) as PageSize); setPage(1); }}
+                className="border border-gray-300 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 dark:text-gray-100"
+              >
+                {PAGE_SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <span>{total} registros</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+                className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-200">Anterior</button>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Página {page} de {totalPages}</span>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-200">Siguiente</button>
+            </div>
+          </div>
+        )}
       </div>
-      <p className="text-xs text-gray-400 dark:text-gray-500">Se muestran los últimos 200 registros.</p>
     </div>
   );
 }

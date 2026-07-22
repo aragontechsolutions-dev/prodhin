@@ -17,24 +17,39 @@ export interface AuditFilters {
   table?: string;
   action?: string;
   actorId?: string;
-  limit?: number;
+  dateFrom?: string; // YYYY-MM-DD
+  dateTo?: string;   // YYYY-MM-DD
+  page: number;      // 1-based
+  pageSize: number;
 }
 
-export function useAuditLog(filters: AuditFilters = {}) {
+export interface AuditResult {
+  rows: AuditRow[];
+  total: number;
+}
+
+export function useAuditLog(filters: AuditFilters) {
   return useQuery({
     queryKey: ['audit-log', filters],
-    queryFn: async (): Promise<AuditRow[]> => {
+    queryFn: async (): Promise<AuditResult> => {
       let q = supabase
         .from('audit_log')
-        .select('id, actor_id, actor_role, action, table_name, row_id, reason, changed, created_at')
-        .order('created_at', { ascending: false })
-        .limit(filters.limit ?? 200);
+        .select('id, actor_id, actor_role, action, table_name, row_id, reason, changed, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
       if (filters.table) q = q.eq('table_name', filters.table);
       if (filters.action) q = q.eq('action', filters.action);
       if (filters.actorId) q = q.eq('actor_id', filters.actorId);
-      const { data, error } = await q;
+      if (filters.dateFrom) q = q.gte('created_at', new Date(`${filters.dateFrom}T00:00:00`).toISOString());
+      if (filters.dateTo) q = q.lte('created_at', new Date(`${filters.dateTo}T23:59:59.999`).toISOString());
+
+      const from = (filters.page - 1) * filters.pageSize;
+      const to = from + filters.pageSize - 1;
+      q = q.range(from, to);
+
+      const { data, error, count } = await q;
       if (error) throw error;
-      return (data ?? []) as AuditRow[];
+      return { rows: (data ?? []) as AuditRow[], total: count ?? 0 };
     },
   });
 }
