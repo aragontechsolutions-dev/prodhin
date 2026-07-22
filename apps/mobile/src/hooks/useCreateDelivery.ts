@@ -18,6 +18,9 @@ export function useCreateDelivery() {
       qc.invalidateQueries({ queryKey: ['deliveries', variables.customer_id] });
       // Refrescar el historial del chofer (Mis entregas, Carga del día, mapa)
       qc.invalidateQueries({ queryKey: ['my-deliveries'] });
+      // Refrescar saldos de cajas en locales (afectados por la entrega)
+      qc.invalidateQueries({ queryKey: ['box-balances-all'] });
+      qc.invalidateQueries({ queryKey: ['box-balance'] });
     },
   });
 }

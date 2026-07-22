@@ -28,6 +28,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { useBoxBalances } from '../hooks/useBoxBalances';
 import { useVisited, useVisitedKinds, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
@@ -672,6 +674,11 @@ export default function MapScreen() {
   const { isOnline } = useNetworkStatus();
   const { data: myCustomers, isLoading, isFetching, refetch } = useMyCustomers(profile?.id);
   const { data: myDeliveries } = useMyDeliveries(profile?.id);
+  // Precargar (y cachear en el teléfono) los datos que la entrega necesita
+  // para validar offline: stock del camión y saldos de cajas de los locales.
+  useTruckLoads(profile?.id);
+  useTruckCounts(profile?.id);
+  useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
   const routeStops = routeData?.stops ?? [];

@@ -15,7 +15,7 @@ import { getDisplayName, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useEggTypes } from '../hooks/useEggTypes';
-import { useCustomerBoxBalance } from '../hooks/useCustomerBoxBalance';
+import { useBoxBalances } from '../hooks/useBoxBalances';
 import {
   useCustomerPreferences,
   useAddPreference,
@@ -52,7 +52,8 @@ export default function CustomerDetailScreen() {
   const { customer: c } = route.params;
   const { signOut } = useAuth();
   const { resetTimers } = useInactivityTimer(signOut);
-  const { data: boxBalance } = useCustomerBoxBalance(c.id);
+  const { data: boxBalances } = useBoxBalances();
+  const boxBalance = boxBalances?.[c.id] ?? 0;
 
   function openGoogleMaps() {
     const url = Platform.select({

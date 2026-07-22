@@ -19,7 +19,7 @@ import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
 import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
-import { useCustomerBoxBalance } from '../hooks/useCustomerBoxBalance';
+import { useBoxBalances } from '../hooks/useBoxBalances';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { computeStock } from '../lib/truck';
 import type { DeliveryMode } from '../lib/deliveries';
@@ -49,7 +49,8 @@ export default function RegisterDeliveryScreen() {
   const { data: myDeliveries } = useMyDeliveries(profile?.id);
   const { data: truckCounts } = useTruckCounts(profile?.id);
   const { data: truckLoads } = useTruckLoads(profile?.id);
-  const { data: boxBalance } = useCustomerBoxBalance(c.id);
+  const { data: boxBalances } = useBoxBalances();
+  const boxBalance = boxBalances?.[c.id] ?? 0;
   const createDelivery = useCreateDelivery();
   const addPref = useAddPreference();
 
@@ -115,35 +116,42 @@ export default function RegisterDeliveryScreen() {
       return;
     }
 
-    // Validar stock del camión (bloqueante): no se puede entregar más de lo que hay
+    // Reunir advertencias de stock y cajas según los datos disponibles
+    const warnings: string[] = [];
     if (isDelivered) {
       for (const it of items) {
         const disponible = stock.get(it.egg_type_id) ?? 0;
         const nombre = eggTypes?.find((t) => t.id === it.egg_type_id)?.name ?? 'ese tipo';
-        if (disponible <= 0) {
-          Alert.alert('Sin stock', `No hay ${nombre} en el camión actualmente.`);
-          return;
-        }
-        if (it.cajas_plasticas > disponible) {
-          Alert.alert(
-            'Stock insuficiente',
-            `Solo hay ${disponible} cp de ${nombre} en el camión (querés entregar ${it.cajas_plasticas}).`,
-          );
-          return;
-        }
+        if (disponible <= 0) warnings.push(`No hay ${nombre} en el camión.`);
+        else if (it.cajas_plasticas > disponible) warnings.push(`Solo hay ${disponible} cp de ${nombre} (querés ${it.cajas_plasticas}).`);
       }
-
-      // No se pueden recoger más cajas de las que hay en el local
-      const enLocal = Math.max(0, boxBalance ?? 0);
-      if (cajasRecogidas > enLocal) {
-        Alert.alert(
-          'Cajas recogidas',
-          `En el local hay ${enLocal} caja${enLocal === 1 ? '' : 's'} plástica${enLocal === 1 ? '' : 's'}; no podés recoger ${cajasRecogidas}.`,
-        );
-        return;
-      }
+      const enLocal = Math.max(0, boxBalance);
+      if (cajasRecogidas > enLocal) warnings.push(`En el local hay ${enLocal} caja(s); querés recoger ${cajasRecogidas}.`);
     }
 
+    if (warnings.length > 0) {
+      if (isOnline) {
+        // Con conexión los datos son exactos → se bloquea
+        Alert.alert('No se puede registrar', warnings.join('\n'));
+        return;
+      }
+      // Sin conexión no se puede verificar con datos actualizados → avisar y permitir
+      Alert.alert(
+        'Sin conexión — verificá los datos',
+        `No se pudo confirmar contra el servidor:\n\n${warnings.join('\n')}\n\n¿Registrar de todas formas?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Registrar igual', onPress: () => doSave(items) },
+        ],
+      );
+      return;
+    }
+
+    doSave(items);
+  }
+
+  async function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+    if (!profile) return;
     try {
       await createDelivery.mutateAsync({
         id: uuidv4(),
