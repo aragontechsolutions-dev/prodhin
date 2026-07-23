@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useUsers } from '../../../hooks/useUsers';
 import { useEggTypes } from '../../../hooks/useEggTypes';
+import { useCustomers } from '../../../hooks/useCustomers';
 import {
   useDeliveries,
   formatCajones,
@@ -70,6 +71,17 @@ export default function ReportsPage() {
   const { data: users } = useUsers();
   const { data: eggTypes } = useEggTypes();
   const { data: boxBalances } = useBoxBalances();
+  const { data: customers } = useCustomers();
+
+  const customerName = useMemo(() => {
+    const m = new Map<string, string>();
+    (customers ?? []).forEach((c) => {
+      const n = c.customer_type === 'empresa' ? (c.business_name ?? 'Sin nombre')
+        : `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || 'Sin nombre';
+      m.set(c.id, n);
+    });
+    return m;
+  }, [customers]);
 
   // Total de cajas plásticas actualmente en los locales (saldo global)
   const boxesInLocals = useMemo(() => {
@@ -77,6 +89,15 @@ export default function ReportsPage() {
     for (const v of boxBalances?.values() ?? []) t += Math.max(0, v);
     return t;
   }, [boxBalances]);
+
+  // Ranking de clientes con más cajas plásticas sin devolver
+  const topBoxCustomers = useMemo(() => {
+    const arr: { name: string; cajas: number }[] = [];
+    for (const [id, v] of boxBalances?.entries() ?? []) {
+      if (v > 0) arr.push({ name: customerName.get(id) ?? 'Cliente', cajas: v });
+    }
+    return arr.sort((a, b) => b.cajas - a.cajas).slice(0, 8);
+  }, [boxBalances, customerName]);
 
   const filters: DeliveryFilters = useMemo(
     () => ({ from, to, driverId: driverId || undefined, eggTypeId: eggTypeId || undefined }),
@@ -136,8 +157,41 @@ export default function ReportsPage() {
     return [...map.values()].sort((a, b) => b.cajas - a.cajas).slice(0, 8);
   }, [rows]);
 
+  // Ranking de choferes (por cajas plásticas entregadas)
+  const byDriver = useMemo(() => {
+    const map = new Map<string, { name: string; cajas: number; entregas: number }>();
+    for (const r of rows) {
+      if (r.status !== 'entregado') continue;
+      const prev = map.get(r.driver_id) ?? { name: r.driver_name, cajas: 0, entregas: 0 };
+      prev.cajas += r.total_cajas_plasticas;
+      prev.entregas += 1;
+      map.set(r.driver_id, prev);
+    }
+    return [...map.values()].sort((a, b) => b.cajas - a.cajas);
+  }, [rows]);
+
+  // Evolución por día: cajones entregados por fecha en el período
+  const byDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      if (r.status !== 'entregado') continue;
+      const key = r.delivered_at.slice(0, 10); // YYYY-MM-DD
+      map.set(key, (map.get(key) ?? 0) + r.total_cajas_plasticas);
+    }
+    const out: { day: string; cajas: number }[] = [];
+    const start = new Date(`${from}T00:00:00`);
+    const end = new Date(`${to}T00:00:00`);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      out.push({ day: key, cajas: map.get(key) ?? 0 });
+    }
+    return out;
+  }, [rows, from, to]);
+
   const maxEgg = byEggType[0]?.cajasPlasticas || 1;
   const maxCust = topCustomers[0]?.cajas || 1;
+  const maxDriver = byDriver[0]?.cajas || 1;
+  const maxDay = Math.max(1, ...byDay.map((d) => d.cajas));
 
   const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(rows, 20);
 
@@ -295,6 +349,92 @@ export default function ReportsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Analítica: cajas por cliente + choferes */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Cajas en locales por cliente */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">📦 Cajas sin devolver por cliente</h2>
+              </div>
+              {topBoxCustomers.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">Ningún cliente tiene cajas pendientes</p>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {topBoxCustomers.map((c, i) => (
+                    <div key={c.name + i}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                          <span className="text-gray-400 mr-1">{i + 1}.</span>{c.name}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap ml-2">{c.cajas} cajas</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.round((c.cajas / (topBoxCustomers[0].cajas || 1)) * 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Ranking de choferes */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">🚚 Choferes que más entregaron</h2>
+              </div>
+              {byDriver.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">Sin entregas en el período</p>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {byDriver.map((d, i) => (
+                    <div key={d.name + i}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                          <span className="text-gray-400 mr-1">{i + 1}.</span>{d.name}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap ml-2">
+                          {formatCajones(d.cajas)} cj <span className="text-xs font-normal text-gray-400">· {d.entregas} ent.</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.round((d.cajas / maxDriver) * 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Evolución por día */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">📈 Evolución por día</h2>
+              <span className="text-xs text-gray-400">cajones entregados</span>
+            </div>
+            {byDay.every((d) => d.cajas === 0) ? (
+              <p className="px-5 py-6 text-sm text-gray-400 text-center">Sin entregas en el período</p>
+            ) : (
+              <div className="p-4 overflow-x-auto">
+                <div className="flex items-end gap-1 h-32 min-w-full" style={{ minWidth: `${byDay.length * 14}px` }}>
+                  {byDay.map((d) => (
+                    <div key={d.day} className="flex-1 flex flex-col items-center justify-end h-full group" title={`${d.day}: ${formatCajones(d.cajas)} cajones`}>
+                      <div
+                        className="w-full rounded-t bg-primary-400 group-hover:bg-primary-600 transition-colors"
+                        style={{ height: `${Math.max(2, Math.round((d.cajas / maxDay) * 100))}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-400 mt-2">
+                  <span>{byDay[0]?.day.slice(5)}</span>
+                  <span>{byDay[Math.floor(byDay.length / 2)]?.day.slice(5)}</span>
+                  <span>{byDay[byDay.length - 1]?.day.slice(5)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tabla de entregas */}
