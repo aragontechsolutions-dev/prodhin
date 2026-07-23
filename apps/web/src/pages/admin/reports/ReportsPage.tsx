@@ -9,6 +9,7 @@ import {
   type DeliveryRow,
 } from '../../../hooks/useDeliveries';
 import { usePagination, PAGE_SIZE_OPTIONS } from '../../../hooks/usePagination';
+import { useBoxBalances } from '../../../hooks/useBoxBalances';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import EditDeliveryModal from './EditDeliveryModal';
@@ -68,6 +69,14 @@ export default function ReportsPage() {
 
   const { data: users } = useUsers();
   const { data: eggTypes } = useEggTypes();
+  const { data: boxBalances } = useBoxBalances();
+
+  // Total de cajas plásticas actualmente en los locales (saldo global)
+  const boxesInLocals = useMemo(() => {
+    let t = 0;
+    for (const v of boxBalances?.values() ?? []) t += Math.max(0, v);
+    return t;
+  }, [boxBalances]);
 
   const filters: DeliveryFilters = useMemo(
     () => ({ from, to, driverId: driverId || undefined, eggTypeId: eggTypeId || undefined }),
@@ -113,6 +122,22 @@ export default function ReportsPage() {
     }
     return [...map.values()].sort((a, b) => b.cajasPlasticas - a.cajasPlasticas);
   }, [rows]);
+
+  // Clientes que más compran (por cajas plásticas entregadas en el período)
+  const topCustomers = useMemo(() => {
+    const map = new Map<string, { name: string; cajas: number; entregas: number }>();
+    for (const r of rows) {
+      if (r.status !== 'entregado') continue;
+      const prev = map.get(r.customer_id) ?? { name: r.customer_name, cajas: 0, entregas: 0 };
+      prev.cajas += r.total_cajas_plasticas;
+      prev.entregas += 1;
+      map.set(r.customer_id, prev);
+    }
+    return [...map.values()].sort((a, b) => b.cajas - a.cajas).slice(0, 8);
+  }, [rows]);
+
+  const maxEgg = byEggType[0]?.cajasPlasticas || 1;
+  const maxCust = topCustomers[0]?.cajas || 1;
 
   const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(rows, 20);
 
@@ -206,33 +231,70 @@ export default function ReportsPage() {
               colorBg="bg-orange-50 dark:bg-orange-900/30" colorText="text-orange-600 dark:text-orange-400"
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" /></svg>}
             />
+            <StatCard label="Cajas en locales" value={boxesInLocals} sub="prestadas, sin recoger"
+              colorBg="bg-teal-50 dark:bg-teal-900/30" colorText="text-teal-600 dark:text-teal-400"
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
+            />
           </div>
 
-          {/* Desglose por tipo */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Cajones por tipo de huevo</h2>
-            </div>
-            {byEggType.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-gray-400 text-center">Sin entregas en el período</p>
-            ) : (
-              <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                {byEggType.map((t) => (
-                  <div key={t.name} className="px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${t.color === 'rojo' ? 'bg-red-500' : t.color === 'blanco' ? 'bg-gray-300' : 'bg-amber-400'}`} />
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{t.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-gray-400">{t.visitas} entregas</span>
-                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100 min-w-[70px] text-right">
-                        {formatCajones(t.cajasPlasticas)} cajones
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          {/* Analítica: rankings */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Huevos más vendidos */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">🥚 Más vendidos por tipo</h2>
               </div>
-            )}
+              {byEggType.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">Sin entregas en el período</p>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {byEggType.map((t) => (
+                    <div key={t.name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${t.color === 'rojo' ? 'bg-red-500' : t.color === 'blanco' ? 'bg-gray-300' : 'bg-amber-400'}`} />
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap ml-2">
+                          {formatCajones(t.cajasPlasticas)} cj <span className="text-xs font-normal text-gray-400">· {t.visitas} ent.</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-primary-500" style={{ width: `${Math.round((t.cajasPlasticas / maxEgg) * 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Clientes que más compran */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">🏆 Clientes que más compran</h2>
+              </div>
+              {topCustomers.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-gray-400 text-center">Sin entregas en el período</p>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {topCustomers.map((c, i) => (
+                    <div key={c.name + i}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                          <span className="text-gray-400 mr-1">{i + 1}.</span>{c.name}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap ml-2">
+                          {formatCajones(c.cajas)} cj <span className="text-xs font-normal text-gray-400">· {c.entregas} ent.</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.round((c.cajas / maxCust) * 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Tabla de entregas */}
