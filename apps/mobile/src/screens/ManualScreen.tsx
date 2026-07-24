@@ -37,6 +37,7 @@ const SECTIONS: Item[] = [
       'Gris con ✓: lo visitaste pero sin venta (ausente / no quiso / sin stock).',
       'Rojo: cliente tuyo que hoy no está en la ruta.',
       'Naranja (rombo): cliente que estás cubriendo por otro chofer.',
+      'Al abrir con señal, un aviso verde confirma que los datos quedaron listos para trabajar sin conexión.',
     ],
     tip: 'Usá el buscador (🔍) para encontrar un cliente por nombre o RUT: el mapa vuela hasta él.',
   },

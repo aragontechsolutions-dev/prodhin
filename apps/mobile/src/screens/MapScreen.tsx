@@ -677,9 +677,9 @@ export default function MapScreen() {
   const { data: myDeliveries } = useMyDeliveries(profile?.id);
   // Precargar (y cachear en el teléfono) los datos que la entrega necesita
   // para validar offline: stock del camión y saldos de cajas de los locales.
-  useTruckLoads(profile?.id);
-  useTruckCounts(profile?.id);
-  useBoxBalances();
+  const { data: prefTruckLoads } = useTruckLoads(profile?.id);
+  const { data: prefTruckCounts } = useTruckCounts(profile?.id);
+  const { data: prefBoxBalances } = useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
   const routeStops = routeData?.stops ?? [];
@@ -761,6 +761,24 @@ export default function MapScreen() {
   }, [doneAnim]);
 
   useEffect(() => () => { if (suggestTimer.current) clearTimeout(suggestTimer.current); }, []);
+
+  // Aviso "listo para trabajar sin conexión" cuando terminó de precargar todo
+  const [readyVisible, setReadyVisible] = useState(false);
+  const readyAnim = useRef(new Animated.Value(0)).current;
+  const readyShownRef = useRef(false);
+  useEffect(() => {
+    if (readyShownRef.current || !isOnline) return;
+    const dataReady =
+      myCustomers !== undefined && routeData !== undefined && myDeliveries !== undefined &&
+      prefTruckLoads !== undefined && prefTruckCounts !== undefined && prefBoxBalances !== undefined;
+    if (!dataReady) return;
+    readyShownRef.current = true;
+    setReadyVisible(true);
+    Animated.timing(readyAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    setTimeout(() => {
+      Animated.timing(readyAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setReadyVisible(false));
+    }, 3500);
+  }, [isOnline, myCustomers, routeData, myDeliveries, prefTruckLoads, prefTruckCounts, prefBoxBalances, readyAnim]);
 
   const prevVisitedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1077,6 +1095,22 @@ export default function MapScreen() {
         >
           <Text style={styles.recenterIcon}>📍</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Aviso: datos listos para trabajar sin conexión */}
+      {readyVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.readyToast,
+            {
+              opacity: readyAnim,
+              transform: [{ translateY: readyAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}
+        >
+          <Text style={styles.readyText}>✓ Datos actualizados — listo para trabajar sin conexión</Text>
+        </Animated.View>
       )}
 
       {/* Toast de sugerencia de próximo cliente (se autooculta) */}
@@ -1415,6 +1449,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   suggestText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  readyToast: {
+    position: 'absolute', top: Platform.OS === 'ios' ? 150 : 118, left: 16, right: 16, zIndex: 36,
+    backgroundColor: '#16a34a', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 8,
+    alignItems: 'center',
+  },
+  readyText: { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   doneOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
   doneFill: { flex: 1, backgroundColor: 'rgba(22,163,74,0.96)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   doneEmoji: { fontSize: 56, textAlign: 'center', marginBottom: 8 },
