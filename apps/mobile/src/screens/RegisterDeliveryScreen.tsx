@@ -150,10 +150,17 @@ export default function RegisterDeliveryScreen() {
     doSave(items);
   }
 
-  async function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+  function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
     if (!profile) return;
-    try {
-      await createDelivery.mutateAsync({
+
+    // Marca la visita al instante (optimista, persiste local)
+    markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
+
+    // Encolar la entrega SIN esperarla: offline queda pausada y se envía sola
+    // al reconectar; online se ejecuta normal. No usar await/mutateAsync porque
+    // offline la promesa nunca resuelve (la mutación queda pausada).
+    createDelivery.mutate(
+      {
         id: uuidv4(),
         customer_id: c.id,
         driver_id: profile.id,
@@ -163,55 +170,49 @@ export default function RegisterDeliveryScreen() {
         notes: notes.trim() || null,
         delivered_at: new Date().toISOString(),
         items,
-      });
+      },
+      {
+        onError: (e: unknown) => {
+          // Solo con conexión un error es real (offline queda en cola)
+          if (isOnline) {
+            Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo guardar la entrega. Reintentá.');
+          }
+        },
+      },
+    );
 
-      // Registrar la visita automáticamente (con venta o sin venta)
-      markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
-
-      // Auto-sugerencia: tipos entregados que no están en los habituales
-      const newTypes = items
-        .map((it) => it.egg_type_id)
-        .filter((id) => !myPrefs.some((p) => p.egg_type_id === id));
-      if (newTypes.length > 0) {
-        const names = newTypes
-          .map((id) => eggTypes?.find((t) => t.id === id)?.name ?? 'tipo')
-          .join(', ');
-        Alert.alert(
-          'Agregar a habituales',
-          `¿Agregar ${names} a los tipos habituales de este cliente?`,
-          [
-            { text: 'No', style: 'cancel', onPress: () => navigation.goBack() },
-            {
-              text: 'Sí, agregar',
-              onPress: () => {
-                newTypes.forEach((id, i) =>
-                  addPref.mutate({
-                    customer_id: c.id,
-                    egg_type_id: id,
-                    make_primary: myPrefs.length === 0 && i === 0,
-                  }),
-                );
-                navigation.goBack();
-              },
+    // Auto-sugerencia: tipos entregados que no están en los habituales
+    const newTypes = items
+      .map((it) => it.egg_type_id)
+      .filter((id) => !myPrefs.some((p) => p.egg_type_id === id));
+    if (newTypes.length > 0) {
+      const names = newTypes
+        .map((id) => eggTypes?.find((t) => t.id === id)?.name ?? 'tipo')
+        .join(', ');
+      Alert.alert(
+        'Agregar a habituales',
+        `¿Agregar ${names} a los tipos habituales de este cliente?`,
+        [
+          { text: 'No', style: 'cancel', onPress: () => navigation.goBack() },
+          {
+            text: 'Sí, agregar',
+            onPress: () => {
+              newTypes.forEach((id, i) =>
+                addPref.mutate({
+                  customer_id: c.id,
+                  egg_type_id: id,
+                  make_primary: myPrefs.length === 0 && i === 0,
+                }),
+              );
+              navigation.goBack();
             },
-          ],
-        );
-        return;
-      }
-
-      navigation.goBack();
-    } catch (e: any) {
-      // Sin conexión la mutación queda pausada y se reintenta sola: no es error.
-      if (!isOnline) {
-        Alert.alert(
-          'Guardado sin conexión',
-          'La entrega se registrará automáticamente cuando vuelva la señal.',
-        );
-        navigation.goBack();
-        return;
-      }
-      Alert.alert('Error', e?.message ?? 'No se pudo guardar la entrega.');
+          },
+        ],
+      );
+      return;
     }
+
+    navigation.goBack();
   }
 
   return (

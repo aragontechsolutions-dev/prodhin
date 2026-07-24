@@ -73,23 +73,22 @@ export default function TruckStockScreen() {
     const items = (eggTypes ?? [])
       .map((t) => ({ id: uuidv4(), egg_type_id: t.id, cajas_plasticas: parseInt(inputs[t.id] || '0', 10) || 0 }));
 
-    try {
-      const toLoad = items.filter((it) => it.cajas_plasticas > 0);
-      if (toLoad.length === 0) { Alert.alert('Nada para cargar', 'Ingresá al menos una cantidad.'); return; }
-      await registerLoads.mutateAsync({
-        driver_id: profile.id,
-        created_at: new Date().toISOString(),
-        items: toLoad,
-      });
-      setMode('view');
-    } catch (e: any) {
-      if (!isOnline) {
-        Alert.alert('Guardado sin conexión', 'Se registrará al reconectar.');
-        setMode('view');
-        return;
-      }
-      Alert.alert('Error', e?.message ?? 'No se pudo guardar.');
-    }
+    const toLoad = items.filter((it) => it.cajas_plasticas > 0);
+    if (toLoad.length === 0) { Alert.alert('Nada para cargar', 'Ingresá al menos una cantidad.'); return; }
+
+    // Encolar SIN esperar: offline la mutación queda pausada y se envía sola al
+    // reconectar (await/mutateAsync se colgaría offline porque nunca resuelve).
+    registerLoads.mutate(
+      { driver_id: profile.id, created_at: new Date().toISOString(), items: toLoad },
+      {
+        onSuccess: () => Alert.alert('Carga registrada', 'El stock del camión se actualizó.'),
+        onError: (e: unknown) => {
+          if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo guardar.');
+        },
+      },
+    );
+    if (!isOnline) Alert.alert('Guardado sin conexión', 'La carga se registrará al reconectar.');
+    setMode('view');
   }
 
   const saving = registerLoads.isPending;
