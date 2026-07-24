@@ -41,6 +41,17 @@ const SECTIONS: Item[] = [
     tip: 'Usá el buscador (🔍) para encontrar un cliente por nombre o RUT: el mapa vuela hasta él.',
   },
   {
+    icon: '➡️',
+    title: 'Sugerencia de próximo cliente',
+    body: [
+      'Al empezar la ruta y después de cada entrega, aparece arriba un aviso con a qué cliente conviene ir.',
+      'Se basa en el orden en que solés hacer las entregas (histórico).',
+      'Es solo una sugerencia: podés ir a quien quieras.',
+      'El aviso desaparece solo a los pocos segundos.',
+    ],
+    tip: 'Cuando terminás todas las entregas del día, aparece una animación de "¡Todas completadas!".',
+  },
+  {
     icon: '☰',
     title: 'El menú lateral',
     body: [

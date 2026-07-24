@@ -30,6 +30,7 @@ import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useBoxBalances } from '../hooks/useBoxBalances';
+import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
 import { useVisited, useVisitedKinds, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
@@ -732,6 +733,67 @@ export default function MapScreen() {
   const deliveredCustomers = todayRouteCustomers.filter((c) => deliveredIds.has(c.id));
   const visitedNoSaleCustomers = todayRouteCustomers.filter((c) => visitedIds.has(c.id) && !deliveredIds.has(c.id));
 
+  // ── Sugerencia de orden (histórica) + animación de completado ──
+  const suggestionModel = useMemo(() => buildSuggestionModel(myDeliveries ?? []), [myDeliveries]);
+
+  const [suggestText, setSuggestText] = useState<string | null>(null);
+  const suggestAnim = useRef(new Animated.Value(0)).current;
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showSuggestion = useCallback((text: string) => {
+    setSuggestText(text);
+    Animated.timing(suggestAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    suggestTimer.current = setTimeout(() => {
+      Animated.timing(suggestAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setSuggestText(null));
+    }, 5000);
+  }, [suggestAnim]);
+
+  const [showDone, setShowDone] = useState(false);
+  const doneAnim = useRef(new Animated.Value(0)).current;
+  const doneShownRef = useRef(false);
+  const triggerDone = useCallback(() => {
+    setShowDone(true);
+    doneAnim.setValue(0);
+    Animated.spring(doneAnim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 80 }).start();
+    setTimeout(() => {
+      Animated.timing(doneAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => setShowDone(false));
+    }, 4500);
+  }, [doneAnim]);
+
+  useEffect(() => () => { if (suggestTimer.current) clearTimeout(suggestTimer.current); }, []);
+
+  const prevVisitedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!hasRouteToday || todayCount === 0) { prevVisitedRef.current = new Set(visitedIds); return; }
+    const prev = prevVisitedRef.current;
+    // ¿algún cliente de la ruta de hoy se visitó recién?
+    let lastVisited: string | null = null;
+    for (const id of visitedIds) {
+      if (!prev.has(id) && todayRouteIds.has(id)) lastVisited = id;
+    }
+    const firstRun = prev.size === 0;
+    prevVisitedRef.current = new Set(visitedIds);
+
+    const pendingIds = todayRouteCustomers.filter((c) => !visitedIds.has(c.id)).map((c) => c.id);
+
+    if (pendingIds.length === 0) {
+      if (!doneShownRef.current) { doneShownRef.current = true; triggerDone(); }
+      return;
+    }
+    doneShownRef.current = false; // si vuelve a haber pendientes, permitir re-mostrar
+
+    // Mostrar sugerencia al inicio o justo después de una entrega
+    if (lastVisited || firstRun) {
+      const nextId = suggestNext(suggestionModel, lastVisited, pendingIds);
+      const cust = allCustomers.find((c) => c.id === nextId);
+      if (cust) {
+        const isStart = visitedIds.size === 0;
+        showSuggestion(`${isStart ? '🧭 Empezá por' : '➡️ Seguí con'}: ${getDisplayName(cust)}`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitedIds]);
+
   // Inactivity timer
   const { resetTimers } = useInactivityTimer(
     signOut,
@@ -1011,6 +1073,36 @@ export default function MapScreen() {
         >
           <Text style={styles.recenterIcon}>📍</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Toast de sugerencia de próximo cliente (se autooculta) */}
+      {suggestText && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.suggestToast,
+            {
+              opacity: suggestAnim,
+              transform: [{ translateY: suggestAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}
+        >
+          <Text style={styles.suggestText}>{suggestText}</Text>
+        </Animated.View>
+      )}
+
+      {/* Animación: todas las entregas completadas */}
+      {showDone && (
+        <Animated.View style={[styles.doneOverlay, { opacity: doneAnim }]}>
+          <TouchableOpacity style={styles.doneFill} activeOpacity={1} onPress={() => setShowDone(false)}>
+            <Animated.View style={{ transform: [{ scale: doneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }}>
+              <Text style={styles.doneEmoji}>🎉</Text>
+              <View style={styles.doneCheckCircle}><Text style={styles.doneCheck}>✓</Text></View>
+              <Text style={styles.doneTitle}>¡Todas las entregas{'\n'}completadas!</Text>
+              <Text style={styles.doneSub}>Buen trabajo 💪</Text>
+            </Animated.View>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Route progress banner */}
@@ -1312,6 +1404,20 @@ const styles = StyleSheet.create({
   },
   recenterBtnNav: { bottom: 190 }, // encima del bottom sheet de navegación
   recenterIcon: { fontSize: 22 },
+  suggestToast: {
+    position: 'absolute', top: Platform.OS === 'ios' ? 150 : 118, left: 16, right: 16, zIndex: 35,
+    backgroundColor: '#1d4ed8', borderRadius: 14, paddingVertical: 11, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
+    alignItems: 'center',
+  },
+  suggestText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  doneOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
+  doneFill: { flex: 1, backgroundColor: 'rgba(22,163,74,0.96)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  doneEmoji: { fontSize: 56, textAlign: 'center', marginBottom: 8 },
+  doneCheckCircle: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 16 },
+  doneCheck: { fontSize: 52, color: '#16a34a', fontWeight: '800' },
+  doneTitle: { fontSize: 24, fontWeight: '800', color: '#fff', textAlign: 'center', lineHeight: 30 },
+  doneSub: { fontSize: 15, color: '#dcfce7', textAlign: 'center', marginTop: 8 },
   webviewLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
   loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: '#6b7280' },
