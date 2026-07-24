@@ -50,31 +50,63 @@ export function buildSuggestionModel(deliveries: MyDeliveryRow[]): SuggestionMod
   return { avgRank, transitions };
 }
 
+export interface LatLng { lat: number; lng: number }
+
+function haversineKm(a: LatLng, b: LatLng): number {
+  const R = 6371, p = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * p, dLng = (b.lng - a.lng) * p;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * p) * Math.cos(b.lat * p) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 /**
  * Sugiere el próximo cliente entre los pendientes.
- * Prioriza el que suele ir después del último visitado; si no, el de menor
- * rango promedio; si no hay historial, el primero de la lista.
+ *
+ * Si hay posición actual + coordenadas, optimiza por RUTA MÁS CORTA usando la
+ * distancia como base, ajustada por el historial: descuenta al cliente que
+ * suele ir después del último y penaliza a los que suelen ir al final. Así
+ * gana el más cercano, salvo que la costumbre sugiera fuerte otra cosa.
+ *
+ * Sin posición, cae al histórico puro (transición y luego rango).
  */
 export function suggestNext(
   model: SuggestionModel,
   lastId: string | null,
   pendingIds: string[],
+  opts?: { coords?: Map<string, LatLng>; current?: LatLng | null },
 ): string | null {
   if (pendingIds.length === 0) return null;
 
-  if (lastId) {
-    const m = model.transitions.get(lastId);
-    if (m) {
-      let best: string | null = null;
-      let bestC = 0;
-      for (const id of pendingIds) {
-        const c = m.get(id) ?? 0;
-        if (c > bestC) { bestC = c; best = id; }
-      }
-      if (best) return best;
+  const coords = opts?.coords;
+  const current = opts?.current ?? null;
+  const transFrom = lastId ? model.transitions.get(lastId) : undefined;
+
+  // Con posición → optimizar por distancia + costumbre
+  if (coords && current) {
+    let best: string | null = null;
+    let bestCost = Infinity;
+    for (const id of pendingIds) {
+      const c = coords.get(id);
+      const dist = c ? haversineKm(current, c) : 5; // 5 km si falta la coord
+      const rank = model.avgRank.get(id) ?? 3;
+      const trans = transFrom?.get(id) ?? 0;
+      // costo en "km": distancia + peso por posición histórica − bonus de transición
+      const cost = dist + rank * 0.35 - Math.min(trans, 5) * 0.6;
+      if (cost < bestCost) { bestCost = cost; best = id; }
     }
+    if (best) return best;
   }
 
+  // Sin posición → histórico puro
+  if (transFrom) {
+    let best: string | null = null;
+    let bestC = 0;
+    for (const id of pendingIds) {
+      const c = transFrom.get(id) ?? 0;
+      if (c > bestC) { bestC = c; best = id; }
+    }
+    if (best) return best;
+  }
   let best: string | null = null;
   let bestR = Infinity;
   for (const id of pendingIds) {

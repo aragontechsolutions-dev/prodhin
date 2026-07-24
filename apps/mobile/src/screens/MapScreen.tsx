@@ -784,7 +784,11 @@ export default function MapScreen() {
 
     // Mostrar sugerencia al inicio o justo después de una entrega
     if (lastVisited || firstRun) {
-      const nextId = suggestNext(suggestionModel, lastVisited, pendingIds);
+      const coords = new Map(allCustomers.map((c) => [c.id, { lat: c.lat, lng: c.lng }]));
+      const nextId = suggestNext(suggestionModel, lastVisited, pendingIds, {
+        coords,
+        current: userLocation,
+      });
       const cust = allCustomers.find((c) => c.id === nextId);
       if (cust) {
         const isStart = visitedIds.size === 0;

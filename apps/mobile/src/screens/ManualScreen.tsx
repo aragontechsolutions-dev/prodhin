@@ -45,7 +45,7 @@ const SECTIONS: Item[] = [
     title: 'Sugerencia de próximo cliente',
     body: [
       'Al empezar la ruta y después de cada entrega, aparece arriba un aviso con a qué cliente conviene ir.',
-      'Se basa en el orden en que solés hacer las entregas (histórico).',
+      'Combina tu orden habitual (histórico) con la cercanía: prioriza el más cercano sin perder la costumbre.',
       'Es solo una sugerencia: podés ir a quien quieras.',
       'El aviso desaparece solo a los pocos segundos.',
     ],
