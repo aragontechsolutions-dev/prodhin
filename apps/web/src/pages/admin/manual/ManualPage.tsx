@@ -397,12 +397,12 @@ export default function ManualPage() {
             Stock = último recuento + cargas posteriores − entregas con venta posteriores
           </div>
           <P>El sobrante pasa solo de un día a otro. Este stock además <strong>apalanca la "Carga del día"</strong> del chofer: la app sugiere cargar solo lo que falta (demanda estimada − lo que ya hay en el camión).</P>
-          <SubTitle>Recuento (solo admin)</SubTitle>
-          <P>El chofer solo registra <strong>cargas</strong> desde la app. El <strong>recuento</strong> (contar físicamente lo que hay y fijar el valor real) lo hace únicamente el administrador desde acá:</P>
+          <SubTitle>Cargas y recuentos (solo admin)</SubTitle>
+          <P>Las <strong>cargas</strong> (lo que sube al camión) y los <strong>recuentos</strong> (contar físicamente y fijar el valor real) los registra únicamente el administrador desde acá. El chofer solo <strong>ve</strong> su stock en la app.</P>
           <Steps items={[
-            'En Stock camiones, tarjeta del chofer → botón "🔢 Hacer recuento".',
-            'Ingresar cuántas cajas plásticas hay realmente de cada tipo.',
-            'Guardar: fija el stock y corrige cualquier desvío. El sobrante sigue pasando de un día a otro.',
+            'En Stock camiones, tarjeta del chofer → "➕ Registrar carga" para sumar lo que se carga por tipo.',
+            'O "🔢 Recuento" para fijar cuántas cajas plásticas hay realmente de cada tipo (corrige desvíos).',
+            'Las entregas descuentan solas; el sobrante pasa de un día a otro.',
           ]} />
         </section>
 
@@ -435,7 +435,7 @@ export default function ManualPage() {
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📦 Stock del camión</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Lo que hay arriba del camión por tipo. El chofer registra cargas; las entregas descuentan solas. El recuento lo hace el admin en la web.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Lo que hay arriba del camión por tipo (solo lectura). Las cargas y recuentos los hace el admin en la web; las entregas descuentan solas.</p>
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">📦 Mis entregas</p>

@@ -3,6 +3,7 @@ import { useTruckStock } from '../../../hooks/useTruckStock';
 import { useUsers } from '../../../hooks/useUsers';
 import { useEggTypes, type EggType } from '../../../hooks/useEggTypes';
 import RecountModal from './RecountModal';
+import LoadModal from './LoadModal';
 
 function dotColor(color: EggType['color']): string {
   if (color === 'rojo') return '#ef4444';
@@ -51,6 +52,7 @@ export default function StockPage() {
   }, [stock]);
 
   const [recounting, setRecounting] = useState<{ id: string; name: string } | null>(null);
+  const [loading2, setLoading2] = useState<{ id: string; name: string } | null>(null);
 
   const choferes = (users ?? []).filter((u) => u.role === 'chofer' && u.is_active);
 
@@ -104,12 +106,18 @@ export default function StockPage() {
                     ))}
                   </div>
                 )}
-                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+                <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex gap-2">
+                  <button
+                    onClick={() => setLoading2({ id: c.id, name: c.full_name })}
+                    className="flex-1 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg py-2 transition"
+                  >
+                    ➕ Registrar carga
+                  </button>
                   <button
                     onClick={() => setRecounting({ id: c.id, name: c.full_name })}
-                    className="w-full text-sm font-semibold text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg py-2 transition"
+                    className="flex-1 text-sm font-semibold text-teal-700 dark:text-teal-400 border border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg py-2 transition"
                   >
-                    🔢 Hacer recuento
+                    🔢 Recuento
                   </button>
                 </div>
               </div>
@@ -119,9 +127,15 @@ export default function StockPage() {
       )}
 
       <p className="text-xs text-gray-400 dark:text-gray-500">
-        cp = cajas plásticas · cj = cajones (1 cajón = 2 cajas plásticas). El chofer registra las cargas desde la app; el recuento (ajuste real) lo hace el admin acá.
+        cp = cajas plásticas · cj = cajones (1 cajón = 2 cajas plásticas). El admin registra cargas y recuentos acá; el chofer solo ve su stock. Las entregas descuentan solas.
       </p>
 
+      <LoadModal
+        driverId={loading2?.id ?? null}
+        driverName={loading2?.name ?? ''}
+        currentStock={loading2 ? (stockByDriver.get(loading2.id) ?? new Map()) : new Map()}
+        onClose={() => setLoading2(null)}
+      />
       <RecountModal
         driverId={recounting?.id ?? null}
         driverName={recounting?.name ?? ''}

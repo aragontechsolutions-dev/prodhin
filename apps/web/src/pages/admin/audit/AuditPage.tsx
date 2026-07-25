@@ -3,6 +3,7 @@ import { useAuditLog, TABLE_LABELS, type AuditRow } from '../../../hooks/useAudi
 import { useUsers } from '../../../hooks/useUsers';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useEggTypes } from '../../../hooks/useEggTypes';
+import { useRoutes } from '../../../hooks/useRoutes';
 import { PAGE_SIZE_OPTIONS, type PageSize } from '../../../hooks/usePagination';
 
 const ACTION_LABEL: Record<string, string> = { INSERT: 'Creó', UPDATE: 'Editó', DELETE: 'Borró' };
@@ -67,6 +68,13 @@ export default function AuditPage() {
   const { data: users } = useUsers();
   const { data: customers } = useCustomers();
   const { data: eggTypes } = useEggTypes();
+  const { data: routes } = useRoutes();
+
+  const routeName = useMemo(() => {
+    const m = new Map<string, string>();
+    (routes ?? []).forEach((r) => m.set(r.id, r.name));
+    return m;
+  }, [routes]);
 
   const userName = useMemo(() => { const m = new Map<string, string>(); (users ?? []).forEach((u) => m.set(u.id, u.full_name)); return m; }, [users]);
   const eggName = useMemo(() => { const m = new Map<string, string>(); (eggTypes ?? []).forEach((t) => m.set(t.id, t.name)); return m; }, [eggTypes]);
@@ -85,6 +93,7 @@ export default function AuditPage() {
     if (key === 'egg_type_id' || key === 'preferred_egg_type_id') return eggName.get(String(val)) ?? 'categoría';
     if (key === 'customer_id') return custName.get(String(val)) ?? 'cliente';
     if (['driver_id', 'from_driver_id', 'to_driver_id', 'assigned_by', 'created_by'].includes(key)) return userName.get(String(val)) ?? 'usuario';
+    if (key === 'route_id') return routeName.get(String(val)) ?? 'ruta';
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
     if (key === 'status') return STATUS_LABEL[String(val)] ?? String(val);
     if (key === 'mode') return val === 'cp' ? 'Deja cajas plásticas' : 'En cartones';

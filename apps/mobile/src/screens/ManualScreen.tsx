@@ -118,13 +118,12 @@ const SECTIONS: Item[] = [
     icon: '📦',
     title: 'Stock del camión',
     body: [
-      'Muestra lo que hay arriba del camión por tipo de huevo.',
-      '➕ Registrar carga: sumás lo que subís al camión.',
+      'Muestra lo que hay arriba del camión por tipo de huevo (solo lectura).',
       'Cada entrega descuenta sola del stock.',
       'El sobrante queda para el día siguiente.',
-      'El recuento (ajuste real) lo hace el administrador desde la web.',
+      'Las cargas y los recuentos los registra el administrador desde la web.',
     ],
-    tip: 'A la mañana registrás la carga; si el stock quedó desfasado, avisá al admin para que haga un recuento.',
+    tip: 'Si el stock que ves no coincide con lo real, avisá al admin para que haga una carga o un recuento.',
   },
   {
     icon: '📦',

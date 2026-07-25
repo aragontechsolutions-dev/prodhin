@@ -21,6 +21,33 @@ export function useTruckStock() {
   });
 }
 
+/** Carga (suma) al camión de un chofer — solo admin. */
+export function useRegisterLoad() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      driver_id: string;
+      note?: string | null;
+      items: { egg_type_id: string; cajas_plasticas: number }[];
+    }) => {
+      const created_at = new Date().toISOString();
+      const rows = input.items
+        .filter((it) => it.cajas_plasticas > 0)
+        .map((it) => ({
+          driver_id: input.driver_id,
+          egg_type_id: it.egg_type_id,
+          cajas_plasticas: it.cajas_plasticas,
+          note: input.note ?? null,
+          created_at,
+        }));
+      if (rows.length === 0) return;
+      const { error } = await supabase.from('truck_loads').insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['truck-stock'] }),
+  });
+}
+
 /** Recuento (ajuste absoluto) del camión de un chofer — solo admin. */
 export function useRegisterCount() {
   const qc = useQueryClient();
