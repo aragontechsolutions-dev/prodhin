@@ -1,9 +1,17 @@
 # Actualizaciones de la APK (auto-chequeo al abrir)
 
 La app avisa al chofer cuando hay una versión nueva y le ofrece descargarla.
-Funciona con un archivo `update.json` público + la APK hospedada en un lugar
-público. Acá usamos **Supabase Storage** (bucket público), pero podés usar
-cualquier URL pública.
+Funciona con un archivo `update.json` público + la APK hospedada públicamente.
+
+Usamos un **repo PÚBLICO de GitHub** para hospedar todo, porque:
+
+- Las APK son grandes (74 MB hoy). GitHub Releases soporta archivos de hasta
+  **2 GB** por archivo. (Supabase free corta en 50 MB, por eso NO sirve.)
+- En un repo **público**, tanto el `update.json` como los assets de los
+  Releases se descargan **sin login**.
+
+> Este repo es solo para distribuir la APK: no lleva código fuente. El código
+> sigue en el repo privado `prodhin`.
 
 ## Cómo funciona (resumen)
 
@@ -17,24 +25,25 @@ cualquier URL pública.
 
 ## Configuración inicial (se hace UNA sola vez)
 
-### 1. Crear el bucket público en Supabase
+### 1. Crear el repo público de releases
 
-1. Entrá a tu proyecto en https://supabase.com → **Storage**.
-2. **New bucket** → nombre: `app` → marcá **Public bucket** → crear.
+1. En GitHub, creá un repo nuevo, ej: **`prodhin-releases`**, en la org
+   `aragontechsolutions-dev`, marcado como **Public**.
+2. Agregá un `update.json` inicial en la raíz (podés copiar
+   `update.example.json` de este proyecto). Con que exista alcanza.
 
 ### 2. Poner la URL del manifiesto en el código
 
-En `apps/mobile/src/lib/appVersion.ts`, reemplazá `<TU-PROYECTO>` por el ref
-de tu proyecto de Supabase (lo ves en la URL del dashboard o en
-Settings → API). Queda algo así:
+En `apps/mobile/src/lib/appVersion.ts`, reemplazá `<REPO-PUBLICO>` por el
+nombre del repo que creaste. Queda algo así:
 
 ```ts
 export const UPDATE_MANIFEST_URL =
-  'https://abcd1234.supabase.co/storage/v1/object/public/app/update.json';
+  'https://raw.githubusercontent.com/aragontechsolutions-dev/prodhin-releases/main/update.json';
 ```
 
 > Esta URL se compila dentro de la APK, así que este paso solo hace falta la
-> primera vez (o si cambiás de proyecto/hosting).
+> primera vez.
 
 ---
 
@@ -57,33 +66,35 @@ cd apps/mobile
 
 Renombrá el archivo resultante a algo claro, ej: `prodhin-1.1.0.apk`.
 
-### 3. Subir la APK a Supabase Storage
+### 3. Crear un Release en GitHub y adjuntar la APK
 
-1. Storage → bucket `app` → **Upload file** → subí `prodhin-1.1.0.apk`.
-2. Copiá su URL pública (botón **Copy URL** o **Get URL**). Tiene la forma:
-   `https://TU-PROYECTO.supabase.co/storage/v1/object/public/app/prodhin-1.1.0.apk`
+1. En el repo `prodhin-releases` → **Releases** → **Draft a new release**.
+2. **Tag**: `v1.1.0` (mismo número que la versión).
+3. Arrastrá la APK (`prodhin-1.1.0.apk`) a la zona de **assets**.
+4. **Publish release**.
+5. La URL de descarga directa queda así (copiala):
+   `https://github.com/aragontechsolutions-dev/prodhin-releases/releases/download/v1.1.0/prodhin-1.1.0.apk`
 
-### 4. Actualizar `update.json`
+### 4. Actualizar `update.json` en el repo público
 
-Tomá `update.example.json` como plantilla y armá el `update.json` con los
-datos nuevos:
+Editá el `update.json` en la raíz de `prodhin-releases` (botón lápiz en
+GitHub) y dejalo así:
 
 ```json
 {
   "latestVersion": "1.1.0",
-  "apkUrl": "https://TU-PROYECTO.supabase.co/storage/v1/object/public/app/prodhin-1.1.0.apk",
+  "apkUrl": "https://github.com/aragontechsolutions-dev/prodhin-releases/releases/download/v1.1.0/prodhin-1.1.0.apk",
   "mandatory": false,
   "notes": "Qué cambió en esta versión."
 }
 ```
 
 - `latestVersion`: la versión nueva.
-- `apkUrl`: la URL de la APK del paso 3.
+- `apkUrl`: la URL del asset del Release (paso 3).
 - `mandatory`: `true` obliga a actualizar (no se puede tocar "Más tarde").
 - `notes`: texto corto que verá el chofer.
 
-Subí ese `update.json` al bucket `app` (**Upload file**, sobreescribiendo el
-anterior).
+Guardá el commit.
 
 ### 5. ¡Listo!
 
@@ -96,8 +107,11 @@ La próxima vez que un chofer abra la app, verá el aviso de actualización.
 - **Instalación:** al descargar la APK, Android pedirá permiso para "instalar
   apps de orígenes desconocidos". El chofer debe aceptarlo una vez. Esto es
   normal fuera de Google Play.
+- **`raw.githubusercontent` puede cachear ~5 min:** si acabás de editar el
+  `update.json` y no aparece el aviso al toque, esperá unos minutos. (La app ya
+  agrega un parámetro anti-caché, pero el CDN de GitHub a veces demora.)
 - **Cambios solo de JS vs nativos:** este método sirve para cualquier cambio
   porque siempre instalás una APK completa. (Si algún día querés updates
   automáticos sin reinstalar para cambios de JS, eso es EAS Update / Opción A.)
-- **Privacidad del bucket:** el bucket `app` es público solo para poder
-  descargar la APK y el JSON sin login. No pongas datos sensibles ahí.
+- **No pongas datos sensibles en el repo público:** es solo para la APK y el
+  `update.json`.

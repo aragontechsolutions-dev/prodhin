@@ -19,15 +19,17 @@ export const APP_VERSION = '1.0.0';
 // URL pública del manifiesto de versión. Debe devolver un JSON como:
 //   {
 //     "latestVersion": "1.1.0",
-//     "apkUrl": "https://.../prodhin-1.1.0.apk",
+//     "apkUrl": "https://github.com/.../releases/download/v1.1.0/prodhin-1.1.0.apk",
 //     "mandatory": false,
 //     "notes": "Botones de WhatsApp y arreglos de pantalla."
 //   }
 //
-// Reemplazá <TU-PROYECTO> por el ref de tu proyecto de Supabase (o apuntá a
-// cualquier URL pública que sirva ese JSON).
+// Se hospeda en un repo PÚBLICO de GitHub (ver ACTUALIZACIONES.md), servido
+// vía raw.githubusercontent. La APK va como asset de un Release (soporta
+// archivos grandes; el límite de 50 MB de Supabase no aplica acá).
+// Reemplazá <REPO-PUBLICO> por el nombre del repo que crees (ej: prodhin-releases).
 export const UPDATE_MANIFEST_URL =
-  'https://<TU-PROYECTO>.supabase.co/storage/v1/object/public/app/update.json';
+  'https://raw.githubusercontent.com/aragontechsolutions-dev/<REPO-PUBLICO>/main/update.json';
 
 export interface UpdateManifest {
   latestVersion: string;
@@ -58,7 +60,7 @@ export function compareVersions(a: string, b: string): number {
 // cualquier error (sin red, JSON inválido, URL sin configurar) devuelve null.
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
   // Si todavía no configuraron la URL, no hacemos nada.
-  if (UPDATE_MANIFEST_URL.includes('<TU-PROYECTO>')) return null;
+  if (UPDATE_MANIFEST_URL.includes('<REPO-PUBLICO>')) return null;
 
   try {
     const controller = new AbortController();
