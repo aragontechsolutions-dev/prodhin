@@ -102,6 +102,29 @@ La próxima vez que un chofer abra la app, verá el aviso de actualización.
 
 ---
 
+## Atajo: script que hace los pasos 3 y 4 de una
+
+En vez de crear el release y editar el `update.json` a mano, podés usar
+`scripts/publish-release.ps1`. Igual antes tenés que hacer el **paso 1**
+(subir `version` en `app.json` y `APP_VERSION`) y **paso 2** (generar la APK).
+
+Después, desde PowerShell:
+
+```powershell
+.\apps\mobile\scripts\publish-release.ps1 -Version 1.1.0 -Notes "Botones de WhatsApp y arreglos"
+```
+
+Eso solo: renombra la APK a `prodhin-1.1.0.apk`, crea el Release `v1.1.0` con
+la APK adjunta, y actualiza+pushea el `update.json`. Opciones:
+
+- `-ApkPath "ruta\a\tu.apk"` si tu APK no está en la ruta por defecto
+  (`apps/mobile/android/app/build/outputs/apk/release/app-release.apk`).
+- `-Mandatory` para forzar la actualización (el chofer no puede posponer).
+
+Requiere `gh` (GitHub CLI) logueado (`gh auth login`) y `git`.
+
+---
+
 ## Notas
 
 - **Instalación:** al descargar la APK, Android pedirá permiso para "instalar
