@@ -71,7 +71,10 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
     clearTimeout(timeout);
     if (!res.ok) return null;
 
-    const data = (await res.json()) as UpdateManifest;
+    // Leemos como texto y sacamos un posible BOM (U+FEFF) al inicio: algunos
+    // editores/PowerShell lo agregan y rompería JSON.parse.
+    const raw = (await res.text()).replace(/^\uFEFF/, '').trim();
+    const data = JSON.parse(raw) as UpdateManifest;
     if (!data?.latestVersion || !data?.apkUrl) return null;
 
     const updateAvailable = compareVersions(data.latestVersion, APP_VERSION) > 0;

@@ -74,7 +74,13 @@ $UpdateJson = @"
   "notes": "$($Notes -replace '"','\"')"
 }
 "@
-Set-Content -Path (Join-Path $Tmp "update.json") -Value $UpdateJson -Encoding UTF8
+# IMPORTANTE: escribir SIN BOM. Set-Content -Encoding UTF8 agrega un BOM en
+# Windows PowerShell 5.1, y ese BOM rompe el JSON.parse de la app.
+[System.IO.File]::WriteAllText(
+  (Join-Path $Tmp "update.json"),
+  $UpdateJson,
+  (New-Object System.Text.UTF8Encoding($false))
+)
 
 Push-Location $Tmp
 git add update.json
