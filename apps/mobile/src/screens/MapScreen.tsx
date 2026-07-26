@@ -32,7 +32,7 @@ import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
-import { useVisited, useVisitedKinds, markVisited, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
+import { useVisited, useVisitedKinds, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Map'>;
 // Alias tipado laxo: los .d.ts de react-native-webview chocan con la versión
@@ -93,7 +93,6 @@ function buildMapHtml(
     #map{width:100vw;height:100vh;}
     .popup-btn{display:inline-block;margin-top:6px;padding:4px 10px;background:#f59e0b;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;}
     .nav-btn{display:inline-block;margin-top:4px;margin-left:4px;padding:4px 10px;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;}
-    .visit-btn{display:inline-block;margin-top:4px;margin-left:4px;padding:4px 10px;background:#16a34a;color:#fff;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;}
     @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.6)}70%{box-shadow:0 0 0 10px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
     .pulse{animation:pulse 1.8s infinite;border-radius:50%;}
     .savetiles-toastmsg{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;pointer-events:none;z-index:9999;}
@@ -641,9 +640,8 @@ function buildMapHtml(
         routeBadge='<br><span style="font-size:9px;background:'+badgeBg+';color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">'+badgeTxt+'<\/span>';
       }
       var delegBadge=c.kind==='delegated'?'<br><span style="font-size:9px;background:#f97316;color:#fff;padding:1px 5px;border-radius:3px;font-weight:600;">EN COBERTURA<\/span>':'';
-      var visitBtn=c.kind==='route'?'<a class="visit-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'visited\\',id:\\''+c.id+'\\'}))">✓ Visitado<\/a>':'';
       var navBtn='<a class="nav-btn" onclick="startNavigation('+c.lat+','+c.lng+')">🧭 Navegar<\/a>';
-      var popup=routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+navBtn+visitBtn;
+      var popup=routeBadge+delegBadge+'<b style="font-size:13px;">'+c.name+'<\/b><br><span style="font-size:11px;color:#6b7280;">'+c.phone+'<\/span><br><span style="font-size:10px;color:#9ca3af;">'+c.address+'<\/span><br><a class="popup-btn" onclick="window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'navigate\\',id:\\''+c.id+'\\'}))">Ver detalles →<\/a>'+navBtn;
       var m=L.marker([c.lat,c.lng],{icon:iconMap[c.kind]||redIcon}).bindPopup(popup,{maxWidth:240}).addTo(map);
       markerRefs[c.id]=m;
     });
@@ -949,9 +947,6 @@ export default function MapScreen() {
       if (msg.type === 'navigate' && msg.id) {
         const customer = allCustomers.find((c) => c.id === msg.id);
         if (customer) navigation.navigate('CustomerDetail', { customer });
-      }
-      if (msg.type === 'visited' && msg.id) {
-        markVisited(msg.id);
       }
       if (msg.type === 'speak') {
         Speech.stop();
