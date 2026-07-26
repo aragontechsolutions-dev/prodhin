@@ -93,7 +93,7 @@ const SECTIONS: Item[] = [
       'Poné cuántas cajas vacías recogés en la visita.',
       'Guardá: el cliente queda marcado como visitado.',
     ],
-    tip: 'Sin señal se guarda igual y se envía sola al reconectar. En el detalle del cliente ves cuántas cajas plásticas quedan en su local.',
+    tip: 'Sin señal se guarda igual y se envía sola al reconectar. En el detalle del cliente ves su N° de cliente (el que asigna la administración), sus datos y cuántas cajas plásticas quedan en su local.',
   },
   {
     icon: '⭐',

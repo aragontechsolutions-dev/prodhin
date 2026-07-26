@@ -215,17 +215,36 @@ export default function ManualPage() {
           ]} />
           <Tip>Las coordenadas son esenciales: sin ellas el cliente no aparecerá en el mapa del chofer.</Tip>
 
+          <SubTitle>Número de cliente</SubTitle>
+          <P>Cada cliente lleva un <strong>número que asigna administración</strong> (campo obligatorio, numérico). Es único: el sistema no deja guardar dos clientes con el mismo número. Aparece en la lista (ej: <code>#125</code>), se puede buscar por él, y el chofer lo ve en el detalle del cliente.</P>
+
           <SubTitle>Validaciones al crear/editar</SubTitle>
           <div className="space-y-2 mb-3">
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">RUT único (bloqueante)</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">No se puede crear un cliente con un RUT que ya usa otro cliente. El sistema avisa y no deja guardar.</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Número de cliente único (bloqueante)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Obligatorio y numérico. No se puede repetir entre clientes.</p>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">RUT: 12 dígitos y único (bloqueante)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">El RUT es opcional, pero si se ingresa debe tener exactamente 12 dígitos y no puede repetirse. Los clientes viejos con RUT de otra longitud no se ven afectados mientras no se modifique ese campo.</p>
             </div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Teléfono repetido (solo aviso)</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Como un mismo dueño puede tener varias empresas/locales con el mismo teléfono, no se bloquea: aparece un aviso "¿crear de todas formas?" para confirmar.</p>
             </div>
           </div>
+
+          <SubTitle>📲 Autoservicio: que el cliente cargue sus datos</SubTitle>
+          <P>Podés generar un <strong>link de un solo uso</strong> para que el propio cliente complete o corrija sus datos (nombre, RUT, dirección) y capture su <strong>ubicación GPS</strong> desde el celular. Ideal para conseguir la ubicación exacta sin ir al lugar.</P>
+          <Steps items={[
+            'Crear el cliente con su número asignado y una ubicación aproximada (podés ajustarla luego).',
+            'Editar el cliente → sección "📲 Autoservicio del cliente" → "Generar link de autoservicio".',
+            'Tocar "Enviar por WhatsApp": se abre el chat del cliente con el link listo para enviar.',
+            'El cliente abre el link, completa sus datos, toca "Usar mi ubicación actual" y envía.',
+            'Sus datos y ubicación se actualizan solos en el sistema.',
+          ]} />
+          <Tip>El link vence a los 7 días y sirve una sola vez. Si el cliente necesita corregir de nuevo, generá uno nuevo.</Tip>
+          <Warning>El link deja modificar los datos del cliente sin necesidad de iniciar sesión. Enviáselo solo al cliente correcto por WhatsApp; no lo publiques.</Warning>
 
           <SubTitle>🥚 Tipos de huevo habituales del cliente</SubTitle>
           <P>Cada cliente puede tener asociados los tipos de huevo que suele comprar (uno o varios), con uno marcado como <strong>principal</strong>. Sirve de referencia y prellena la entrega en la app del chofer.</P>

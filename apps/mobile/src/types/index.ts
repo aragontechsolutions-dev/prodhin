@@ -1,6 +1,7 @@
 export interface Customer {
   id: string;
   customer_type: 'empresa' | 'persona_fisica';
+  customer_number: number | null;
   first_name: string | null;
   last_name: string | null;
   business_name: string | null;

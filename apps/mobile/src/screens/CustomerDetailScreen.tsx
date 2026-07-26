@@ -156,6 +156,9 @@ export default function CustomerDetailScreen() {
 
         {/* Info general */}
         <View style={styles.card}>
+          {c.customer_number != null && (
+            <InfoRow icon="🔢" label="N° de cliente" value={String(c.customer_number)} />
+          )}
           {c.customer_type === 'persona_fisica' && c.email && (
             <InfoRow icon="✉️" label="Email" value={c.email} />
           )}

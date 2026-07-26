@@ -3,6 +3,8 @@ export type CustomerType = 'persona_fisica' | 'empresa';
 export interface Customer {
   id: string;
   customer_type: CustomerType;
+  // Número que asigna administración (único entre clientes)
+  customer_number: number | null;
   // Persona física
   first_name: string | null;
   last_name: string | null;
@@ -26,6 +28,7 @@ export interface Customer {
 
 export interface CreateCustomerDto {
   customer_type: CustomerType;
+  customer_number?: number | null;
   first_name?: string | null;
   last_name?: string | null;
   business_name?: string | null;

@@ -48,8 +48,16 @@ function parseCSV(text: string, userId: string): ParsedRow[] {
     if (latRaw && isNaN(lat)) errors.push('lat debe ser un número');
     if (lngRaw && isNaN(lng)) errors.push('lng debe ser un número');
 
+    const numeroRaw = col(row, 'numero') || col(row, 'numero_cliente');
+    let customer_number: number | null = null;
+    if (numeroRaw) {
+      if (!/^\d+$/.test(numeroRaw)) errors.push('numero debe ser numérico');
+      else customer_number = parseInt(numeroRaw, 10);
+    }
+
     const data: CreateCustomerDto & { created_by: string } = {
       customer_type: tipo === 'empresa' ? 'empresa' : 'persona_fisica',
+      customer_number,
       first_name: tipo !== 'empresa' ? nombre || null : null,
       last_name: tipo !== 'empresa' ? col(row, 'apellido') || null : null,
       business_name: tipo === 'empresa' ? nombre || null : null,

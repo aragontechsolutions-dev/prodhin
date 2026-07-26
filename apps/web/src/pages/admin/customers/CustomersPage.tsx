@@ -41,7 +41,8 @@ export default function CustomersPage() {
   const filtered = (customers ?? []).filter((c) => {
     const name = getDisplayName(c).toLowerCase();
     const q = search.toLowerCase();
-    return name.includes(q) || c.address.toLowerCase().includes(q) || c.phone.includes(q);
+    return name.includes(q) || c.address.toLowerCase().includes(q) || c.phone.includes(q)
+      || (c.customer_number != null && String(c.customer_number).includes(q));
   });
 
   const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(filtered);
@@ -163,7 +164,12 @@ export default function CustomersPage() {
                     {paginated.map((c) => (
                       <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                         <td className="px-5 py-3.5">
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{getDisplayName(c)}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {c.customer_number != null && (
+                              <span className="text-gray-400 dark:text-gray-500 font-normal mr-1">#{c.customer_number}</span>
+                            )}
+                            {getDisplayName(c)}
+                          </p>
                           {c.contact_name && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">Contacto: {c.contact_name}</p>
                           )}

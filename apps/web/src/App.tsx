@@ -15,6 +15,7 @@ import EggTypesPage from './pages/admin/eggtypes/EggTypesPage';
 import StockPage from './pages/admin/stock/StockPage';
 import AuditPage from './pages/admin/audit/AuditPage';
 import ManualPage from './pages/admin/manual/ManualPage';
+import CustomerIntakePage from './pages/public/CustomerIntakePage';
 
 function NoAutorizado() {
   const { signOut } = useAuthStore();
@@ -56,6 +57,9 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Público: autoservicio de datos del cliente (link de un solo uso) */}
+      <Route path="/registro/:token" element={<CustomerIntakePage />} />
 
       {/* Rutas protegidas — solo Admin */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
