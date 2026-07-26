@@ -29,7 +29,7 @@ export const APP_VERSION = '1.0.0';
 // archivos grandes; el límite de 50 MB de Supabase no aplica acá).
 // Reemplazá <REPO-PUBLICO> por el nombre del repo que crees (ej: prodhin-releases).
 export const UPDATE_MANIFEST_URL =
-  'https://raw.githubusercontent.com/aragontechsolutions-dev/<REPO-PUBLICO>/main/update.json';
+  'https://raw.githubusercontent.com/aragontechsolutions-dev/prodhin-releases/main/update.json';
 
 export interface UpdateManifest {
   latestVersion: string;
