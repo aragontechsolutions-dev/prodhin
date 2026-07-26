@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_VERSION } from '../lib/appVersion';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -200,7 +201,7 @@ export default function ManualScreen() {
         {SECTIONS.map((item, i) => (
           <AccordionCard key={item.title} item={item} open={openIdx === i} onToggle={() => toggle(i)} />
         ))}
-        <Text style={styles.footer}>Prodhin · ¿Dudas? Consultá con el administrador.</Text>
+        <Text style={styles.footer}>Prodhin · versión {APP_VERSION} · ¿Dudas? Consultá con el administrador.</Text>
       </ScrollView>
     </View>
   );
