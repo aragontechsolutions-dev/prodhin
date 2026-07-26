@@ -99,7 +99,7 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
     const dupNum = others.find((c) => c.customer_number != null && String(c.customer_number) === num);
     if (dupNum) {
       const msg = `Ya existe un cliente con el número ${num}: ${
-        dupNum.business_name ?? `${dupNum.first_name ?? ''} ${dupNum.last_name ?? ''}`.trim() || 'cliente'
+        dupNum.business_name ?? (`${dupNum.first_name ?? ''} ${dupNum.last_name ?? ''}`.trim() || 'cliente')
       }`;
       toast.error(msg);
       setError(msg);
