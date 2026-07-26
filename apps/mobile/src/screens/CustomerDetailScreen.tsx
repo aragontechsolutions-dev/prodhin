@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getDisplayName, type EggType } from '../types';
@@ -52,6 +53,7 @@ export default function CustomerDetailScreen() {
   const { customer: c } = route.params;
   const { signOut } = useAuth();
   const { resetTimers } = useInactivityTimer(signOut);
+  const insets = useSafeAreaInsets();
   const { data: boxBalances } = useBoxBalances();
   const boxBalance = boxBalances?.[c.id] ?? 0;
 
@@ -87,10 +89,37 @@ export default function CustomerDetailScreen() {
     );
   }
 
+  // Número en formato internacional solo dígitos (ej: 5989XXXXXXX) para WhatsApp
+  function waDigits(): string {
+    const d = c.phone.replace(/\D/g, '');
+    // si no trae código de país (empieza con 0 o con 9), asumimos Uruguay (598)
+    if (d.startsWith('598')) return d;
+    if (d.startsWith('0')) return `598${d.slice(1)}`;
+    return `598${d}`;
+  }
+
+  function whatsappMessage() {
+    const n = waDigits();
+    const url = `whatsapp://send?phone=${n}`;
+    const web = `https://wa.me/${n}`;
+    Linking.canOpenURL(url)
+      .then((ok) => Linking.openURL(ok ? url : web))
+      .catch(() => Linking.openURL(web).catch(() => Alert.alert('Error', 'No se pudo abrir WhatsApp')));
+  }
+
+  function whatsappCall() {
+    // WhatsApp no permite iniciar la llamada por link; abrimos el chat del
+    // contacto para llamar desde ahí.
+    const n = waDigits();
+    Linking.openURL(`https://wa.me/${n}`).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir WhatsApp'),
+    );
+  }
+
   return (
     <View style={styles.container} onTouchStart={resetTimers}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -100,7 +129,7 @@ export default function CustomerDetailScreen() {
         <View style={{ width: 80 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         {/* Badge tipo */}
         <View style={[
           styles.typeBadge,
@@ -157,10 +186,22 @@ export default function CustomerDetailScreen() {
           <Text style={styles.deliveryBtnText}>🥚  Registrar entrega</Text>
         </TouchableOpacity>
 
-        {/* Botón llamar */}
-        <TouchableOpacity style={styles.callBtn} onPress={callPhone}>
-          <Text style={styles.callBtnText}>📞  Llamar al cliente</Text>
-        </TouchableOpacity>
+        {/* Contacto: llamar + WhatsApp */}
+        <Text style={styles.contactTitle}>Contactar al cliente</Text>
+        <View style={styles.contactRow}>
+          <TouchableOpacity style={[styles.contactBtn, styles.callBtn2]} onPress={callPhone} activeOpacity={0.85}>
+            <Text style={styles.contactEmoji}>📞</Text>
+            <Text style={styles.callBtnText2}>Llamar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.contactBtn, styles.waBtn]} onPress={whatsappCall} activeOpacity={0.85}>
+            <Text style={styles.contactEmoji}>📱</Text>
+            <Text style={styles.waBtnText}>WhatsApp</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.contactBtn, styles.waBtn]} onPress={whatsappMessage} activeOpacity={0.85}>
+            <Text style={styles.contactEmoji}>💬</Text>
+            <Text style={styles.waBtnText}>Mensaje</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Navegación */}
         <View style={styles.navSection}>
@@ -389,6 +430,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  contactTitle: {
+    fontSize: 13, fontWeight: '600', color: '#374151',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  contactRow: { flexDirection: 'row', gap: 8 },
+  contactBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', gap: 4, borderWidth: 1 },
+  contactEmoji: { fontSize: 20 },
+  callBtn2: { backgroundColor: '#dcfce7', borderColor: '#bbf7d0' },
+  callBtnText2: { color: '#166534', fontWeight: '700', fontSize: 13 },
+  waBtn: { backgroundColor: '#dcfce7', borderColor: '#86efac' },
+  waBtnText: { color: '#128C7E', fontWeight: '700', fontSize: 13 },
   navSection: {
     gap: 10,
   },

@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getDisplayName, type Customer, type EggType } from '../types';
@@ -30,6 +31,7 @@ function eggDotColor(color: EggType['color']): string {
 
 export default function CustomerPreferencesScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { data: myCustomers, isLoading } = useMyCustomers(profile?.id);
   const { data: eggTypes, refetch: refetchEggTypes } = useEggTypes();
@@ -134,7 +136,7 @@ export default function CustomerPreferencesScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -183,7 +185,7 @@ export default function CustomerPreferencesScreen() {
 
       {/* Paginación */}
       {!isLoading && filtered.length > 0 && (
-        <View style={styles.pager}>
+        <View style={[styles.pager, { paddingBottom: insets.bottom + 12 }]}>
           <TouchableOpacity
             style={[styles.pagerBtn, safePage <= 1 && styles.pagerBtnDisabled]}
             onPress={() => setPage((p) => Math.max(1, p - 1))}

@@ -10,6 +10,7 @@ import {
   UIManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -176,6 +177,7 @@ function AccordionCard({ item, open, onToggle }: { item: Item; open: boolean; on
 
 export default function ManualScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   function toggle(i: number) {
@@ -185,7 +187,7 @@ export default function ManualScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -193,7 +195,7 @@ export default function ManualScreen() {
         <View style={{ width: 80 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
         <Text style={styles.intro}>Guía rápida para usar la app en la calle. Tocá cada tema para ver los detalles.</Text>
         {SECTIONS.map((item, i) => (
           <AccordionCard key={item.title} item={item} open={openIdx === i} onToggle={() => toggle(i)} />

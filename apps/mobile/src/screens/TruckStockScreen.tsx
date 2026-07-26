@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { formatCajones, type EggType } from '../types';
@@ -29,6 +30,7 @@ function eggDotColor(color: EggType['color']): string {
 
 export default function TruckStockScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { isOnline } = useNetworkStatus();
   const { data: eggTypes, isLoading: loadingTypes } = useEggTypes();
@@ -49,7 +51,7 @@ export default function TruckStockScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -60,7 +62,7 @@ export default function TruckStockScreen() {
       {loadingTypes ? (
         <ActivityIndicator color="#f59e0b" size="large" style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
           {!isOnline && (
             <View style={styles.offlineBanner}>
               <Text style={styles.offlineText}>Sin conexión — mostrando últimos datos guardados</Text>

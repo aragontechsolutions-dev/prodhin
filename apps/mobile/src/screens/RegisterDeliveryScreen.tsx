@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getDisplayName, formatCajones, type DeliveryStatus, type EggType } from '../types';
@@ -40,6 +41,7 @@ const STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
 export default function RegisterDeliveryScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Props['route']>();
+  const insets = useSafeAreaInsets();
   const { customer: c } = route.params;
   const { profile } = useAuth();
   const { isOnline } = useNetworkStatus();
@@ -217,7 +219,7 @@ export default function RegisterDeliveryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -225,7 +227,7 @@ export default function RegisterDeliveryScreen() {
         <View style={{ width: 80 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
         <Text style={styles.customerName}>{getDisplayName(c)}</Text>
         {!isOnline && (
           <View style={styles.offlineBanner}>

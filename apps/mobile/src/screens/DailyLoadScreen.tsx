@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { formatCajones, getDisplayName, type EggType } from '../types';
@@ -46,6 +47,7 @@ interface TypeSuggestion {
 
 export default function DailyLoadScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { data: myCustomers } = useMyCustomers(profile?.id);
   const { data: routeData } = useMyRoute(profile?.id);
@@ -157,7 +159,7 @@ export default function DailyLoadScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -178,7 +180,7 @@ export default function DailyLoadScreen() {
           <Text style={styles.emptyText}>No hay clientes en la ruta de hoy</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
           {/* Resumen */}
           <View style={styles.hero}>
             <Text style={styles.heroLabel}>A cargar hoy (demanda − lo que hay en el camión)</Text>

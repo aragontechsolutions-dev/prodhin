@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { formatCajones, type EggType } from '../types';
@@ -86,6 +87,7 @@ function CategoryTile({ index, name, color, cp }: { index: number; name: string;
 
 export default function DeliveriesHistoryScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { data: deliveries, isLoading } = useMyDeliveries(profile?.id);
   const { data: eggTypes } = useEggTypes();
@@ -276,7 +278,7 @@ export default function DeliveriesHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>← Volver</Text>
         </TouchableOpacity>
@@ -292,7 +294,7 @@ export default function DeliveriesHistoryScreen() {
           keyExtractor={(d) => d.id}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.empty}>

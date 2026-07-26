@@ -3,6 +3,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CREATE_DELIVERY_KEY, createDelivery } from './src/lib/deliveries';
@@ -74,8 +75,10 @@ export default function App() {
         queryClient.resumePausedMutations();
       }}
     >
-      <StatusBar style="dark" />
-      <AppNavigator />
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <AppNavigator />
+      </SafeAreaProvider>
     </PersistQueryClientProvider>
   );
 }

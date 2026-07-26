@@ -18,6 +18,7 @@ import {
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMyCustomers } from '../hooks/useMyCustomers';
 import { useMyRoute, getTodayDayOfWeek, isSummerSeason, type MyRouteResult } from '../hooks/useMyRoute';
@@ -687,6 +688,7 @@ export default function MapScreen() {
   const delegatedCustomers = myCustomers?.delegated ?? [];
   const allCustomers = [...ownCustomers, ...delegatedCustomers];
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -995,7 +997,7 @@ export default function MapScreen() {
       )}
 
       {/* Header */}
-      <View style={[styles.header, !isOnline && styles.headerOffline]}>
+      <View style={[styles.header, !isOnline && styles.headerOffline, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={openDrawer} style={styles.hamburgerBtn}>
           <View style={styles.hamburgerLine} />
           <View style={styles.hamburgerLine} />
@@ -1089,7 +1091,7 @@ export default function MapScreen() {
       {/* Botón recentrar en la posición del chofer (encima del HUD en navegación) */}
       {!isLoading && (
         <TouchableOpacity
-          style={[styles.recenterBtn, navActive && styles.recenterBtnNav]}
+          style={[styles.recenterBtn, navActive && styles.recenterBtnNav, { bottom: (navActive ? 190 : 96) + insets.bottom }]}
           onPress={() => sendToMap({ type: 'recenter' })}
           activeOpacity={0.85}
         >
@@ -1103,6 +1105,7 @@ export default function MapScreen() {
           pointerEvents="none"
           style={[
             styles.readyToast,
+            { top: insets.top + 118 },
             {
               opacity: readyAnim,
               transform: [{ translateY: readyAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
@@ -1119,6 +1122,7 @@ export default function MapScreen() {
           pointerEvents="none"
           style={[
             styles.suggestToast,
+            { top: insets.top + 118 },
             {
               opacity: suggestAnim,
               transform: [{ translateY: suggestAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
@@ -1162,7 +1166,7 @@ export default function MapScreen() {
 
       {/* Status bar */}
       {!isLoading && (
-        <View style={[styles.statusBar, !isOnline && styles.statusBarOffline]}>
+        <View style={[styles.statusBar, !isOnline && styles.statusBarOffline, { paddingBottom: insets.bottom + 10 }]}>
           <Text style={[styles.statusText, !isOnline && styles.statusTextOffline]}>
             {profile?.full_name}
             {allCustomers.length > 0
@@ -1179,7 +1183,7 @@ export default function MapScreen() {
       )}
       <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
         {/* Greeting */}
-        <View style={styles.drawerHeader}>
+        <View style={[styles.drawerHeader, { paddingTop: insets.top + 24 }]}>
           <View style={styles.drawerAvatar}>
             <Text style={styles.drawerAvatarText}>{initial}</Text>
           </View>
@@ -1249,7 +1253,7 @@ export default function MapScreen() {
 
         {/* Route view inside drawer */}
         {drawerView === 'route' && (
-          <ScrollView style={styles.drawerContent} contentContainerStyle={{ paddingBottom: 24 }}>
+          <ScrollView style={styles.drawerContent} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
             {!hasRouteToday ? (
               <View style={styles.drawerEmpty}>
                 <Text style={styles.drawerEmptyIcon}>😴</Text>
