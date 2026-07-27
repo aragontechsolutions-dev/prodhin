@@ -747,14 +747,14 @@ export default function MapScreen() {
 
   const [suggestText, setSuggestText] = useState<string | null>(null);
   const suggestAnim = useRef(new Animated.Value(0)).current;
-  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // No se autooculta: el chofer la cierra con la ✕. Así, aunque quede en el
+  // detalle del cliente tras entregar, al volver al mapa la sigue viendo.
   const showSuggestion = useCallback((text: string) => {
     setSuggestText(text);
     Animated.timing(suggestAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-    if (suggestTimer.current) clearTimeout(suggestTimer.current);
-    suggestTimer.current = setTimeout(() => {
-      Animated.timing(suggestAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setSuggestText(null));
-    }, 5000);
+  }, [suggestAnim]);
+  const dismissSuggestion = useCallback(() => {
+    Animated.timing(suggestAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => setSuggestText(null));
   }, [suggestAnim]);
 
   const [showDone, setShowDone] = useState(false);
@@ -769,7 +769,6 @@ export default function MapScreen() {
     }, 4500);
   }, [doneAnim]);
 
-  useEffect(() => () => { if (suggestTimer.current) clearTimeout(suggestTimer.current); }, []);
 
   // Aviso "listo para trabajar sin conexión" cuando terminó de precargar todo
   const [readyVisible, setReadyVisible] = useState(false);
@@ -820,6 +819,7 @@ export default function MapScreen() {
 
     if (pendingIds.length === 0) {
       if (!doneShownRef.current) { doneShownRef.current = true; triggerDone(); }
+      dismissSuggestion();
       return;
     }
     doneShownRef.current = false; // si vuelve a haber pendientes, permitir re-mostrar
@@ -1157,10 +1157,9 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
-      {/* Toast de sugerencia de próximo cliente (se autooculta) */}
+      {/* Sugerencia de próximo cliente (persiste hasta cerrarla con la ✕) */}
       {suggestText && (
         <Animated.View
-          pointerEvents="none"
           style={[
             styles.suggestToast,
             { top: insets.top + 118 },
@@ -1170,7 +1169,16 @@ export default function MapScreen() {
             },
           ]}
         >
-          <Text style={styles.suggestText}>{suggestText}</Text>
+          <View style={styles.suggestRow}>
+            <Text style={styles.suggestText}>{suggestText}</Text>
+            <TouchableOpacity
+              onPress={dismissSuggestion}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.suggestClose}
+            >
+              <Text style={styles.suggestCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       )}
 
@@ -1498,7 +1506,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
     alignItems: 'center',
   },
-  suggestText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  suggestText: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '700' },
+  suggestClose: {
+    width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  suggestCloseText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   readyToast: {
     position: 'absolute', top: Platform.OS === 'ios' ? 150 : 118, left: 16, right: 16, zIndex: 36,
     backgroundColor: '#16a34a', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16,

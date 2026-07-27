@@ -87,11 +87,13 @@ export function suggestNext(
     let bestCost = Infinity;
     for (const id of pendingIds) {
       const c = coords.get(id);
-      const dist = c ? haversineKm(current, c) : 5; // 5 km si falta la coord
+      const dist = c ? haversineKm(current, c) : 8; // 8 km si falta la coord (lo relega)
       const rank = model.avgRank.get(id) ?? 3;
       const trans = transFrom?.get(id) ?? 0;
-      // costo en "km": distancia + peso por posición histórica − bonus de transición
-      const cost = dist + rank * 0.35 - Math.min(trans, 5) * 0.6;
+      // costo en "km": manda la DISTANCIA a la posición actual del chofer; el
+      // historial solo desempata cuando dos clientes están casi a la misma
+      // distancia (pesos chicos).
+      const cost = dist + rank * 0.1 - Math.min(trans, 5) * 0.2;
       if (cost < bestCost) { bestCost = cost; best = id; }
     }
     if (best) return best;

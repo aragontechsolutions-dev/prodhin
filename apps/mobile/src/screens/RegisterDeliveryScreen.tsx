@@ -79,7 +79,8 @@ export default function RegisterDeliveryScreen() {
     () => (preferences ?? []).filter((p) => p.customer_id === c.id),
     [preferences, c.id],
   );
-  const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? null;
+  // Principal si existe; si no, el primer tipo habitual del cliente
+  const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? myPrefs[0]?.egg_type_id ?? null;
 
   // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas
   const inited = useRef(false);
@@ -110,18 +111,21 @@ export default function RegisterDeliveryScreen() {
     if (!profile) return;
 
     // Bloqueo: no se puede registrar entregas si hay una carga del día sin
-    // confirmar. (Confirmar funciona también offline, así se desbloquea.)
-    const pendingLoad = getPendingLoad(truckLoads ?? [], loadConfirmations ?? [], Date.now());
-    if (pendingLoad) {
-      Alert.alert(
-        'Confirmá la carga del día',
-        'Antes de registrar entregas tenés que confirmar la carga que te asignó el administrador.',
-        [
-          { text: 'Ir a confirmar', onPress: () => navigation.navigate('DailyLoad') },
-          { text: 'Cancelar', style: 'cancel' },
-        ],
-      );
-      return;
+    // confirmar. Solo se aplica CON conexión: offline no se puede verificar el
+    // estado real de la confirmación y la entrega offline debe seguir funcionando.
+    if (isOnline) {
+      const pendingLoad = getPendingLoad(truckLoads ?? [], loadConfirmations ?? [], Date.now());
+      if (pendingLoad) {
+        Alert.alert(
+          'Confirmá la carga del día',
+          'Antes de registrar entregas tenés que confirmar la carga que te asignó el administrador.',
+          [
+            { text: 'Ir a confirmar', onPress: () => navigation.navigate('DailyLoad') },
+            { text: 'Cancelar', style: 'cancel' },
+          ],
+        );
+        return;
+      }
     }
 
     const items = isDelivered
@@ -406,12 +410,14 @@ export default function RegisterDeliveryScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.saveBtn, createDelivery.isPending && { opacity: 0.6 }]}
+          style={[styles.saveBtn, isOnline && createDelivery.isPending && { opacity: 0.6 }]}
           onPress={onSave}
-          disabled={createDelivery.isPending}
+          // Offline la mutación queda "pausada" (isPending=true) y NO debe
+          // deshabilitar el botón: la entrega se guarda igual y se encola.
+          disabled={isOnline && createDelivery.isPending}
           activeOpacity={0.85}
         >
-          {createDelivery.isPending ? (
+          {isOnline && createDelivery.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.saveBtnText}>Guardar entrega</Text>
