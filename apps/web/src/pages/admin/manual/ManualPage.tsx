@@ -426,7 +426,7 @@ export default function ManualPage() {
 
           <SubTitle>Confirmación de la carga por el chofer</SubTitle>
           <P>Cuando registrás una carga, el chofer recibe un aviso en la app y no puede registrar entregas hasta <strong>confirmar</strong> esa carga. Puede confirmar "todo correcto" o "con diferencias" (informando las cantidades reales por tipo y una nota).</P>
-          <Tip>Todo queda en <strong>Auditoría</strong> (tabla "Confirmaciones de carga"): quién confirmó, cuándo, y si hubo diferencias con el detalle asignado vs. real. Si el chofer reporta diferencias, el stock NO se ajusta solo: revisá y, si corresponde, hacé un "🔢 Recuento".</P>
+          <Tip>Todo queda en <strong>Auditoría</strong> (tabla "Confirmaciones de carga"): quién confirmó, cuándo, y si hubo diferencias con el detalle asignado vs. real. Si el chofer reporta diferencias, el stock NO se ajusta solo: revisá y, si corresponde, hacé un "🔢 Recuento".</Tip>
         </section>
 
         {/* App móvil */}
