@@ -22,6 +22,7 @@ import {
   registerLoads,
   registerCounts,
 } from './src/lib/truck';
+import { CONFIRM_LOAD_KEY, confirmLoad } from './src/lib/loadConfirm';
 
 // React Query sabe si hay conexión a través de NetInfo. Cuando no hay red,
 // las mutaciones quedan "pausadas" y se persisten; al reconectar se reanudan.
@@ -56,6 +57,7 @@ queryClient.setMutationDefaults(REMOVE_PREFERENCE_KEY, { mutationFn: removePrefe
 queryClient.setMutationDefaults(SET_PRIMARY_PREFERENCE_KEY, { mutationFn: setPrimaryPreference });
 queryClient.setMutationDefaults(REGISTER_LOADS_KEY, { mutationFn: registerLoads });
 queryClient.setMutationDefaults(REGISTER_COUNTS_KEY, { mutationFn: registerCounts });
+queryClient.setMutationDefaults(CONFIRM_LOAD_KEY, { mutationFn: confirmLoad });
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,

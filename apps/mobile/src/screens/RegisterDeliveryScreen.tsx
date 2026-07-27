@@ -22,6 +22,8 @@ import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPr
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
+import { getPendingLoad } from '../lib/loadConfirm';
 import { computeStock } from '../lib/truck';
 import type { DeliveryMode } from '../lib/deliveries';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
@@ -51,6 +53,7 @@ export default function RegisterDeliveryScreen() {
   const { data: myDeliveries } = useMyDeliveries(profile?.id);
   const { data: truckCounts } = useTruckCounts(profile?.id);
   const { data: truckLoads } = useTruckLoads(profile?.id);
+  const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
   const { data: boxBalances } = useBoxBalances();
   const boxBalance = boxBalances?.[c.id] ?? 0;
   const createDelivery = useCreateDelivery();
@@ -105,6 +108,21 @@ export default function RegisterDeliveryScreen() {
 
   async function onSave() {
     if (!profile) return;
+
+    // Bloqueo: no se puede registrar entregas si hay una carga del día sin
+    // confirmar. (Confirmar funciona también offline, así se desbloquea.)
+    const pendingLoad = getPendingLoad(truckLoads ?? [], loadConfirmations ?? [], Date.now());
+    if (pendingLoad) {
+      Alert.alert(
+        'Confirmá la carga del día',
+        'Antes de registrar entregas tenés que confirmar la carga que te asignó el administrador.',
+        [
+          { text: 'Ir a confirmar', onPress: () => navigation.navigate('DailyLoad') },
+          { text: 'Cancelar', style: 'cancel' },
+        ],
+      );
+      return;
+    }
 
     const items = isDelivered
       ? lines.filter((l) => l.cajas > 0).map((l) => ({

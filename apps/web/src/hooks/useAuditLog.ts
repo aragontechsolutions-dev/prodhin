@@ -65,6 +65,7 @@ export const TABLE_LABELS: Record<string, string> = {
   customer_egg_preferences: 'Preferencias de cliente',
   truck_loads: 'Cargas de camión',
   truck_counts: 'Recuentos de camión',
+  truck_load_confirmations: 'Confirmaciones de carga',
   driver_customers: 'Asignaciones',
   driver_delegations: 'Delegaciones',
 };

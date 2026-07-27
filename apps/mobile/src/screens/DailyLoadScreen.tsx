@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TextInput,
+  Alert,
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +20,11 @@ import { useMyCustomers } from '../hooks/useMyCustomers';
 import { useMyRoute, getTodayDayOfWeek, isSummerSeason } from '../hooks/useMyRoute';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { useEggTypes } from '../hooks/useEggTypes';
+import { useTruckLoadConfirmations, useConfirmLoad } from '../hooks/useTruckLoadConfirmations';
+import { getPendingLoad } from '../lib/loadConfirm';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { uuidv4 } from '../lib/uuid';
 import { computeStock } from '../lib/truck';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'DailyLoad'>;
@@ -54,8 +61,62 @@ export default function DailyLoadScreen() {
   const { data: deliveries, isLoading } = useMyDeliveries(profile?.id);
   const { data: truckCounts } = useTruckCounts(profile?.id);
   const { data: truckLoads } = useTruckLoads(profile?.id);
+  const { data: eggTypes } = useEggTypes();
+  const { data: confirmations } = useTruckLoadConfirmations(profile?.id);
+  const { isOnline } = useNetworkStatus();
+  const confirmLoadMut = useConfirmLoad();
 
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Carga asignada pendiente de confirmar
+  const pendingLoad = useMemo(
+    () => getPendingLoad(truckLoads ?? [], confirmations ?? [], Date.now()),
+    [truckLoads, confirmations],
+  );
+  const [confirmedNow, setConfirmedNow] = useState(false);
+  const [discrepancyMode, setDiscrepancyMode] = useState(false);
+  const [actualById, setActualById] = useState<Record<string, string>>({});
+  const [discNote, setDiscNote] = useState('');
+
+  const eggName = useMemo(() => {
+    const m = new Map<string, string>();
+    (eggTypes ?? []).forEach((t) => m.set(t.id, t.name));
+    return m;
+  }, [eggTypes]);
+
+  function doConfirm(hasDiscrepancy: boolean) {
+    if (!profile || !pendingLoad) return;
+    const assigned: Record<string, number> = {};
+    pendingLoad.items.forEach((it) => { assigned[it.egg_type_id] = it.cajas_plasticas; });
+    let details: Record<string, unknown> = { assigned };
+    let note: string | null = null;
+    if (hasDiscrepancy) {
+      const actual: Record<string, number> = {};
+      pendingLoad.items.forEach((it) => {
+        const raw = actualById[it.egg_type_id];
+        actual[it.egg_type_id] = raw !== undefined && raw !== '' ? parseInt(raw, 10) || 0 : it.cajas_plasticas;
+      });
+      details = { assigned, actual };
+      note = discNote.trim() || null;
+    }
+    confirmLoadMut.mutate(
+      {
+        id: uuidv4(),
+        driver_id: profile.id,
+        load_created_at: pendingLoad.loadCreatedAt,
+        has_discrepancy: hasDiscrepancy,
+        note,
+        details,
+      },
+      {
+        onError: (e: unknown) => {
+          if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo confirmar la carga.');
+        },
+      },
+    );
+    setConfirmedNow(true);
+    setDiscrepancyMode(false);
+  }
 
   const stock = useMemo(
     () => computeStock(truckCounts ?? [], truckLoads ?? [], deliveries ?? []),
@@ -166,6 +227,69 @@ export default function DailyLoadScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>Carga del día</Text>
         <View style={{ width: 80 }} />
       </View>
+
+      {/* Confirmación de la carga asignada por el administrador */}
+      {pendingLoad && !confirmedNow ? (
+        <View style={styles.confirmCard}>
+          <Text style={styles.confirmTitle}>🚚 Carga asignada — confirmá</Text>
+          <Text style={styles.confirmSub}>
+            El administrador cargó el camión. Revisá y confirmá antes de salir a repartir.
+          </Text>
+          {pendingLoad.items.map((it) => (
+            <View key={it.egg_type_id} style={styles.confirmRow}>
+              <Text style={styles.confirmName} numberOfLines={1}>{eggName.get(it.egg_type_id) ?? 'Tipo'}</Text>
+              {discrepancyMode ? (
+                <View style={styles.confirmEditRow}>
+                  <Text style={styles.confirmAssigned}>asignado {it.cajas_plasticas}</Text>
+                  <TextInput
+                    style={styles.confirmInput}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    defaultValue={String(it.cajas_plasticas)}
+                    onChangeText={(t) => setActualById((m) => ({ ...m, [it.egg_type_id]: t.replace(/[^0-9]/g, '') }))}
+                    selectTextOnFocus
+                  />
+                </View>
+              ) : (
+                <Text style={styles.confirmQty}>{it.cajas_plasticas} cp</Text>
+              )}
+            </View>
+          ))}
+          {discrepancyMode && (
+            <TextInput
+              style={styles.confirmNote}
+              placeholder="Nota: qué diferencia notaste…"
+              placeholderTextColor="#9ca3af"
+              value={discNote}
+              onChangeText={setDiscNote}
+              multiline
+            />
+          )}
+          {!discrepancyMode ? (
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity style={[styles.confirmBtn, styles.confirmOk]} onPress={() => doConfirm(false)} activeOpacity={0.85}>
+                <Text style={styles.confirmOkText}>✅ Todo correcto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmBtn, styles.confirmDiff]} onPress={() => setDiscrepancyMode(true)} activeOpacity={0.85}>
+                <Text style={styles.confirmDiffText}>✏️ Hay diferencias</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity style={[styles.confirmBtn, styles.confirmCancel]} onPress={() => setDiscrepancyMode(false)} activeOpacity={0.85}>
+                <Text style={styles.confirmCancelText}>Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmBtn, styles.confirmOk]} onPress={() => doConfirm(true)} activeOpacity={0.85}>
+                <Text style={styles.confirmOkText}>Confirmar diferencias</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      ) : confirmedNow ? (
+        <View style={styles.confirmedBanner}>
+          <Text style={styles.confirmedText}>✅ Carga confirmada. Ya podés registrar entregas.</Text>
+        </View>
+      ) : null}
 
       {isLoading ? (
         <ActivityIndicator color="#f59e0b" size="large" style={{ marginTop: 40 }} />
@@ -306,6 +430,42 @@ const styles = StyleSheet.create({
   brName: { flex: 1, fontSize: 13, color: '#374151' },
   brQty: { fontSize: 13, fontWeight: '700', color: '#059669' },
   footnote: { fontSize: 11, color: '#9ca3af', marginTop: 8, lineHeight: 16 },
+  confirmCard: {
+    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fbbf24', borderRadius: 14,
+    padding: 16, margin: 16, marginBottom: 0, gap: 6,
+  },
+  confirmTitle: { fontSize: 16, fontWeight: '800', color: '#92400e' },
+  confirmSub: { fontSize: 12, color: '#b45309', marginBottom: 6, lineHeight: 17 },
+  confirmRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#fde68a',
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  confirmName: { flex: 1, fontSize: 14, fontWeight: '700', color: '#111827' },
+  confirmQty: { fontSize: 15, fontWeight: '800', color: '#0f766e' },
+  confirmEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  confirmAssigned: { fontSize: 11, color: '#9ca3af', fontWeight: '600' },
+  confirmInput: {
+    width: 64, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb', textAlign: 'center', fontSize: 16, fontWeight: '800', color: '#111827', padding: 0,
+  },
+  confirmNote: {
+    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: '#fde68a',
+    padding: 10, minHeight: 54, fontSize: 13, color: '#111827', textAlignVertical: 'top', marginTop: 2,
+  },
+  confirmBtns: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  confirmOk: { backgroundColor: '#16a34a' },
+  confirmOkText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  confirmDiff: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#fbbf24' },
+  confirmDiffText: { color: '#92400e', fontSize: 14, fontWeight: '700' },
+  confirmCancel: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb' },
+  confirmCancelText: { color: '#6b7280', fontSize: 14, fontWeight: '700' },
+  confirmedBanner: {
+    backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac', borderRadius: 12,
+    padding: 12, margin: 16, marginBottom: 0,
+  },
+  confirmedText: { color: '#15803d', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   empty: { alignItems: 'center', marginTop: 60, gap: 8, paddingHorizontal: 24 },
   emptyIcon: { fontSize: 44 },
   emptyText: { fontSize: 15, color: '#6b7280', fontWeight: '600', textAlign: 'center' },

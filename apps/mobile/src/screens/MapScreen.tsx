@@ -30,6 +30,8 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
+import { getPendingLoad } from '../lib/loadConfirm';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
 import { useVisited, useVisitedKinds, markVisitedMany, hydrateVisited } from '../lib/visitedStore';
@@ -678,6 +680,7 @@ export default function MapScreen() {
   // para validar offline: stock del camión y saldos de cajas de los locales.
   const { data: prefTruckLoads } = useTruckLoads(profile?.id);
   const { data: prefTruckCounts } = useTruckCounts(profile?.id);
+  const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
   const { data: prefBoxBalances } = useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
@@ -733,6 +736,12 @@ export default function MapScreen() {
   const deliveredCustomers = todayRouteCustomers.filter((c) => deliveredIds.has(c.id));
   const visitedNoSaleCustomers = todayRouteCustomers.filter((c) => visitedIds.has(c.id) && !deliveredIds.has(c.id));
 
+  // Carga del día asignada por el admin, pendiente de confirmar
+  const pendingLoad = useMemo(
+    () => getPendingLoad(prefTruckLoads ?? [], loadConfirmations ?? [], Date.now()),
+    [prefTruckLoads, loadConfirmations],
+  );
+
   // ── Sugerencia de orden (histórica) + animación de completado ──
   const suggestionModel = useMemo(() => buildSuggestionModel(myDeliveries ?? []), [myDeliveries]);
 
@@ -779,6 +788,21 @@ export default function MapScreen() {
       Animated.timing(readyAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setReadyVisible(false));
     }, 3500);
   }, [isOnline, myCustomers, routeData, myDeliveries, prefTruckLoads, prefTruckCounts, prefBoxBalances, readyAnim]);
+
+  // Aviso: carga del día sin confirmar (toast que se autooculta, tappable)
+  const [loadToastVisible, setLoadToastVisible] = useState(false);
+  const loadToastAnim = useRef(new Animated.Value(0)).current;
+  const loadToastShownFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pendingLoad) return;
+    if (loadToastShownFor.current === pendingLoad.atMs) return;
+    loadToastShownFor.current = pendingLoad.atMs;
+    setLoadToastVisible(true);
+    Animated.timing(loadToastAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    setTimeout(() => {
+      Animated.timing(loadToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setLoadToastVisible(false));
+    }, 6000);
+  }, [pendingLoad, loadToastAnim]);
 
   const prevVisitedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -997,6 +1021,7 @@ export default function MapScreen() {
           <View style={styles.hamburgerLine} />
           <View style={styles.hamburgerLine} />
           <View style={styles.hamburgerLine} />
+          {pendingLoad && <View style={styles.hamburgerDot} />}
         </TouchableOpacity>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -1111,6 +1136,27 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
+      {/* Aviso: carga del día sin confirmar (tappable) */}
+      {loadToastVisible && (
+        <Animated.View
+          style={[
+            styles.loadToast,
+            { top: insets.top + 118 },
+            {
+              opacity: loadToastAnim,
+              transform: [{ translateY: loadToastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => { setLoadToastVisible(false); navigation.navigate('DailyLoad'); }}
+          >
+            <Text style={styles.loadToastText}>🚚 Tenés una carga sin confirmar. Tocá para confirmarla.</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* Toast de sugerencia de próximo cliente (se autooculta) */}
       {suggestText && (
         <Animated.View
@@ -1217,11 +1263,12 @@ export default function MapScreen() {
             <Text style={styles.drawerNavLabel}>Tipos de huevo</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.drawerNavItem}
+            style={[styles.drawerNavItem, pendingLoad && styles.drawerNavItemActive]}
             onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('DailyLoad'), 300); }}
           >
             <Text style={styles.drawerNavIcon}>🚚</Text>
             <Text style={styles.drawerNavLabel}>Carga del día</Text>
+            {pendingLoad && <Text style={styles.drawerNavWarn}> ⚠️ sin confirmar</Text>}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.drawerNavItem}
@@ -1417,6 +1464,10 @@ const styles = StyleSheet.create({
   headerOffline: { paddingTop: 12 },
   hamburgerBtn: { padding: 8, gap: 5, justifyContent: 'center' },
   hamburgerLine: { width: 22, height: 2.5, backgroundColor: '#374151', borderRadius: 2 },
+  hamburgerDot: {
+    position: 'absolute', top: 4, right: 2, width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#dc2626', borderWidth: 1.5, borderColor: '#fff',
+  },
   headerRight: { flexDirection: 'row', gap: 8 },
   refreshBtn: { height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: '#fef3c7', borderWidth: 1.5, borderColor: '#f59e0b', alignItems: 'center', justifyContent: 'center', minWidth: 44 },
   refreshBtnDisabled: { opacity: 0.45 },
@@ -1455,6 +1506,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   readyText: { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  loadToast: {
+    position: 'absolute', left: 16, right: 16, zIndex: 37,
+    backgroundColor: '#b45309', borderRadius: 14, paddingVertical: 11, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
+  },
+  loadToastText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   doneOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
   doneFill: { flex: 1, backgroundColor: 'rgba(22,163,74,0.96)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   doneEmoji: { fontSize: 56, textAlign: 'center', marginBottom: 8 },
@@ -1494,6 +1551,7 @@ const styles = StyleSheet.create({
   drawerNavLabel: { fontSize: 14, fontWeight: '600', color: '#374151', flex: 1 },
   drawerNavLabelActive: { color: '#fff' },
   drawerNavBadge: { fontWeight: '700' },
+  drawerNavWarn: { fontSize: 11, fontWeight: '800', color: '#b45309' },
   drawerContent: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   drawerSectionTitle: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   drawerCustomerCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#f0fdf4', borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: '#bbf7d0' },

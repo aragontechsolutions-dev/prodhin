@@ -30,6 +30,8 @@ const FIELD_LABELS: Record<string, string> = {
   start_date: 'Desde', end_date: 'Hasta', assigned_by: 'Asignado por',
   created_by: 'Creado por', must_change_password: 'Cambio de contraseña pendiente',
   preferred_egg_type_id: 'Categoría preferida', note: 'Nota',
+  load_created_at: 'Carga del', has_discrepancy: 'Con diferencias',
+  details: 'Detalle (asignado/real)', confirmed_at: 'Confirmado',
 };
 
 const STATUS_LABEL: Record<string, string> = {

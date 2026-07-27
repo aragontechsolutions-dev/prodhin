@@ -109,12 +109,13 @@ const SECTIONS: Item[] = [
     icon: '🚚',
     title: 'Carga del día',
     body: [
-      'Te dice cuántas cajas plásticas de cada tipo cargar para la ruta de hoy.',
-      'Demanda estimada (lo que suelen comprar + 10%) MENOS lo que ya hay en el camión.',
-      'Muestra: demanda · en camión · a cargar.',
+      'Cuando el administrador registra la carga del camión, te aparece un aviso y el menú marca "Carga del día" con ⚠️ sin confirmar.',
+      'Entrá y CONFIRMÁ la carga: "Todo correcto" si coincide, o "Hay diferencias" para poner las cantidades reales por tipo y una nota.',
+      'Hasta que no confirmes, no vas a poder registrar entregas (te lo avisa y te manda a confirmar).',
+      'Abajo te dice cuántas cajas plásticas de cada tipo cargar para la ruta: demanda estimada (lo que suelen comprar + 10%) menos lo que hay en el camión.',
       'Tocá un tipo para ver qué clientes lo aportan.',
     ],
-    tip: 'Al principio será poco precisa; mejora sola a medida que registrás entregas.',
+    tip: 'Podés confirmar sin conexión: queda guardado y se envía al reconectar. Si hay diferencias, ponelas igual y confirmá; no te bloquea, solo queda avisado el administrador.',
   },
   {
     icon: '📦',
