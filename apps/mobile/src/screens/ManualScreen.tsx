@@ -129,6 +129,18 @@ const SECTIONS: Item[] = [
     tip: 'Si el stock que ves no coincide con lo real, avisá al admin para que haga una carga o un recuento.',
   },
   {
+    icon: '🧺',
+    title: 'Entregar maples a la empresa',
+    body: [
+      'Si recogiste maples plásticos, tenés que entregarlos en la empresa.',
+      'Entrá a "Entregar maples" en el menú y poné cuántos le entregás al administrador (ej: 40). Podés agregar una nota.',
+      'Tocá "Registrar entrega": queda como PENDIENTE hasta que el admin los cuente.',
+      'El admin cuenta los maples y aprueba (con la cantidad real) o rechaza.',
+      'Vas a ver el estado en la lista y un aviso cuando el admin resuelva.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Si el admin contó una cantidad distinta a la que declaraste, la vas a ver en el detalle.',
+  },
+  {
     icon: '📦',
     title: 'Mis entregas',
     body: [

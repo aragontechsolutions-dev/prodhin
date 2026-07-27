@@ -9,6 +9,7 @@ const sections = [
   { id: 'rutas', emoji: '🗺️', label: 'Rutas' },
   { id: 'reportes', emoji: '📊', label: 'Reportes' },
   { id: 'stock', emoji: '🚚', label: 'Stock camiones' },
+  { id: 'maples', emoji: '🧺', label: 'Maples' },
   { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
@@ -427,6 +428,20 @@ export default function ManualPage() {
           <SubTitle>Confirmación de la carga por el chofer</SubTitle>
           <P>Cuando registrás una carga, el chofer recibe un aviso en la app y no puede registrar entregas hasta <strong>confirmar</strong> esa carga. Puede confirmar "todo correcto" o "con diferencias" (informando las cantidades reales por tipo y una nota).</P>
           <Tip>Todo queda en <strong>Auditoría</strong> (tabla "Confirmaciones de carga"): quién confirmó, cuándo, y si hubo diferencias con el detalle asignado vs. real. Si el chofer reporta diferencias, el stock NO se ajusta solo: revisá y, si corresponde, hacé un "🔢 Recuento".</Tip>
+        </section>
+
+        {/* Maples */}
+        <section id="maples" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🧺 Entregas de maples</SectionTitle>
+          <P>Cuando el chofer recoge maples plásticos, los entrega en la empresa. Desde la app registra cuántos entrega; acá el administrador los cuenta y <strong>aprueba o rechaza</strong>.</P>
+          <SubTitle>Flujo</SubTitle>
+          <Steps items={[
+            'El chofer registra en la app cuántos maples entrega (ej: 40). Queda "Pendiente".',
+            'En Maples → pestaña "Pendientes", contás físicamente los maples recibidos.',
+            'Ingresás la cantidad que contaste y "Aprobar" (o "Rechazar" si no corresponde). Podés dejar una nota.',
+            'Si contaste distinto a lo declarado, aprobás con la cantidad real: queda registrada la diferencia.',
+          ]} />
+          <Tip>El chofer recibe un aviso en la app con el resultado. Todo queda en Auditoría (tabla "Entregas de maples"): declarado, aprobado, quién revisó y las notas.</Tip>
         </section>
 
         {/* App móvil */}

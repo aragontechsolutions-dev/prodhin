@@ -32,6 +32,9 @@ const FIELD_LABELS: Record<string, string> = {
   preferred_egg_type_id: 'Categoría preferida', note: 'Nota',
   load_created_at: 'Carga del', has_discrepancy: 'Con diferencias',
   details: 'Detalle (asignado/real)', confirmed_at: 'Confirmado',
+  declared_qty: 'Maples declarados', approved_qty: 'Maples aprobados',
+  driver_note: 'Nota del chofer', review_note: 'Nota del admin',
+  reviewed_by: 'Revisado por', reviewed_at: 'Revisado',
 };
 
 const STATUS_LABEL: Record<string, string> = {

@@ -31,6 +31,7 @@ import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
+import { useMapleReturns } from '../hooks/useMapleReturns';
 import { getPendingLoad } from '../lib/loadConfirm';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
@@ -681,6 +682,7 @@ export default function MapScreen() {
   const { data: prefTruckLoads } = useTruckLoads(profile?.id);
   const { data: prefTruckCounts } = useTruckCounts(profile?.id);
   const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
+  const { data: mapleReturns } = useMapleReturns(profile?.id);
   const { data: prefBoxBalances } = useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
@@ -802,6 +804,40 @@ export default function MapScreen() {
       Animated.timing(loadToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setLoadToastVisible(false));
     }, 6000);
   }, [pendingLoad, loadToastAnim]);
+
+  // Aviso: resultado de una entrega de maples (aprobada / rechazada)
+  const [mapleToast, setMapleToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const mapleToastAnim = useRef(new Animated.Value(0)).current;
+  const mapleStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!mapleReturns) return;
+    // Primer carga: sembrar sin avisar (no notificar resultados históricos)
+    if (mapleStatusRef.current === null) {
+      mapleStatusRef.current = new Map(mapleReturns.map((r) => [r.id, r.status]));
+      return;
+    }
+    const prev = mapleStatusRef.current;
+    let changed: { text: string; ok: boolean } | null = null;
+    for (const r of mapleReturns) {
+      const before = prev.get(r.id);
+      if (before && before === 'pendiente' && r.status !== 'pendiente') {
+        if (r.status === 'aprobada') {
+          const cnt = r.approved_qty ?? r.declared_qty;
+          changed = { text: `✅ Tu entrega de maples fue aprobada (${cnt}).`, ok: true };
+        } else {
+          changed = { text: '❌ Tu entrega de maples fue rechazada. Revisá el detalle.', ok: false };
+        }
+      }
+    }
+    mapleStatusRef.current = new Map(mapleReturns.map((r) => [r.id, r.status]));
+    if (changed) {
+      setMapleToast(changed);
+      Animated.timing(mapleToastAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      setTimeout(() => {
+        Animated.timing(mapleToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setMapleToast(null));
+      }, 7000);
+    }
+  }, [mapleReturns, mapleToastAnim]);
 
   const prevVisitedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1157,6 +1193,27 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
+      {/* Aviso: resultado de entrega de maples (tappable) */}
+      {mapleToast && (
+        <Animated.View
+          style={[
+            styles.loadToast,
+            { top: insets.top + 118, backgroundColor: mapleToast.ok ? '#16a34a' : '#b91c1c' },
+            {
+              opacity: mapleToastAnim,
+              transform: [{ translateY: mapleToastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => { setMapleToast(null); navigation.navigate('MapleReturns'); }}
+          >
+            <Text style={styles.loadToastText}>{mapleToast.text}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* Sugerencia de próximo cliente (persiste hasta cerrarla con la ✕) */}
       {suggestText && (
         <Animated.View
@@ -1284,6 +1341,13 @@ export default function MapScreen() {
           >
             <Text style={styles.drawerNavIcon}>📦</Text>
             <Text style={styles.drawerNavLabel}>Stock del camión</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerNavItem}
+            onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('MapleReturns'), 300); }}
+          >
+            <Text style={styles.drawerNavIcon}>🧺</Text>
+            <Text style={styles.drawerNavLabel}>Entregar maples</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.drawerNavItem}

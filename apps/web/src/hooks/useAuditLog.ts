@@ -66,6 +66,7 @@ export const TABLE_LABELS: Record<string, string> = {
   truck_loads: 'Cargas de camión',
   truck_counts: 'Recuentos de camión',
   truck_load_confirmations: 'Confirmaciones de carga',
+  maple_returns: 'Entregas de maples',
   driver_customers: 'Asignaciones',
   driver_delegations: 'Delegaciones',
 };
