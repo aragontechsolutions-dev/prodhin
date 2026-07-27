@@ -102,7 +102,18 @@ export default function AuditPage() {
     if (key === 'day_of_week') return DAYS[Number(val)] ?? String(val);
     if (key === 'customer_type') return val === 'empresa' ? 'Empresa' : 'Persona física';
     if (key === 'role') return String(val) === 'admin' ? 'Administrador' : 'Chofer';
+    // Detalle de confirmación de carga: { assigned: {egg_type_id: qty}, actual?: {...} }
+    if (key === 'details' && typeof val === 'object') {
+      const d = val as { assigned?: Record<string, number>; actual?: Record<string, number> };
+      const fmtMap = (obj?: Record<string, number>) =>
+        obj ? Object.entries(obj).map(([id, q]) => `${eggName.get(id) ?? 'tipo'}: ${q} cp`).join(', ') : '';
+      const parts: string[] = [];
+      if (d.assigned) parts.push(`Asignado → ${fmtMap(d.assigned)}`);
+      if (d.actual) parts.push(`Real → ${fmtMap(d.actual)}`);
+      if (parts.length) return parts.join('   ·   ');
+    }
     if (key.endsWith('_at')) return fmt(String(val));
+    if (typeof val === 'object') return JSON.stringify(val);
     return String(val);
   }
 
