@@ -140,9 +140,11 @@ export default function RegisterDeliveryScreen() {
       return;
     }
 
-    // Reunir advertencias de stock y cajas según los datos disponibles
-    const warnings: string[] = [];
-    if (isDelivered) {
+    // Validación de stock/cajas SOLO con conexión: los datos son exactos y se
+    // bloquea. Sin conexión NO se valida (el stock puede estar viejo o en 0 por
+    // falta de datos) — la entrega debe guardarse igual y encolarse.
+    if (isOnline && isDelivered) {
+      const warnings: string[] = [];
       for (const it of items) {
         const disponible = stock.get(it.egg_type_id) ?? 0;
         const nombre = eggTypes?.find((t) => t.id === it.egg_type_id)?.name ?? 'ese tipo';
@@ -151,24 +153,10 @@ export default function RegisterDeliveryScreen() {
       }
       const enLocal = Math.max(0, boxBalance);
       if (cajasRecogidas > enLocal) warnings.push(`En el local hay ${enLocal} caja(s); querés recoger ${cajasRecogidas}.`);
-    }
-
-    if (warnings.length > 0) {
-      if (isOnline) {
-        // Con conexión los datos son exactos → se bloquea
+      if (warnings.length > 0) {
         Alert.alert('No se puede registrar', warnings.join('\n'));
         return;
       }
-      // Sin conexión no se puede verificar con datos actualizados → avisar y permitir
-      Alert.alert(
-        'Sin conexión — verificá los datos',
-        `No se pudo confirmar contra el servidor:\n\n${warnings.join('\n')}\n\n¿Registrar de todas formas?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Registrar igual', onPress: () => doSave(items) },
-        ],
-      );
-      return;
     }
 
     doSave(items);
