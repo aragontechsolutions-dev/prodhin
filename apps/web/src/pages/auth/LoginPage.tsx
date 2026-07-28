@@ -33,9 +33,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-primary-50 dark:bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🥚</div>
+          <img src="/prodhin-logo.png" alt="Prodhin SISGESDEL" className="w-28 h-28 mx-auto mb-3 object-contain" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Prodhin</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sistema de gestión de clientes</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">SISGESDEL · Sistema de Gestión de Delivery</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -161,10 +161,10 @@ export default function AdminLayout() {
       {/* Brand */}
       <div className="px-4 py-5 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🥚</span>
+          <img src="/prodhin-logo.png" alt="Prodhin" className="w-9 h-9 object-contain" />
           <div>
             <p className="font-bold text-gray-900 leading-none dark:text-gray-100">Prodhin</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Panel de administración</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">SISGESDEL · Gestión de Delivery</p>
           </div>
         </div>
       </div>
