@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Prodhin",
+    "name": "SISGESDEL Drivers",
     "slug": "prodhin-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
       "package": "com.aragontechsolutions.prodhin",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundColor": "#F59E0B"
+        "backgroundColor": "#FFFFFF"
       }
     },
     "plugins": [

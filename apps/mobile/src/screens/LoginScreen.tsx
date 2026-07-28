@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Image,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { consumeSessionExpired } from '../lib/sessionNotice';
@@ -56,8 +57,8 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
-        <Text style={styles.logo}>🥚</Text>
-        <Text style={styles.title}>Prodhin</Text>
+        <Image source={require('../../assets/logo.png')} style={styles.logoImg} resizeMode="contain" />
+        <Text style={styles.title}>SISGESDEL Drivers</Text>
         <Text style={styles.subtitle}>Acceso para choferes</Text>
 
         <View style={styles.form}>
@@ -128,6 +129,12 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 56,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  logoImg: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
     marginBottom: 8,
   },
   title: {

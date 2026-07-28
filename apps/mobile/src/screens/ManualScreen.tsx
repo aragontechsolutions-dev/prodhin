@@ -214,7 +214,7 @@ export default function ManualScreen() {
         {SECTIONS.map((item, i) => (
           <AccordionCard key={item.title} item={item} open={openIdx === i} onToggle={() => toggle(i)} />
         ))}
-        <Text style={styles.footer}>Prodhin · versión {APP_VERSION} · ¿Dudas? Consultá con el administrador.</Text>
+        <Text style={styles.footer}>SISGESDEL Drivers · versión {APP_VERSION} · ¿Dudas? Consultá con el administrador.</Text>
       </ScrollView>
     </View>
   );
