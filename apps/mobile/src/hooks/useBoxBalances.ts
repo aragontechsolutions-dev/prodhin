@@ -12,6 +12,7 @@ export function useBoxBalances() {
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 60 * 24 * 3, // 3 días en caché para uso offline
     networkMode: 'offlineFirst',
+    refetchOnReconnect: 'always',
     queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await supabase
         .from('customer_box_balance')

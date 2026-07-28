@@ -295,13 +295,16 @@ export default function RegisterDeliveryScreen() {
                 {lines.map((l) => {
                   const t = eggTypes?.find((x) => x.id === l.egg_type_id);
                   const disp = stock.get(l.egg_type_id) ?? 0;
-                  const over = l.cajas > disp;
+                  // Offline el stock puede estar desactualizado: no lo marcamos como error.
+                  const over = isOnline && l.cajas > disp;
                   return (
                     <View key={l.egg_type_id} style={styles.lineCard}>
                       <View style={styles.lineNameCol}>
                         <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
                         <Text style={[styles.lineStock, over && styles.lineStockOver]}>
-                          en camión: {disp} cp{over ? ' ⚠' : ''}
+                          {isOnline
+                            ? `en camión: ${disp} cp${over ? ' ⚠' : ''}`
+                            : `en camión: ${disp} cp · offline (puede estar desactualizado)`}
                         </Text>
                       </View>
                       <View style={styles.qtyRow}>

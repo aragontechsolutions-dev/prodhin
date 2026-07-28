@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Speech from 'expo-speech';
 import {
   View,
@@ -692,6 +693,7 @@ export default function MapScreen() {
   const allCustomers = [...ownCustomers, ...delegatedCustomers];
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const webViewRef = useRef<WebView>(null);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -1061,7 +1063,18 @@ export default function MapScreen() {
         </TouchableOpacity>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            onPress={() => { setRouteAlertVisible(false); refetch(); refetchRoute(); }}
+            onPress={() => {
+              setRouteAlertVisible(false);
+              refetch();
+              refetchRoute();
+              // Refrescar también stock del camión, entregas, cajas y confirmaciones
+              queryClient.invalidateQueries({ queryKey: ['truck-loads'] });
+              queryClient.invalidateQueries({ queryKey: ['truck-counts'] });
+              queryClient.invalidateQueries({ queryKey: ['my-deliveries'] });
+              queryClient.invalidateQueries({ queryKey: ['box-balances-all'] });
+              queryClient.invalidateQueries({ queryKey: ['load-confirmations'] });
+              queryClient.invalidateQueries({ queryKey: ['maple-returns'] });
+            }}
             style={[styles.refreshBtn, (!isOnline || isFetching) && styles.refreshBtnDisabled]}
             disabled={!isOnline || isFetching}
           >

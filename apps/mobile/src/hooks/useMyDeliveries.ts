@@ -59,6 +59,7 @@ export function useMyDeliveries(driverId: string | undefined) {
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 60 * 24 * 3, // 3 días en caché para consultas offline
     networkMode: 'offlineFirst',
+    refetchOnReconnect: 'always',
     queryFn: async (): Promise<MyDeliveryRow[]> => {
       const since = new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase

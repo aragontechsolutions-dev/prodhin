@@ -18,6 +18,7 @@ export function useTruckLoads(driverId: string | undefined) {
     staleTime: 1000 * 60,
     gcTime: 1000 * 60 * 60 * 24 * 3,
     networkMode: 'offlineFirst',
+    refetchOnReconnect: 'always',
     queryFn: async (): Promise<TruckLoadRow[]> => {
       const since = new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
@@ -39,6 +40,7 @@ export function useTruckCounts(driverId: string | undefined) {
     staleTime: 1000 * 60,
     gcTime: 1000 * 60 * 60 * 24 * 3,
     networkMode: 'offlineFirst',
+    refetchOnReconnect: 'always',
     queryFn: async (): Promise<TruckCountRow[]> => {
       const since = new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
