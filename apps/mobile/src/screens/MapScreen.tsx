@@ -15,6 +15,8 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Linking,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
@@ -666,6 +668,7 @@ function buildMapHtml(
         if(NAV.active){ applyBearing(smoothHeading); setTimeout(function(){panWithLookAhead(userPos[0],userPos[1]);},50); }
         else { map.flyTo(userPos,16,{duration:0.6}); }
       }
+      if(msg.type==='startNav'&&msg.lat!=null&&msg.lng!=null){ startNavigation(msg.lat,msg.lng); }
     }catch(err){}
   }
 <\/script>
@@ -749,17 +752,39 @@ export default function MapScreen() {
   // ── Sugerencia de orden (histórica) + animación de completado ──
   const suggestionModel = useMemo(() => buildSuggestionModel(myDeliveries ?? []), [myDeliveries]);
 
-  const [suggestText, setSuggestText] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<{ text: string; lat: number; lng: number } | null>(null);
   const suggestAnim = useRef(new Animated.Value(0)).current;
   // No se autooculta: el chofer la cierra con la ✕. Así, aunque quede en el
   // detalle del cliente tras entregar, al volver al mapa la sigue viendo.
-  const showSuggestion = useCallback((text: string) => {
-    setSuggestText(text);
+  const showSuggestion = useCallback((text: string, lat: number, lng: number) => {
+    setSuggestion({ text, lat, lng });
     Animated.timing(suggestAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }, [suggestAnim]);
   const dismissSuggestion = useCallback(() => {
-    Animated.timing(suggestAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => setSuggestText(null));
+    Animated.timing(suggestAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => setSuggestion(null));
   }, [suggestAnim]);
+
+  function openGoogleMaps(lat: number, lng: number) {
+    const url = Platform.select({
+      ios: `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`,
+      android: `google.navigation:q=${lat},${lng}&mode=d`,
+    });
+    const fallback = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    Linking.canOpenURL(url!).then((ok) => Linking.openURL(ok ? url! : fallback)).catch(() => Linking.openURL(fallback));
+  }
+  function openWaze(lat: number, lng: number) {
+    Linking.openURL(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`).catch(() =>
+      Alert.alert('Waze', 'No se pudo abrir Waze. ¿Está instalado?'),
+    );
+  }
+  function openNavChooser(lat: number, lng: number) {
+    Alert.alert('Ir al cliente', 'Elegí cómo navegar', [
+      { text: 'Navegación de la app', onPress: () => sendToMap({ type: 'startNav', lat, lng }) },
+      { text: 'Google Maps', onPress: () => openGoogleMaps(lat, lng) },
+      { text: 'Waze', onPress: () => openWaze(lat, lng) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }
 
   const [showDone, setShowDone] = useState(false);
   const doneAnim = useRef(new Animated.Value(0)).current;
@@ -872,7 +897,7 @@ export default function MapScreen() {
       const cust = allCustomers.find((c) => c.id === nextId);
       if (cust) {
         const isStart = visitedIds.size === 0;
-        showSuggestion(`${isStart ? '🧭 Empezá por' : '➡️ Seguí con'}: ${getDisplayName(cust)}`);
+        showSuggestion(`${isStart ? '🧭 Más cercano' : '➡️ Seguí con'}: ${getDisplayName(cust)}`, cust.lat, cust.lng);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1228,7 +1253,7 @@ export default function MapScreen() {
       )}
 
       {/* Sugerencia de próximo cliente (persiste hasta cerrarla con la ✕) */}
-      {suggestText && (
+      {suggestion && (
         <Animated.View
           style={[
             styles.suggestToast,
@@ -1240,7 +1265,7 @@ export default function MapScreen() {
           ]}
         >
           <View style={styles.suggestRow}>
-            <Text style={styles.suggestText}>{suggestText}</Text>
+            <Text style={styles.suggestText}>{suggestion.text}</Text>
             <TouchableOpacity
               onPress={dismissSuggestion}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -1249,6 +1274,13 @@ export default function MapScreen() {
               <Text style={styles.suggestCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={styles.suggestGoBtn}
+            activeOpacity={0.85}
+            onPress={() => openNavChooser(suggestion.lat, suggestion.lng)}
+          >
+            <Text style={styles.suggestGoText}>🧭 Ir hasta el cliente</Text>
+          </TouchableOpacity>
         </Animated.View>
       )}
 
@@ -1590,6 +1622,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   suggestCloseText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  suggestGoBtn: {
+    marginTop: 10, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10,
+    paddingVertical: 9, alignItems: 'center',
+  },
+  suggestGoText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   readyToast: {
     position: 'absolute', top: Platform.OS === 'ios' ? 150 : 118, left: 16, right: 16, zIndex: 36,
     backgroundColor: '#16a34a', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16,

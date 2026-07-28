@@ -70,8 +70,8 @@ function haversineKm(a: LatLng, b: LatLng): number {
  * Sin posición, cae al histórico puro (transición y luego rango).
  */
 export function suggestNext(
-  model: SuggestionModel,
-  lastId: string | null,
+  _model: SuggestionModel,
+  _lastId: string | null,
   pendingIds: string[],
   opts?: { coords?: Map<string, LatLng>; current?: LatLng | null },
 ): string | null {
@@ -79,41 +79,21 @@ export function suggestNext(
 
   const coords = opts?.coords;
   const current = opts?.current ?? null;
-  const transFrom = lastId ? model.transitions.get(lastId) : undefined;
 
-  // Con posición → optimizar por distancia + costumbre
+  // SOLO cercanía por GPS: el cliente pendiente más cercano a la posición
+  // actual del chofer. No se usa el orden histórico de entregas.
   if (coords && current) {
     let best: string | null = null;
-    let bestCost = Infinity;
+    let bestDist = Infinity;
     for (const id of pendingIds) {
       const c = coords.get(id);
-      const dist = c ? haversineKm(current, c) : 8; // 8 km si falta la coord (lo relega)
-      const rank = model.avgRank.get(id) ?? 3;
-      const trans = transFrom?.get(id) ?? 0;
-      // costo en "km": manda la DISTANCIA a la posición actual del chofer; el
-      // historial solo desempata cuando dos clientes están casi a la misma
-      // distancia (pesos chicos).
-      const cost = dist + rank * 0.1 - Math.min(trans, 5) * 0.2;
-      if (cost < bestCost) { bestCost = cost; best = id; }
+      if (!c) continue;
+      const dist = haversineKm(current, c);
+      if (dist < bestDist) { bestDist = dist; best = id; }
     }
     if (best) return best;
   }
 
-  // Sin posición → histórico puro
-  if (transFrom) {
-    let best: string | null = null;
-    let bestC = 0;
-    for (const id of pendingIds) {
-      const c = transFrom.get(id) ?? 0;
-      if (c > bestC) { bestC = c; best = id; }
-    }
-    if (best) return best;
-  }
-  let best: string | null = null;
-  let bestR = Infinity;
-  for (const id of pendingIds) {
-    const r = model.avgRank.get(id) ?? Infinity;
-    if (r < bestR) { bestR = r; best = id; }
-  }
-  return best ?? pendingIds[0];
+  // Sin GPS no se puede medir distancia: se sugiere el primero pendiente.
+  return pendingIds[0];
 }
