@@ -141,6 +141,19 @@ const SECTIONS: Item[] = [
     tip: 'Sin señal se guarda igual y se envía al reconectar. Si el admin contó una cantidad distinta a la que declaraste, la vas a ver en el detalle.',
   },
   {
+    icon: '♻️',
+    title: 'Rotos y devoluciones',
+    body: [
+      'Entrá a "Rotos y devoluciones" en el menú para devolver a la empresa huevos rotos y/o productos envasados vencidos.',
+      'Huevos rotos: poné el total de huevos rotos que devolvés.',
+      'Envasados vencidos: tocá el producto (Doña Clara x6, etc.), poné la cantidad y la FECHA DE CADUCIDAD que dice el envase.',
+      'Tocá "Registrar devolución": queda PENDIENTE hasta que el admin la controle.',
+      'El admin cuenta y aprueba, y registra cuántos te devuelve (rotos sanos y/o envasados con su nueva fecha).',
+      'Vas a ver el estado en la lista y un aviso cuando el admin resuelva.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Podés cargar rotos, vencidos, o ambos en el mismo registro.',
+  },
+  {
     icon: '📦',
     title: 'Mis entregas',
     body: [

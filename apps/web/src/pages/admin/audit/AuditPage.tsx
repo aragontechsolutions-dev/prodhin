@@ -35,6 +35,9 @@ const FIELD_LABELS: Record<string, string> = {
   declared_qty: 'Maples declarados', approved_qty: 'Maples aprobados',
   driver_note: 'Nota del chofer', review_note: 'Nota del admin',
   reviewed_by: 'Revisado por', reviewed_at: 'Revisado',
+  broken_qty: 'Rotos declarados', broken_returned: 'Rotos devueltos',
+  qty: 'Cantidad', expiry_date: 'Vence (envase)',
+  returned_qty: 'Devuelto', returned_expiry_date: 'Vence (devuelto)',
 };
 
 const STATUS_LABEL: Record<string, string> = {

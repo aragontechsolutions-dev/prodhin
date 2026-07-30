@@ -35,6 +35,7 @@ import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
 import { useMapleReturns } from '../hooks/useMapleReturns';
+import { useEggReturns } from '../hooks/useEggReturns';
 import { getPendingLoad } from '../lib/loadConfirm';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
@@ -687,6 +688,7 @@ export default function MapScreen() {
   const { data: prefTruckCounts } = useTruckCounts(profile?.id);
   const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
   const { data: mapleReturns } = useMapleReturns(profile?.id);
+  const { data: eggReturns } = useEggReturns(profile?.id);
   const { data: prefBoxBalances } = useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
@@ -866,6 +868,36 @@ export default function MapScreen() {
       }, 7000);
     }
   }, [mapleReturns, mapleToastAnim]);
+
+  // Aviso: resultado de una devolución de rotos/vencidos (aprobada / rechazada)
+  const [eggToast, setEggToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const eggToastAnim = useRef(new Animated.Value(0)).current;
+  const eggStatusRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!eggReturns) return;
+    if (eggStatusRef.current === null) {
+      eggStatusRef.current = new Map(eggReturns.map((r) => [r.id, r.status]));
+      return;
+    }
+    const prev = eggStatusRef.current;
+    let changed: { text: string; ok: boolean } | null = null;
+    for (const r of eggReturns) {
+      const before = prev.get(r.id);
+      if (before && before === 'pendiente' && r.status !== 'pendiente') {
+        changed = r.status === 'aprobada'
+          ? { text: '✅ El admin controló tu devolución de rotos/vencidos.', ok: true }
+          : { text: '❌ Tu devolución fue rechazada. Revisá el detalle.', ok: false };
+      }
+    }
+    eggStatusRef.current = new Map(eggReturns.map((r) => [r.id, r.status]));
+    if (changed) {
+      setEggToast(changed);
+      Animated.timing(eggToastAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      setTimeout(() => {
+        Animated.timing(eggToastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setEggToast(null));
+      }, 7000);
+    }
+  }, [eggReturns, eggToastAnim]);
 
   const prevVisitedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1253,6 +1285,24 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
+      {/* Aviso: resultado de devolución de rotos/vencidos (tappable) */}
+      {eggToast && (
+        <Animated.View
+          style={[
+            styles.loadToast,
+            { top: insets.top + 118, backgroundColor: eggToast.ok ? '#16a34a' : '#b91c1c' },
+            {
+              opacity: eggToastAnim,
+              transform: [{ translateY: eggToastAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+            },
+          ]}
+        >
+          <TouchableOpacity activeOpacity={0.9} onPress={() => { setEggToast(null); navigation.navigate('EggReturns'); }}>
+            <Text style={styles.loadToastText}>{eggToast.text}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* Sugerencia de próximo cliente (persiste hasta cerrarla con la ✕) */}
       {suggestion && (
         <Animated.View
@@ -1430,6 +1480,13 @@ export default function MapScreen() {
           >
             <Text style={styles.drawerNavIcon}>🧺</Text>
             <Text style={styles.drawerNavLabel}>Entregar maples</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerNavItem}
+            onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('EggReturns'), 300); }}
+          >
+            <Text style={styles.drawerNavIcon}>♻️</Text>
+            <Text style={styles.drawerNavLabel}>Rotos y devoluciones</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.drawerNavItem}

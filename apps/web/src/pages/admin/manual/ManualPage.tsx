@@ -10,6 +10,7 @@ const sections = [
   { id: 'reportes', emoji: '📊', label: 'Reportes' },
   { id: 'stock', emoji: '🚚', label: 'Stock camiones' },
   { id: 'maples', emoji: '🧺', label: 'Maples' },
+  { id: 'devoluciones', emoji: '♻️', label: 'Rotos y devoluciones' },
   { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
@@ -442,6 +443,20 @@ export default function ManualPage() {
             'Si contaste distinto a lo declarado, aprobás con la cantidad real: queda registrada la diferencia.',
           ]} />
           <Tip>El chofer recibe un aviso en la app con el resultado. Todo queda en Auditoría (tabla "Entregas de maples"): declarado, aprobado, quién revisó y las notas.</Tip>
+        </section>
+
+        {/* Rotos y devoluciones */}
+        <section id="devoluciones" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>♻️ Rotos y devoluciones</SectionTitle>
+          <P>Los choferes devuelven a la empresa <strong>huevos rotos</strong> (para cambio) y <strong>productos envasados vencidos</strong> (por fecha de caducidad). El chofer lo registra desde la app y acá lo <strong>controlás y aprobás</strong>.</P>
+          <SubTitle>Flujo</SubTitle>
+          <Steps items={[
+            'El chofer registra: total de huevos rotos y/o productos vencidos (con la fecha del envase). Queda "Pendiente".',
+            'En "Rotos y devoluciones" → pestaña Pendientes, controlás físicamente lo recibido.',
+            'Registrás cuántos le DEVOLVÉS al chofer: rotos sanos y/o envasados de reposición (con la fecha del envase que le das).',
+            'Aprobás (o rechazás, con nota). El chofer recibe el aviso.',
+          ]} />
+          <Tip>Todo queda en Auditoría ("Rotos y devoluciones" y su detalle): lo declarado, lo devuelto y las fechas de caducidad.</Tip>
         </section>
 
         {/* App móvil */}

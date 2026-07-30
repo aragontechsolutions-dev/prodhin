@@ -11,6 +11,7 @@ import DeliveriesHistoryScreen from '../screens/DeliveriesHistoryScreen';
 import DailyLoadScreen from '../screens/DailyLoadScreen';
 import TruckStockScreen from '../screens/TruckStockScreen';
 import MapleReturnsScreen from '../screens/MapleReturnsScreen';
+import EggReturnsScreen from '../screens/EggReturnsScreen';
 import ManualScreen from '../screens/ManualScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   DailyLoad: undefined;
   TruckStock: undefined;
   MapleReturns: undefined;
+  EggReturns: undefined;
   Manual: undefined;
 };
 
@@ -55,6 +57,7 @@ export default function AppNavigator() {
         <Stack.Screen name="DailyLoad" component={DailyLoadScreen} />
         <Stack.Screen name="TruckStock" component={TruckStockScreen} />
         <Stack.Screen name="MapleReturns" component={MapleReturnsScreen} />
+        <Stack.Screen name="EggReturns" component={EggReturnsScreen} />
         <Stack.Screen name="Manual" component={ManualScreen} />
       </Stack.Navigator>
     </NavigationContainer>
