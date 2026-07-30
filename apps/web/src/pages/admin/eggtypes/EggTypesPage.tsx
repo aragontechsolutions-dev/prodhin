@@ -36,12 +36,12 @@ export default function EggTypesPage() {
   const [editing, setEditing] = useState<EggType | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<EggType | null>(null);
 
-  const [form, setForm] = useState({ name: '', color: '' as '' | 'rojo' | 'blanco', sort_order: 0, is_active: true, eggs_per_package: '', packages_per_box: '' });
+  const [form, setForm] = useState({ name: '', color: '' as '' | 'rojo' | 'blanco', sort_order: 0, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '' });
 
   function openCreate() {
     const nextOrder = (eggTypes ?? []).reduce((max, t) => Math.max(max, t.sort_order), 0) + 10;
     setEditing(null);
-    setForm({ name: '', color: '', sort_order: nextOrder, is_active: true, eggs_per_package: '', packages_per_box: '' });
+    setForm({ name: '', color: '', sort_order: nextOrder, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '' });
     setFormOpen(true);
   }
 
@@ -49,6 +49,7 @@ export default function EggTypesPage() {
     setEditing(t);
     setForm({
       name: t.name, color: t.color ?? '', sort_order: t.sort_order, is_active: t.is_active,
+      is_packaged: t.is_packaged,
       eggs_per_package: t.eggs_per_package != null ? String(t.eggs_per_package) : '',
       packages_per_box: t.packages_per_box != null ? String(t.packages_per_box) : '',
     });
@@ -68,8 +69,10 @@ export default function EggTypesPage() {
       color: form.color === '' ? null : form.color,
       sort_order: Number(form.sort_order) || 0,
       is_active: form.is_active,
-      eggs_per_package: Number.isFinite(epp) && epp > 0 ? epp : null,
-      packages_per_box: Number.isFinite(ppb) && ppb > 0 ? ppb : null,
+      is_packaged: form.is_packaged,
+      // Solo los envasados guardan datos de paquete/caja
+      eggs_per_package: form.is_packaged && Number.isFinite(epp) && epp > 0 ? epp : null,
+      packages_per_box: form.is_packaged && Number.isFinite(ppb) && ppb > 0 ? ppb : null,
     };
     try {
       if (editing) {
@@ -152,10 +155,17 @@ export default function EggTypesPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400 capitalize">{t.color ?? '—'}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400 text-xs">
-                      {t.eggs_per_package != null || t.packages_per_box != null
-                        ? `${t.eggs_per_package ?? '?'} huevos/paq · ${t.packages_per_box ?? '?'} paq/caja`
-                        : '—'}
+                    <td className="px-5 py-3.5 text-xs">
+                      {t.is_packaged ? (
+                        <div>
+                          <Badge variant="blue">Envasado</Badge>
+                          <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            {t.eggs_per_package ?? '?'} huevos/paq · {t.packages_per_box ?? '?'} paq/caja
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">Suelto</span>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400">{t.sort_order}</td>
                     <td className="px-5 py-3.5">
@@ -211,28 +221,39 @@ export default function EggTypesPage() {
             onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
             hint="Menor número aparece primero"
           />
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Envasado (opcional)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Huevos por paquete"
-                type="number"
-                value={form.eggs_per_package}
-                onChange={(e) => setForm((f) => ({ ...f, eggs_per_package: e.target.value.replace(/[^0-9]/g, '') }))}
-                placeholder="Ej: 6"
-              />
-              <Input
-                label="Paquetes por caja"
-                type="number"
-                value={form.packages_per_box}
-                onChange={(e) => setForm((f) => ({ ...f, packages_per_box: e.target.value.replace(/[^0-9]/g, '') }))}
-                placeholder="Ej: 24"
-              />
+          <Select
+            label="Tipo de producto"
+            value={form.is_packaged ? 'envasado' : 'suelto'}
+            onChange={(e) => setForm((f) => ({ ...f, is_packaged: e.target.value === 'envasado' }))}
+            options={[
+              { value: 'suelto', label: 'Huevo suelto (maples de cartón)' },
+              { value: 'envasado', label: 'Huevo envasado (paquetes)' },
+            ]}
+          />
+          {form.is_packaged && (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Datos del envase</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Huevos por paquete"
+                  type="number"
+                  value={form.eggs_per_package}
+                  onChange={(e) => setForm((f) => ({ ...f, eggs_per_package: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="Ej: 6"
+                />
+                <Input
+                  label="Paquetes por caja"
+                  type="number"
+                  value={form.packages_per_box}
+                  onChange={(e) => setForm((f) => ({ ...f, packages_per_box: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="Ej: 24"
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Sirve para el control fino de devoluciones (ej: 4 paquetes de "x6" = 24 huevos).
+              </p>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Solo para productos envasados. Sirve para el control fino de devoluciones (ej: 4 paquetes de "x6" = 24 huevos).
-            </p>
-          </div>
+          )}
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"

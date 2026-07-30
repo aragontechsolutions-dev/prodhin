@@ -29,6 +29,7 @@ export interface EggType {
   color: 'rojo' | 'blanco' | null;
   sort_order: number;
   is_active: boolean;
+  is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
 }

@@ -7,6 +7,7 @@ export interface EggType {
   color: 'rojo' | 'blanco' | null;
   sort_order: number;
   is_active: boolean;
+  is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
 }
@@ -16,6 +17,7 @@ export interface EggTypeInput {
   color: 'rojo' | 'blanco' | null;
   sort_order: number;
   is_active: boolean;
+  is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
 }
@@ -28,7 +30,7 @@ export function useEggTypes() {
     queryFn: async (): Promise<EggType[]> => {
       const { data, error } = await supabase
         .from('egg_types')
-        .select('id, name, color, sort_order, is_active, eggs_per_package, packages_per_box')
+        .select('id, name, color, sort_order, is_active, is_packaged, eggs_per_package, packages_per_box')
         .order('sort_order', { ascending: true });
       if (error) throw error;
       return (data ?? []) as EggType[];

@@ -15,7 +15,7 @@ export function useEggTypes() {
     queryFn: async (): Promise<EggType[]> => {
       const { data, error } = await supabase
         .from('egg_types')
-        .select('id, name, color, sort_order, is_active, eggs_per_package, packages_per_box')
+        .select('id, name, color, sort_order, is_active, is_packaged, eggs_per_package, packages_per_box')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
       if (error) throw error;

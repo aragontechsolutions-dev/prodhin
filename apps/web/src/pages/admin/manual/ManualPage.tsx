@@ -275,8 +275,8 @@ export default function ManualPage() {
             'Para editar o cambiar el estado, usar los botones de cada fila.',
           ]} />
 
-          <SubTitle>Envasado (para el control de devoluciones)</SubTitle>
-          <P>En cada categoría podés definir, de forma opcional, <strong>huevos por paquete</strong> y <strong>paquetes por caja plástica</strong> (ej: "Doña Clara x6" → 6 huevos/paquete y 24 paquetes/caja). Con eso, cuando un chofer devuelve productos vencidos, el sistema muestra el equivalente en huevos y cajas (ej: 4 paquetes = 24 huevos). Se completa/edita acá, y sirve para cualquier categoría envasada nueva.</P>
+          <SubTitle>Tipo: suelto vs. envasado</SubTitle>
+          <P>Cada categoría se clasifica como <strong>huevo suelto</strong> (se vende en maples de cartón) o <strong>huevo envasado</strong> (paquetes). En las envasadas definís <strong>huevos por paquete</strong> y <strong>paquetes por caja plástica</strong> (ej: "Doña Clara x6" → 6 huevos/paquete y 24 paquetes/caja). Con eso, cuando un chofer devuelve productos vencidos, el sistema muestra el equivalente en huevos y cajas (ej: 4 paquetes = 24 huevos). En "Rotos y devoluciones", el chofer solo puede elegir categorías <strong>envasadas</strong> para los vencidos.</P>
 
           <SubTitle>Desactivar vs. eliminar</SubTitle>
           <div className="grid sm:grid-cols-2 gap-3 mb-3">

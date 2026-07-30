@@ -178,9 +178,9 @@ export default function EggReturnsScreen() {
 
           {/* Vencidos */}
           <Text style={styles.label}>📦 Envasados vencidos</Text>
-          <Text style={styles.subHint}>Tocá el producto que devolvés por vencimiento:</Text>
+          <Text style={styles.subHint}>Tocá el producto envasado que devolvés por vencimiento:</Text>
           <View style={styles.chipRow}>
-            {(eggTypes ?? []).map((t) => {
+            {(eggTypes ?? []).filter((t) => t.is_packaged).map((t) => {
               const sel = selectedIds.has(t.id);
               return (
                 <TouchableOpacity key={t.id} style={[styles.chip, sel && styles.chipActive]} onPress={() => toggleType(t.id)} activeOpacity={0.8}>
@@ -188,6 +188,9 @@ export default function EggReturnsScreen() {
                 </TouchableOpacity>
               );
             })}
+            {(eggTypes ?? []).filter((t) => t.is_packaged).length === 0 && (
+              <Text style={styles.subHint}>No hay categorías envasadas configuradas. El admin las marca en Categorías.</Text>
+            )}
           </View>
 
           {lines.map((l) => {
