@@ -753,6 +753,7 @@ export default function MapScreen() {
   const suggestionModel = useMemo(() => buildSuggestionModel(myDeliveries ?? []), [myDeliveries]);
 
   const [suggestion, setSuggestion] = useState<{ text: string; lat: number; lng: number } | null>(null);
+  const [navChooser, setNavChooser] = useState<{ lat: number; lng: number } | null>(null);
   const suggestAnim = useRef(new Animated.Value(0)).current;
   // No se autooculta: el chofer la cierra con la ✕. Así, aunque quede en el
   // detalle del cliente tras entregar, al volver al mapa la sigue viendo.
@@ -777,13 +778,13 @@ export default function MapScreen() {
       Alert.alert('Waze', 'No se pudo abrir Waze. ¿Está instalado?'),
     );
   }
-  function openNavChooser(lat: number, lng: number) {
-    Alert.alert('Ir al cliente', 'Elegí cómo navegar', [
-      { text: 'Navegación de la app', onPress: () => sendToMap({ type: 'startNav', lat, lng }) },
-      { text: 'Google Maps', onPress: () => openGoogleMaps(lat, lng) },
-      { text: 'Waze', onPress: () => openWaze(lat, lng) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+  function chooseNav(kind: 'app' | 'gmaps' | 'waze') {
+    if (!navChooser) return;
+    const { lat, lng } = navChooser;
+    setNavChooser(null);
+    if (kind === 'app') sendToMap({ type: 'startNav', lat, lng });
+    else if (kind === 'gmaps') openGoogleMaps(lat, lng);
+    else openWaze(lat, lng);
   }
 
   const [showDone, setShowDone] = useState(false);
@@ -1277,12 +1278,48 @@ export default function MapScreen() {
           <TouchableOpacity
             style={styles.suggestGoBtn}
             activeOpacity={0.85}
-            onPress={() => openNavChooser(suggestion.lat, suggestion.lng)}
+            onPress={() => setNavChooser({ lat: suggestion.lat, lng: suggestion.lng })}
           >
             <Text style={styles.suggestGoText}>🧭 Ir hasta el cliente</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
+
+      {/* Selector de navegación (app / Google Maps / Waze) */}
+      <Modal visible={navChooser !== null} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNavChooser(null)}>
+        <TouchableOpacity style={styles.navSheetOverlay} activeOpacity={1} onPress={() => setNavChooser(null)}>
+          <View style={styles.navSheet}>
+            <Text style={styles.navSheetTitle}>¿Cómo querés ir?</Text>
+            <TouchableOpacity style={styles.navOption} activeOpacity={0.8} onPress={() => chooseNav('app')}>
+              <Text style={styles.navOptionIcon}>🧭</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.navOptionTitle}>Navegación de la app</Text>
+                <Text style={styles.navOptionSub}>Guía dentro de Prodhin</Text>
+              </View>
+              <Text style={styles.navOptionArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navOption} activeOpacity={0.8} onPress={() => chooseNav('gmaps')}>
+              <Text style={styles.navOptionIcon}>🗺️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.navOptionTitle}>Google Maps</Text>
+                <Text style={styles.navOptionSub}>Abre la app de Google Maps</Text>
+              </View>
+              <Text style={styles.navOptionArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.navOption, styles.navOptionLast]} activeOpacity={0.8} onPress={() => chooseNav('waze')}>
+              <Text style={styles.navOptionIcon}>🚗</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.navOptionTitle}>Waze</Text>
+                <Text style={styles.navOptionSub}>Abre la app de Waze</Text>
+              </View>
+              <Text style={styles.navOptionArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navCancel} activeOpacity={0.7} onPress={() => setNavChooser(null)}>
+              <Text style={styles.navCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Animación: todas las entregas completadas */}
       {showDone && (
@@ -1627,6 +1664,20 @@ const styles = StyleSheet.create({
     paddingVertical: 9, alignItems: 'center',
   },
   suggestGoText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  navSheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  navSheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28 },
+  navSheetTitle: { fontSize: 16, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 12 },
+  navOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 6,
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  navOptionLast: { borderBottomWidth: 0 },
+  navOptionIcon: { fontSize: 26 },
+  navOptionTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  navOptionSub: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
+  navOptionArrow: { fontSize: 22, color: '#d1d5db', fontWeight: '300' },
+  navCancel: { marginTop: 10, paddingVertical: 13, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center' },
+  navCancelText: { fontSize: 15, fontWeight: '700', color: '#6b7280' },
   readyToast: {
     position: 'absolute', top: Platform.OS === 'ios' ? 150 : 118, left: 16, right: 16, zIndex: 36,
     backgroundColor: '#16a34a', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16,

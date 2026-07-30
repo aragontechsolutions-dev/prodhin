@@ -168,8 +168,13 @@ export default function CustomerForm({ customer, userId, onSuccess, onCancel }: 
 
       onSuccess();
     } catch (err) {
-      // Violación de índice único en la BD (por si dos admin crean a la vez)
-      const raw = err instanceof Error ? err.message : String(err);
+      // Los errores de Supabase son objetos planos {message, details, hint, code},
+      // no instancias de Error → hay que extraer el texto a mano (si no, sale
+      // "[object Object]"). Unimos message+details+code para poder detectar el índice.
+      const e = err as { message?: string; details?: string; hint?: string; code?: string } | null;
+      const raw = e && typeof e === 'object'
+        ? [e.message, e.details, e.hint, e.code].filter(Boolean).join(' ')
+        : String(err);
       let friendly: string;
       if (/uq_customers_customer_number/i.test(raw)) {
         friendly = `Ya existe un cliente con el número ${form.customer_number.trim()}`;
