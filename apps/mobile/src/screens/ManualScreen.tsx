@@ -96,6 +96,17 @@ const SECTIONS: Item[] = [
     tip: 'Sin señal se guarda igual y se envía sola al reconectar. En el detalle del cliente ves su N° de cliente (el que asigna la administración), sus datos y cuántas cajas plásticas quedan en su local.',
   },
   {
+    icon: '🕒',
+    title: 'Cajas sin entrega y horarios de cierre',
+    body: [
+      'En el detalle del cliente tenés "📦 Recoger cajas (sin entrega)": si el cliente no compra pero devuelve cajas, registrá cuántas y baja solo el saldo del local.',
+      'También podés marcar el "Horario de cierre" del cliente (a qué hora deja de recibir mercadería).',
+      'La app te avisa 1 hora y 30 minutos antes del cierre de los clientes de tu ruta que tengan horario, aunque tengas la app cerrada.',
+      'La primera vez te va a pedir permiso para enviarte notificaciones: aceptalo.',
+    ],
+    tip: 'El horario lo cargás vos que estás en la calle. Se guarda igual todos los días. Cuando visitás al cliente, deja de avisarte por él.',
+  },
+  {
     icon: '⭐',
     title: 'Tipos de huevo del cliente',
     body: [

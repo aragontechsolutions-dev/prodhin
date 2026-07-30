@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TextInput,
+  Modal,
   Linking,
   Alert,
   Platform,
@@ -17,6 +20,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useBoxBalances } from '../hooks/useBoxBalances';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { useRegisterBoxPickup } from '../hooks/useBoxPickups';
+import { useCustomerSchedules, useSetSchedule, useClearSchedule } from '../hooks/useCustomerSchedules';
+import { uuidv4 } from '../lib/uuid';
 import {
   useCustomerPreferences,
   useAddPreference,
@@ -51,11 +58,61 @@ export default function CustomerDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Props['route']>();
   const { customer: c } = route.params;
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const { resetTimers } = useInactivityTimer(signOut);
   const insets = useSafeAreaInsets();
+  const { isOnline } = useNetworkStatus();
   const { data: boxBalances } = useBoxBalances();
   const boxBalance = boxBalances?.[c.id] ?? 0;
+
+  // Recogida de cajas sin entrega
+  const registerPickup = useRegisterBoxPickup();
+  const [pickupOpen, setPickupOpen] = useState(false);
+  const [pickupQty, setPickupQty] = useState('');
+
+  // Horario de cierre del cliente
+  const { data: schedules } = useCustomerSchedules();
+  const setSchedule = useSetSchedule();
+  const clearSchedule = useClearSchedule();
+  const mySchedule = (schedules ?? []).find((s) => s.customer_id === c.id)?.closing_time ?? null;
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [timeInput, setTimeInput] = useState('');
+
+  function doPickup() {
+    if (!profile) return;
+    const n = parseInt(pickupQty.replace(/[^0-9]/g, ''), 10) || 0;
+    if (n <= 0) { Alert.alert('Cantidad inválida', 'Poné cuántas cajas recogés (mayor que 0).'); return; }
+    registerPickup.mutate(
+      { id: uuidv4(), customer_id: c.id, driver_id: profile.id, qty: n },
+      { onError: (e: unknown) => { if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo registrar.'); } },
+    );
+    setPickupOpen(false);
+    setPickupQty('');
+    Alert.alert('Recogida registrada', `Se registró la recogida de ${n} caja(s). El saldo del local baja.`);
+  }
+
+  function saveSchedule() {
+    if (!profile) return;
+    const m = timeInput.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) { Alert.alert('Hora inválida', 'Escribí la hora como HH:MM (ej: 18:00).'); return; }
+    const hh = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
+    if (hh > 23 || mm > 59) { Alert.alert('Hora inválida', 'La hora debe ser 00:00–23:59.'); return; }
+    const closing = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    setSchedule.mutate(
+      { customer_id: c.id, closing_time: closing, updated_by: profile.id },
+      {
+        onSuccess: () => { setScheduleOpen(false); Alert.alert('Horario guardado', `Cierre a las ${closing}. Te avisaremos 1 h y 30 min antes.`); },
+        onError: () => Alert.alert('Error', 'No se pudo guardar el horario (¿hay conexión?).'),
+      },
+    );
+  }
+
+  function removeSchedule() {
+    clearSchedule.mutate(c.id, {
+      onSuccess: () => Alert.alert('Horario quitado', 'Este cliente ya no tiene horario de cierre.'),
+      onError: () => Alert.alert('Error', 'No se pudo quitar (¿hay conexión?).'),
+    });
+  }
 
   function openGoogleMaps() {
     const url = Platform.select({
@@ -178,6 +235,35 @@ export default function CustomerDetailScreen() {
           <Text style={[styles.boxValue, (boxBalance ?? 0) < 0 && styles.boxValueNeg]}>{boxBalance ?? 0}</Text>
         </View>
 
+        {/* Recoger cajas sin entrega */}
+        <TouchableOpacity style={styles.pickupBtn} onPress={() => setPickupOpen(true)} activeOpacity={0.85}>
+          <Text style={styles.pickupBtnText}>📦  Recoger cajas (sin entrega)</Text>
+        </TouchableOpacity>
+
+        {/* Horario de cierre */}
+        <View style={styles.schedCard}>
+          <Text style={styles.schedIcon}>🕒</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.schedLabel}>Horario de cierre</Text>
+            <Text style={styles.schedHint}>
+              {mySchedule ? `Cierra a las ${mySchedule.slice(0, 5)} · aviso 1 h y 30 min antes` : 'Sin horario. Si este cliente cierra a cierta hora, marcalo.'}
+            </Text>
+          </View>
+          <View style={{ gap: 6 }}>
+            <TouchableOpacity
+              style={styles.schedEditBtn}
+              onPress={() => { setTimeInput(mySchedule ? mySchedule.slice(0, 5) : ''); setScheduleOpen(true); }}
+            >
+              <Text style={styles.schedEditText}>{mySchedule ? 'Cambiar' : 'Marcar'}</Text>
+            </TouchableOpacity>
+            {mySchedule && (
+              <TouchableOpacity style={styles.schedClearBtn} onPress={removeSchedule}>
+                <Text style={styles.schedClearText}>Quitar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         <EggPreferencesCard customerId={c.id} />
 
         {/* Registrar entrega */}
@@ -235,6 +321,62 @@ export default function CustomerDetailScreen() {
           {c.lat.toFixed(6)}, {c.lng.toFixed(6)}
         </Text>
       </ScrollView>
+
+      {/* Modal: recoger cajas sin entrega */}
+      <Modal visible={pickupOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPickupOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Recoger cajas plásticas</Text>
+            <Text style={styles.modalSub}>Sin entrega. En el local hay {Math.max(0, boxBalance)} caja(s).</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={pickupQty}
+              onChangeText={(t) => setPickupQty(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="Cantidad"
+              placeholderTextColor="#9ca3af"
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} onPress={() => { setPickupOpen(false); setPickupQty(''); }}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} onPress={doPickup}>
+                <Text style={styles.modalOkText}>Recoger</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: horario de cierre */}
+      <Modal visible={scheduleOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setScheduleOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Horario de cierre</Text>
+            <Text style={styles.modalSub}>Hora en que el cliente deja de recibir mercadería. Te avisamos 1 h y 30 min antes.</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={timeInput}
+              onChangeText={setTimeInput}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              placeholder="HH:MM (ej: 18:00)"
+              placeholderTextColor="#9ca3af"
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} onPress={() => setScheduleOpen(false)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} onPress={saveSchedule}>
+                <Text style={styles.modalOkText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -325,6 +467,36 @@ const styles = StyleSheet.create({
   boxHint: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
   boxValue: { fontSize: 28, fontWeight: '800', color: '#0f766e' },
   boxValueNeg: { color: '#dc2626' },
+  pickupBtn: {
+    backgroundColor: '#ecfeff', borderWidth: 1, borderColor: '#a5f3fc', borderRadius: 14,
+    paddingVertical: 13, alignItems: 'center',
+  },
+  pickupBtnText: { color: '#0e7490', fontSize: 15, fontWeight: '800' },
+  schedCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#f3f4f6',
+  },
+  schedIcon: { fontSize: 24 },
+  schedLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  schedHint: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  schedEditBtn: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#dbeafe', borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, alignItems: 'center' },
+  schedEditText: { color: '#1d4ed8', fontSize: 13, fontWeight: '700' },
+  schedClearBtn: { paddingVertical: 4, alignItems: 'center' },
+  schedClearText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '100%', maxWidth: 360 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  modalSub: { fontSize: 13, color: '#6b7280', marginTop: 4, lineHeight: 18 },
+  modalInput: {
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, backgroundColor: '#f9fafb',
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 14,
+  },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  modalCancel: { backgroundColor: '#f3f4f6' },
+  modalCancelText: { color: '#6b7280', fontSize: 15, fontWeight: '700' },
+  modalOk: { backgroundColor: '#16a34a' },
+  modalOkText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',

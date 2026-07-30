@@ -36,6 +36,8 @@ import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
 import { useMapleReturns } from '../hooks/useMapleReturns';
 import { useEggReturns } from '../hooks/useEggReturns';
+import { useCustomerSchedules } from '../hooks/useCustomerSchedules';
+import { ensureNotifPermission, scheduleClosingReminders } from '../lib/notifications';
 import { getPendingLoad } from '../lib/loadConfirm';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { buildSuggestionModel, suggestNext } from '../lib/routeSuggestion';
@@ -689,6 +691,7 @@ export default function MapScreen() {
   const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
   const { data: mapleReturns } = useMapleReturns(profile?.id);
   const { data: eggReturns } = useEggReturns(profile?.id);
+  const { data: schedules } = useCustomerSchedules();
   const { data: prefBoxBalances } = useBoxBalances();
   const { data: routeData, refetch: refetchRoute } = useMyRoute(profile?.id);
   const routeFound = routeData?.routeFound ?? false;
@@ -750,6 +753,27 @@ export default function MapScreen() {
     () => getPendingLoad(prefTruckLoads ?? [], loadConfirmations ?? [], Date.now()),
     [prefTruckLoads, loadConfirmations],
   );
+
+  // Clientes pendientes de hoy que tienen horario de cierre → recordatorios
+  const closingTargets = useMemo(() => {
+    const map = new Map((schedules ?? []).map((s) => [s.customer_id, s.closing_time]));
+    return pendingCustomers
+      .filter((c) => map.has(c.id))
+      .map((c) => ({ customerId: c.id, name: getDisplayName(c), closingTime: String(map.get(c.id)).slice(0, 5) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitedIds, schedules, routeStops, myCustomers]);
+
+  const notifSigRef = useRef<string>('INIT');
+  useEffect(() => {
+    const sig = closingTargets.map((t) => `${t.customerId}@${t.closingTime}`).sort().join('|');
+    if (sig === notifSigRef.current) return;
+    notifSigRef.current = sig;
+    (async () => {
+      if (closingTargets.length === 0) { await scheduleClosingReminders([]); return; }
+      const ok = await ensureNotifPermission();
+      if (ok) await scheduleClosingReminders(closingTargets);
+    })();
+  }, [closingTargets]);
 
   // ── Sugerencia de orden (histórica) + animación de completado ──
   const suggestionModel = useMemo(() => buildSuggestionModel(myDeliveries ?? []), [myDeliveries]);
