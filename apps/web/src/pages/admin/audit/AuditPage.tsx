@@ -38,6 +38,7 @@ const FIELD_LABELS: Record<string, string> = {
   broken_qty: 'Rotos declarados', broken_returned: 'Rotos devueltos',
   qty: 'Cantidad', expiry_date: 'Vence (envase)',
   returned_qty: 'Devuelto', returned_expiry_date: 'Vence (devuelto)',
+  eggs_per_package: 'Huevos por paquete', packages_per_box: 'Paquetes por caja',
 };
 
 const STATUS_LABEL: Record<string, string> = {

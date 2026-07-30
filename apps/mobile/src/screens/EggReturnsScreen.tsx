@@ -56,6 +56,26 @@ export default function EggReturnsScreen() {
     return m;
   }, [eggTypes]);
 
+  const eggPack = useMemo(() => {
+    const m = new Map<string, { epp: number | null; ppb: number | null }>();
+    (eggTypes ?? []).forEach((t) => m.set(t.id, { epp: t.eggs_per_package, ppb: t.packages_per_box }));
+    return m;
+  }, [eggTypes]);
+
+  // Texto "= N huevos (X cajas + Y paq)" a partir de paquetes
+  function packEquiv(eggTypeId: string, packages: number): string | null {
+    const info = eggPack.get(eggTypeId);
+    if (!info || !info.epp || packages <= 0) return null;
+    const huevos = packages * info.epp;
+    let extra = '';
+    if (info.ppb && info.ppb > 0) {
+      const cajas = Math.floor(packages / info.ppb);
+      const resto = packages % info.ppb;
+      if (cajas > 0) extra = ` · ${cajas} caja${cajas > 1 ? 's' : ''}${resto > 0 ? ` + ${resto} paq` : ''}`;
+    }
+    return `= ${huevos} huevos${extra}`;
+  }
+
   const selectedIds = new Set(lines.map((l) => l.egg_type_id));
 
   function toggleType(id: string) {
@@ -113,14 +133,17 @@ export default function EggReturnsScreen() {
             {r.status === 'aprobada' && r.broken_returned != null ? `  ·  te devolvieron ${r.broken_returned}` : ''}
           </Text>
         )}
-        {r.items.map((it) => (
-          <Text key={it.id} style={styles.cardLine}>
-            📦 {eggName.get(it.egg_type_id) ?? 'Producto'}: <Text style={styles.bold}>{it.qty}</Text> (vence {it.expiry_date})
-            {r.status === 'aprobada' && it.returned_qty != null
-              ? `  ·  te devolvieron ${it.returned_qty}${it.returned_expiry_date ? ` (vence ${it.returned_expiry_date})` : ''}`
-              : ''}
-          </Text>
-        ))}
+        {r.items.map((it) => {
+          const eq = packEquiv(it.egg_type_id, it.qty);
+          return (
+            <Text key={it.id} style={styles.cardLine}>
+              📦 {eggName.get(it.egg_type_id) ?? 'Producto'}: <Text style={styles.bold}>{it.qty}</Text> paq{eq ? ` (${eq.replace('= ', '')})` : ''} · vence {it.expiry_date}
+              {r.status === 'aprobada' && it.returned_qty != null
+                ? `  ·  te devolvieron ${it.returned_qty} paq${it.returned_expiry_date ? ` (vence ${it.returned_expiry_date})` : ''}`
+                : ''}
+            </Text>
+          );
+        })}
         {r.review_note ? <Text style={styles.cardReviewNote}>Nota del admin: {r.review_note}</Text> : null}
       </View>
     );
@@ -167,36 +190,40 @@ export default function EggReturnsScreen() {
             })}
           </View>
 
-          {lines.map((l) => (
-            <View key={l.egg_type_id} style={styles.vLine}>
-              <Text style={styles.vName} numberOfLines={1}>{eggName.get(l.egg_type_id) ?? 'Producto'}</Text>
-              <View style={styles.vRow}>
-                <View style={styles.vField}>
-                  <Text style={styles.vFieldLbl}>Cantidad</Text>
-                  <TextInput
-                    style={styles.vInput}
-                    value={l.qty}
-                    onChangeText={(t) => setLine(l.egg_type_id, { qty: t.replace(/[^0-9]/g, '') })}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                  />
+          {lines.map((l) => {
+            const eq = packEquiv(l.egg_type_id, parseInt(l.qty.replace(/[^0-9]/g, ''), 10) || 0);
+            return (
+              <View key={l.egg_type_id} style={styles.vLine}>
+                <Text style={styles.vName} numberOfLines={1}>{eggName.get(l.egg_type_id) ?? 'Producto'}</Text>
+                <View style={styles.vRow}>
+                  <View style={styles.vField}>
+                    <Text style={styles.vFieldLbl}>Paquetes</Text>
+                    <TextInput
+                      style={styles.vInput}
+                      value={l.qty}
+                      onChangeText={(t) => setLine(l.egg_type_id, { qty: t.replace(/[^0-9]/g, '') })}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                  </View>
+                  <View style={[styles.vField, { flex: 1 }]}>
+                    <Text style={styles.vFieldLbl}>Vence (del envase)</Text>
+                    <TextInput
+                      style={styles.vInput}
+                      value={l.expiry}
+                      onChangeText={(t) => setLine(l.egg_type_id, { expiry: t })}
+                      placeholder="Ej: 06/2026"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                  <TouchableOpacity onPress={() => toggleType(l.egg_type_id)} style={styles.vRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.vRemoveText}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={[styles.vField, { flex: 1 }]}>
-                  <Text style={styles.vFieldLbl}>Vence (del envase)</Text>
-                  <TextInput
-                    style={styles.vInput}
-                    value={l.expiry}
-                    onChangeText={(t) => setLine(l.egg_type_id, { expiry: t })}
-                    placeholder="Ej: 06/2026"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
-                <TouchableOpacity onPress={() => toggleType(l.egg_type_id)} style={styles.vRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={styles.vRemoveText}>✕</Text>
-                </TouchableOpacity>
+                {eq && <Text style={styles.vEquiv}>{eq}</Text>}
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           <Text style={styles.label}>Nota (opcional)</Text>
           <TextInput style={styles.noteInput} value={note} onChangeText={setNote} placeholder="Observaciones…" placeholderTextColor="#9ca3af" multiline />
@@ -259,6 +286,7 @@ const styles = StyleSheet.create({
   },
   vRemove: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center' },
   vRemoveText: { color: '#b91c1c', fontSize: 16, fontWeight: '800' },
+  vEquiv: { fontSize: 12, color: '#059669', fontWeight: '700', marginTop: 6 },
   noteInput: {
     backgroundColor: '#f9fafb', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb',
     padding: 12, minHeight: 54, fontSize: 14, color: '#111827', textAlignVertical: 'top', marginTop: 4,
