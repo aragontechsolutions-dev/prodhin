@@ -110,10 +110,12 @@ export default function RegisterDeliveryScreen() {
   async function onSave() {
     // DEBUG temporal: estado al presionar Guardar
     const dbg = `perfil:${profile ? 'ok' : 'NULL'} online:${isOnline} entrega:${isDelivered} lineas:${lines.length} conCant:${lines.filter((l) => l.cajas > 0).length} pending:${createDelivery.isPending}`;
+    console.log('PRODHIN_DBG onSave INICIO', dbg);
     try {
-      if (!profile) { Alert.alert('DEBUG', `Sin perfil, no guarda. ${dbg}`); return; }
+      if (!profile) { console.warn('PRODHIN_DBG onSave sin perfil'); Alert.alert('DEBUG', `Sin perfil, no guarda. ${dbg}`); return; }
       await onSaveInner();
     } catch (err) {
+      console.error('PRODHIN_DBG onSave ERROR', err, (err as Error)?.stack);
       Alert.alert('DEBUG error onSave', `${err instanceof Error ? err.message : String(err)} | ${dbg}`);
     }
   }
@@ -174,10 +176,12 @@ export default function RegisterDeliveryScreen() {
   }
 
   function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+    console.log('PRODHIN_DBG doSave INICIO items=', items.length);
     if (!profile) { Alert.alert('DEBUG', 'doSave sin perfil'); return; }
     try {
       doSaveInner(items);
     } catch (err) {
+      console.error('PRODHIN_DBG doSave ERROR', err, (err as Error)?.stack);
       Alert.alert('DEBUG error doSave', err instanceof Error ? err.message : String(err));
     }
   }
@@ -185,8 +189,10 @@ export default function RegisterDeliveryScreen() {
   function doSaveInner(items: { egg_type_id: string; cajas_plasticas: number }[]) {
     if (!profile) return;
 
+    console.log('PRODHIN_DBG markVisited');
     // Marca la visita al instante (optimista, persiste local)
     markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
+    console.log('PRODHIN_DBG antes de mutate');
 
     // Encolar la entrega SIN esperarla: offline queda pausada y se envía sola
     // al reconectar; online se ejecuta normal. No usar await/mutateAsync porque
@@ -214,6 +220,7 @@ export default function RegisterDeliveryScreen() {
     );
 
     // DEBUG: confirmamos que se encoló y seguimos
+    console.log('PRODHIN_DBG despues de mutate, encolada. online=', isOnline);
     Alert.alert('DEBUG', `Entrega encolada (mutate ok). ${isOnline ? 'online' : 'offline'}. Cerrando pantalla…`);
 
     // Auto-sugerencia: tipos entregados que no están en los habituales
