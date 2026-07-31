@@ -108,6 +108,17 @@ export default function RegisterDeliveryScreen() {
   }
 
   async function onSave() {
+    // DEBUG temporal: estado al presionar Guardar
+    const dbg = `perfil:${profile ? 'ok' : 'NULL'} online:${isOnline} entrega:${isDelivered} lineas:${lines.length} conCant:${lines.filter((l) => l.cajas > 0).length} pending:${createDelivery.isPending}`;
+    try {
+      if (!profile) { Alert.alert('DEBUG', `Sin perfil, no guarda. ${dbg}`); return; }
+      await onSaveInner();
+    } catch (err) {
+      Alert.alert('DEBUG error onSave', `${err instanceof Error ? err.message : String(err)} | ${dbg}`);
+    }
+  }
+
+  async function onSaveInner() {
     if (!profile) return;
 
     // Bloqueo: no se puede registrar entregas si hay una carga del día sin
@@ -163,6 +174,15 @@ export default function RegisterDeliveryScreen() {
   }
 
   function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+    if (!profile) { Alert.alert('DEBUG', 'doSave sin perfil'); return; }
+    try {
+      doSaveInner(items);
+    } catch (err) {
+      Alert.alert('DEBUG error doSave', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function doSaveInner(items: { egg_type_id: string; cajas_plasticas: number }[]) {
     if (!profile) return;
 
     // Marca la visita al instante (optimista, persiste local)
@@ -192,6 +212,9 @@ export default function RegisterDeliveryScreen() {
         },
       },
     );
+
+    // DEBUG: confirmamos que se encoló y seguimos
+    Alert.alert('DEBUG', `Entrega encolada (mutate ok). ${isOnline ? 'online' : 'offline'}. Cerrando pantalla…`);
 
     // Auto-sugerencia: tipos entregados que no están en los habituales
     const newTypes = items
