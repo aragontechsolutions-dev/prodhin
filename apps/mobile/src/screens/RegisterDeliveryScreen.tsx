@@ -112,11 +112,15 @@ export default function RegisterDeliveryScreen() {
     const dbg = `perfil:${profile ? 'ok' : 'NULL'} online:${isOnline} entrega:${isDelivered} lineas:${lines.length} conCant:${lines.filter((l) => l.cajas > 0).length} pending:${createDelivery.isPending}`;
     console.log('PRODHIN_DBG onSave INICIO', dbg);
     try {
-      if (!profile) { console.warn('PRODHIN_DBG onSave sin perfil'); Alert.alert('DEBUG', `Sin perfil, no guarda. ${dbg}`); return; }
+      if (!profile) {
+        console.warn('PRODHIN_DBG onSave sin perfil');
+        Alert.alert('Sin perfil', 'No se pudo leer tu perfil. Abrí la app una vez con conexión y volvé a intentar.');
+        return;
+      }
       await onSaveInner();
     } catch (err) {
       console.error('PRODHIN_DBG onSave ERROR', err, (err as Error)?.stack);
-      Alert.alert('DEBUG error onSave', `${err instanceof Error ? err.message : String(err)} | ${dbg}`);
+      Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -177,12 +181,12 @@ export default function RegisterDeliveryScreen() {
 
   function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
     console.log('PRODHIN_DBG doSave INICIO items=', items.length);
-    if (!profile) { Alert.alert('DEBUG', 'doSave sin perfil'); return; }
+    if (!profile) return;
     try {
       doSaveInner(items);
     } catch (err) {
       console.error('PRODHIN_DBG doSave ERROR', err, (err as Error)?.stack);
-      Alert.alert('DEBUG error doSave', err instanceof Error ? err.message : String(err));
+      Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -219,9 +223,7 @@ export default function RegisterDeliveryScreen() {
       },
     );
 
-    // DEBUG: confirmamos que se encoló y seguimos
     console.log('PRODHIN_DBG despues de mutate, encolada. online=', isOnline);
-    Alert.alert('DEBUG', `Entrega encolada (mutate ok). ${isOnline ? 'online' : 'offline'}. Cerrando pantalla…`);
 
     // Auto-sugerencia: tipos entregados que no están en los habituales
     const newTypes = items

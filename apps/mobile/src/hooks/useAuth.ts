@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { markSessionExpired } from '../lib/sessionNotice';
 import type { Profile } from '../types';
+
+const PROFILE_CACHE_KEY = 'prodhin-profile';
 
 export function useAuth() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -29,10 +32,13 @@ export function useAuth() {
       .maybeSingle();
 
     if (error) {
-      // Error de red u otro problema transitorio: NO cerramos la sesión
-      // (para no desloguear a un chofer que quedó sin conexión), solo no
-      // autenticamos todavía.
-      setProfile(null);
+      // Sin conexión / error transitorio: NO cerramos la sesión. Usamos el
+      // último perfil cacheado para que el chofer siga teniendo perfil offline
+      // (si no, quedaba en null y no se podían registrar entregas offline).
+      try {
+        const cached = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+        if (cached) setProfile(JSON.parse(cached) as Profile);
+      } catch { /* noop */ }
       setLoading(false);
       return;
     }
@@ -42,12 +48,14 @@ export function useAuth() {
       // la sesión guardada ya no es válida → avisar, limpiarla y volver al login.
       markSessionExpired();
       try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* noop */ }
+      try { await AsyncStorage.removeItem(PROFILE_CACHE_KEY); } catch { /* noop */ }
       setProfile(null);
       setLoading(false);
       return;
     }
 
     setProfile(data);
+    try { await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data)); } catch { /* noop */ }
     setLoading(false);
   }
 
@@ -64,6 +72,7 @@ export function useAuth() {
     } catch {
       // ignorar errores de red: la sesión local igual se limpia
     }
+    try { await AsyncStorage.removeItem(PROFILE_CACHE_KEY); } catch { /* noop */ }
     setProfile(null);
   }
 
