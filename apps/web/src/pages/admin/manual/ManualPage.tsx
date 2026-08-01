@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 const sections = [
   { id: 'intro', emoji: '🥚', label: 'Introducción' },
+  { id: 'dashboard', emoji: '🏠', label: 'Dashboard (inicio)' },
   { id: 'usuarios', emoji: '👤', label: 'Usuarios' },
   { id: 'clientes', emoji: '📍', label: 'Clientes' },
   { id: 'categorias', emoji: '🥚', label: 'Categorías de huevo' },
@@ -158,6 +159,16 @@ export default function ManualPage() {
               <p className="text-sm text-green-700 dark:text-green-400">Aplicación Android que muestra a cada chofer sus clientes en un mapa interactivo, con la ruta del día resaltada.</p>
             </div>
           </div>
+        </section>
+
+        {/* Dashboard */}
+        <section id="dashboard" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🏠 Dashboard (inicio)</SectionTitle>
+          <P>Es la pantalla de resumen. Arriba, tarjetas con el estado general: choferes activos, clientes activos/inactivos, rutas activas, rutas sin chofer y delegaciones de hoy.</P>
+          <SubTitle>Requiere tu atención</SubTitle>
+          <P>Una fila con lo pendiente de aprobar, que se pone en <strong>ámbar</strong> cuando hay algo: <strong>Maples por aprobar</strong>, <strong>Rotos/devoluciones por aprobar</strong> y el total de <strong>cajas plásticas en locales</strong>. Cada tarjeta es un acceso directo al módulo correspondiente.</P>
+          <SubTitle>Estado de rutas y accesos rápidos</SubTitle>
+          <P>Debajo ves las rutas activas con su chofer, y una grilla de accesos rápidos a todos los módulos (Usuarios, Clientes, Asignaciones, Rutas, Reportes, Categorías, Stock, Maples, Rotos y devoluciones, Auditoría y Manual).</P>
         </section>
 
         {/* Usuarios */}
@@ -381,6 +392,7 @@ export default function ManualPage() {
               { t: 'Rango de fechas', d: 'Desde / hasta (por defecto los últimos 30 días).' },
               { t: 'Chofer', d: 'Ver las entregas de un chofer específico o de todos.' },
               { t: 'Tipo de huevo', d: 'Filtrar por una categoría; las métricas y el detalle se ajustan a esa categoría.' },
+              { t: 'Cliente (nombre / RUT / N°)', d: 'Escribí parte del nombre, el RUT o el número de cliente para ver SOLO las operaciones de ese cliente: todas las métricas, rankings y el detalle se recalculan para él.' },
             ].map((f) => (
               <div key={f.t} className="border border-gray-200 dark:border-gray-700 rounded-xl p-3">
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{f.t}</p>
@@ -390,14 +402,14 @@ export default function ManualPage() {
           </div>
 
           <SubTitle>Qué muestra</SubTitle>
-          <P>Tarjetas con totales (cajones entregados, visitas, clientes atendidos, visitas sin venta), un desglose de cajones por tipo de huevo, y una tabla detallada de cada entrega. Se puede <strong>exportar a CSV</strong> para abrir en Excel.</P>
-          <Tip>La unidad base es la caja plástica. 1 cajón = 2 cajas plásticas, por eso podés ver medios cajones (ej: 2,5 cajones = 5 cajas plásticas).</Tip>
+          <P>Tarjetas con totales (cajones entregados, visitas, clientes atendidos, visitas sin venta, <strong>cajas en locales</strong> y <strong>cajas recogidas</strong>), rankings (más vendidos por tipo, clientes que más compran, cajas sin devolver por cliente, choferes que más entregaron), la evolución por día, y una tabla detallada de cada entrega. Se puede <strong>exportar a CSV</strong> (incluye cajas recogidas y devueltas en el acto).</P>
+          <Tip>La unidad base es la caja plástica. 1 cajón = 2 cajas plásticas, por eso podés ver medios cajones (ej: 2,5 cajones = 5 cajas plásticas). Usá el filtro por cliente para responder rápido "¿qué le entregamos a este cliente y cuántas cajas tiene?".</Tip>
 
           <SubTitle>Corregir una entrega</SubTitle>
           <P>Si el chofer se equivocó (por ejemplo, marcó una categoría por otra), el admin puede corregirla:</P>
           <Steps items={[
             'En la tabla de detalle, hacer clic en "Corregir" en la fila de la entrega.',
-            'Ajustar estado, tipos y cantidades, modo (deja cajas / cartones) y cajas recogidas.',
+            'Ajustar estado, tipos y cantidades, modo (deja cajas / cartones), cajas recogidas y cajas devueltas en el acto.',
             'Escribir el MOTIVO de la corrección (obligatorio).',
             'Guardar. El cambio queda registrado en la Auditoría con el motivo.',
           ]} />

@@ -66,6 +66,7 @@ export default function ReportsPage() {
   const [to, setTo] = useState(isoDate(TODAY));
   const [driverId, setDriverId] = useState('');
   const [eggTypeId, setEggTypeId] = useState('');
+  const [customerQuery, setCustomerQuery] = useState('');
   const [editing, setEditing] = useState<DeliveryRow | null>(null);
 
   const { data: users } = useUsers();
@@ -105,7 +106,24 @@ export default function ReportsPage() {
   );
   const { data: deliveries, isLoading, isError, error } = useDeliveries(filters);
 
-  const rows = deliveries ?? [];
+  // Filtro por cliente (nombre, RUT o N° de cliente). Vacío = todos.
+  const matchCustomerIds = useMemo(() => {
+    const q = customerQuery.trim().toLowerCase();
+    if (!q) return null;
+    const ids = new Set<string>();
+    (customers ?? []).forEach((c) => {
+      const name = (customerName.get(c.id) ?? '').toLowerCase();
+      const rut = (c.tax_id ?? '').toLowerCase();
+      const num = c.customer_number != null ? String(c.customer_number) : '';
+      if (name.includes(q) || rut.includes(q) || num.includes(q)) ids.add(c.id);
+    });
+    return ids;
+  }, [customerQuery, customers, customerName]);
+
+  const rows = useMemo(() => {
+    const all = deliveries ?? [];
+    return matchCustomerIds ? all.filter((r) => matchCustomerIds.has(r.customer_id)) : all;
+  }, [deliveries, matchCustomerIds]);
 
   const choferes = (users ?? []).filter((u) => u.role === 'chofer');
 
@@ -115,12 +133,14 @@ export default function ReportsPage() {
     const totalCajasPlasticas = rows.reduce((s, r) => s + r.total_cajas_plasticas, 0);
     const clientes = new Set(rows.map((r) => r.customer_id)).size;
     const sinVenta = rows.filter((r) => r.status !== 'entregado').length;
+    const recogidas = rows.reduce((s, r) => s + (r.cajas_recogidas ?? 0) + (r.cajas_devueltas ?? 0), 0);
     return {
       totalVisitas: rows.length,
       entregadas: entregadas.length,
       totalCajasPlasticas,
       clientes,
       sinVenta,
+      recogidas,
     };
   }, [rows]);
 
@@ -196,7 +216,7 @@ export default function ReportsPage() {
   const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(rows, 20);
 
   function exportCsv() {
-    const header = ['Fecha', 'Cliente', 'Chofer', 'Estado', 'Detalle', 'Cajones', 'Notas'];
+    const header = ['Fecha', 'Cliente', 'Chofer', 'Estado', 'Detalle', 'Cajones', 'Cajas recogidas', 'Cajas devueltas', 'Notas'];
     const lines = rows.map((r) => [
       fmtDateTime(r.delivered_at),
       r.customer_name,
@@ -204,6 +224,8 @@ export default function ReportsPage() {
       DELIVERY_STATUS_LABEL[r.status],
       itemsSummary(r).replace(/"/g, "'"),
       formatCajones(r.total_cajas_plasticas),
+      String(r.cajas_recogidas ?? 0),
+      String(r.cajas_devueltas ?? 0),
       (r.notes ?? '').replace(/"/g, "'").replace(/\n/g, ' '),
     ]);
     const csv = [header, ...lines]
@@ -223,7 +245,7 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reportes de entregas</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Huevos entregados por chofer y cliente</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Entregas, cajas y análisis por chofer y por cliente. Filtrá por cliente para ver sus operaciones.</p>
         </div>
         <button
           onClick={exportCsv}
@@ -238,7 +260,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <Input label="Desde" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
         <Input label="Hasta" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         <Select
@@ -255,7 +277,19 @@ export default function ReportsPage() {
           placeholder="Todos los tipos"
           options={(eggTypes ?? []).map((t) => ({ value: t.id, label: t.name }))}
         />
+        <Input
+          label="Cliente (nombre / RUT / N°)"
+          value={customerQuery}
+          onChange={(e) => setCustomerQuery(e.target.value)}
+          placeholder="Buscar cliente…"
+        />
       </div>
+      {customerQuery.trim() && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3">
+          Mostrando operaciones de clientes que coinciden con "<span className="font-semibold">{customerQuery}</span>" ·{' '}
+          <button onClick={() => setCustomerQuery('')} className="text-primary-600 dark:text-primary-400 hover:underline">quitar filtro</button>
+        </p>
+      )}
 
       {isError ? (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-5 text-sm text-red-700 dark:text-red-300">
@@ -288,6 +322,10 @@ export default function ReportsPage() {
             <StatCard label="Cajas en locales" value={boxesInLocals} sub="prestadas, sin recoger"
               colorBg="bg-teal-50 dark:bg-teal-900/30" colorText="text-teal-600 dark:text-teal-400"
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
+            />
+            <StatCard label="Cajas recogidas" value={metrics.recogidas} sub="recogidas + devueltas en el acto"
+              colorBg="bg-cyan-50 dark:bg-cyan-900/30" colorText="text-cyan-600 dark:text-cyan-400"
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
             />
           </div>
 

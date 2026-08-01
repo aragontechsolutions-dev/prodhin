@@ -3,6 +3,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUsers, useDriverDelegations } from '../../hooks/useUsers';
 import { useCustomers } from '../../hooks/useCustomers';
 import { useRoutes } from '../../hooks/useRoutes';
+import { useMapleReturns } from '../../hooks/useMapleReturns';
+import { useEggReturns } from '../../hooks/useEggReturns';
+import { useBoxBalances } from '../../hooks/useBoxBalances';
 
 function StatCard({
   label, value, icon, colorBg, colorText, alert,
@@ -37,6 +40,13 @@ export default function DashboardPage() {
   const { data: customers } = useCustomers();
   const { data: routes } = useRoutes();
   const { data: delegations } = useDriverDelegations();
+  const { data: maplesPend } = useMapleReturns('pendiente');
+  const { data: returnsPend } = useEggReturns('pendiente');
+  const { data: boxBalances } = useBoxBalances();
+
+  const maplesPendientes = (maplesPend ?? []).length;
+  const devolucionesPendientes = (returnsPend ?? []).length;
+  const cajasEnLocales = (() => { let t = 0; for (const v of boxBalances?.values() ?? []) t += Math.max(0, v); return t; })();
 
   const choferes = (users ?? []).filter((u) => u.role === 'chofer');
   const choferesActivos = choferes.filter((u) => u.is_active).length;
@@ -53,9 +63,11 @@ export default function DashboardPage() {
     { to: '/admin/clientes', emoji: '📍', label: 'Clientes', desc: 'Gestionar clientes en el mapa' },
     { to: '/admin/asignaciones', emoji: '📋', label: 'Asignaciones', desc: 'Asignar clientes a choferes' },
     { to: '/admin/rutas', emoji: '🗺️', label: 'Rutas', desc: 'Configurar rutas por día' },
-    { to: '/admin/reportes', emoji: '📊', label: 'Reportes', desc: 'Entregas de huevo por chofer' },
-    { to: '/admin/categorias', emoji: '🥚', label: 'Categorías', desc: 'Tipos de huevo disponibles' },
-    { to: '/admin/stock', emoji: '🚚', label: 'Stock camiones', desc: 'Qué hay en cada camión' },
+    { to: '/admin/reportes', emoji: '📊', label: 'Reportes', desc: 'Entregas y cajas por chofer y cliente' },
+    { to: '/admin/categorias', emoji: '🥚', label: 'Categorías', desc: 'Tipos de huevo (suelto/envasado)' },
+    { to: '/admin/stock', emoji: '🚚', label: 'Stock camiones', desc: 'Cargas, recuentos y stock' },
+    { to: '/admin/maples', emoji: '🧺', label: 'Maples', desc: 'Aprobar entregas de maples' },
+    { to: '/admin/devoluciones', emoji: '♻️', label: 'Rotos y devoluciones', desc: 'Aprobar rotos y vencidos' },
     { to: '/admin/auditoria', emoji: '📝', label: 'Auditoría', desc: 'Historial de acciones' },
     { to: '/admin/manual', emoji: '📖', label: 'Manual', desc: 'Guía completa del sistema' },
   ];
@@ -89,6 +101,25 @@ export default function DashboardPage() {
         <StatCard label="Delegaciones hoy" value={delegacionesHoy} colorBg="bg-orange-50 dark:bg-orange-900/30" colorText="text-orange-600 dark:text-orange-400"
           icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
         />
+      </div>
+
+      {/* Requiere atención: aprobaciones pendientes */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Link to="/admin/maples" className={`rounded-2xl p-5 shadow-sm border transition ${maplesPendientes > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 hover:border-amber-400' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Maples por aprobar</p>
+          <p className={`text-2xl font-bold mt-1 ${maplesPendientes > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>{maplesPendientes} 🧺</p>
+          <p className="text-xs text-gray-400 mt-0.5">{maplesPendientes > 0 ? 'Tocá para controlar' : 'Nada pendiente'}</p>
+        </Link>
+        <Link to="/admin/devoluciones" className={`rounded-2xl p-5 shadow-sm border transition ${devolucionesPendientes > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 hover:border-amber-400' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Rotos/devoluciones por aprobar</p>
+          <p className={`text-2xl font-bold mt-1 ${devolucionesPendientes > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>{devolucionesPendientes} ♻️</p>
+          <p className="text-xs text-gray-400 mt-0.5">{devolucionesPendientes > 0 ? 'Tocá para controlar' : 'Nada pendiente'}</p>
+        </Link>
+        <Link to="/admin/reportes" className="rounded-2xl p-5 shadow-sm border bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-teal-300 transition">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Cajas plásticas en locales</p>
+          <p className="text-2xl font-bold mt-1 text-teal-600 dark:text-teal-400">{cajasEnLocales} 📦</p>
+          <p className="text-xs text-gray-400 mt-0.5">Prestadas, sin recoger</p>
+        </Link>
       </div>
 
       {/* Estado de rutas */}
