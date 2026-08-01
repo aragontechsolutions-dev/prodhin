@@ -14,6 +14,7 @@ export default function EditDeliveryModal({ delivery, onClose }: { delivery: Del
   const [status, setStatus] = useState<DeliveryStatus>('entregado');
   const [mode, setMode] = useState<'cp' | 'cartones'>('cp');
   const [recogidas, setRecogidas] = useState(0);
+  const [devueltas, setDevueltas] = useState(0);
   const [items, setItems] = useState<{ egg_type_id: string; cajas: number }[]>([]);
   const [reason, setReason] = useState('');
 
@@ -22,6 +23,7 @@ export default function EditDeliveryModal({ delivery, onClose }: { delivery: Del
     setStatus(delivery.status);
     setMode(delivery.mode);
     setRecogidas(delivery.cajas_recogidas);
+    setDevueltas(delivery.cajas_devueltas ?? 0);
     setItems(delivery.items.map((it) => ({ egg_type_id: it.egg_type_id, cajas: it.cajas_plasticas })));
     setReason('');
   }, [delivery]);
@@ -51,6 +53,7 @@ export default function EditDeliveryModal({ delivery, onClose }: { delivery: Del
         status,
         mode,
         cajas_recogidas: recogidas,
+        cajas_devueltas: mode === 'cp' ? devueltas : 0,
         reason: reason.trim(),
         items: status === 'entregado' ? items.map((it) => ({ egg_type_id: it.egg_type_id, cajas_plasticas: it.cajas })) : [],
       });
@@ -128,6 +131,15 @@ export default function EditDeliveryModal({ delivery, onClose }: { delivery: Del
                   className="w-full mt-1 text-sm px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100" />
               </div>
             </div>
+            {mode === 'cp' && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cajas devueltas en el acto</label>
+                <input type="number" min={0} value={devueltas}
+                  onChange={(e) => setDevueltas(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full mt-1 text-sm px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-gray-100" />
+                <p className="text-xs text-gray-400 mt-1">De las que se dejaron, cuántas se vaciaron y volvieron en el momento.</p>
+              </div>
+            )}
           </>
         )}
 

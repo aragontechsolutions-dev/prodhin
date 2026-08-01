@@ -31,6 +31,7 @@ export interface DeliveryRow {
   status: DeliveryStatus;
   mode: 'cp' | 'cartones';
   cajas_recogidas: number;
+  cajas_devueltas: number;
   notes: string | null;
   delivered_at: string;
   items: DeliveryItemRow[];
@@ -54,6 +55,7 @@ interface RawDelivery {
   status: DeliveryStatus;
   mode: 'cp' | 'cartones';
   cajas_recogidas: number;
+  cajas_devueltas: number;
   notes: string | null;
   delivered_at: string;
   customers: {
@@ -95,7 +97,7 @@ export function useDeliveries(filters: DeliveryFilters) {
       let query = supabase
         .from('deliveries')
         .select(`
-          id, customer_id, driver_id, status, mode, cajas_recogidas, notes, delivered_at,
+          id, customer_id, driver_id, status, mode, cajas_recogidas, cajas_devueltas, notes, delivered_at,
           customers!customer_id(customer_type, first_name, last_name, business_name),
           profiles!driver_id(full_name),
           delivery_items(id, cajas_plasticas, egg_type_id, egg_types(name, color))
@@ -126,6 +128,7 @@ export function useDeliveries(filters: DeliveryFilters) {
           status: d.status,
           mode: d.mode ?? 'cp',
           cajas_recogidas: d.cajas_recogidas ?? 0,
+          cajas_devueltas: d.cajas_devueltas ?? 0,
           notes: d.notes,
           delivered_at: d.delivered_at,
           items,
@@ -157,6 +160,7 @@ export interface UpdateDeliveryInput {
   status: DeliveryStatus;
   mode: 'cp' | 'cartones';
   cajas_recogidas: number;
+  cajas_devueltas: number;
   reason: string;
   items: { egg_type_id: string; cajas_plasticas: number }[];
 }
@@ -173,6 +177,7 @@ export function useUpdateDelivery() {
           status: input.status,
           mode: input.mode,
           cajas_recogidas: input.cajas_recogidas,
+          cajas_devueltas: input.cajas_devueltas,
           edit_reason: input.reason,
         })
         .eq('id', input.id);

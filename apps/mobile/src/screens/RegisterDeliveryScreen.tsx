@@ -64,6 +64,7 @@ export default function RegisterDeliveryScreen() {
   const [lines, setLines] = useState<{ egg_type_id: string; cajas: number }[]>([]);
   const [mode, setMode] = useState<DeliveryMode>('cp');
   const [cajasRecogidas, setCajasRecogidas] = useState(0);
+  const [cajasDevueltas, setCajasDevueltas] = useState(0);
   const [notes, setNotes] = useState('');
 
   // Stock actual del camión (para validar que haya suficiente)
@@ -108,18 +109,13 @@ export default function RegisterDeliveryScreen() {
   }
 
   async function onSave() {
-    // DEBUG temporal: estado al presionar Guardar
-    const dbg = `perfil:${profile ? 'ok' : 'NULL'} online:${isOnline} entrega:${isDelivered} lineas:${lines.length} conCant:${lines.filter((l) => l.cajas > 0).length} pending:${createDelivery.isPending}`;
-    console.log('PRODHIN_DBG onSave INICIO', dbg);
     try {
       if (!profile) {
-        console.warn('PRODHIN_DBG onSave sin perfil');
         Alert.alert('Sin perfil', 'No se pudo leer tu perfil. Abrí la app una vez con conexión y volvé a intentar.');
         return;
       }
       await onSaveInner();
     } catch (err) {
-      console.error('PRODHIN_DBG onSave ERROR', err, (err as Error)?.stack);
       Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
     }
   }
@@ -180,12 +176,10 @@ export default function RegisterDeliveryScreen() {
   }
 
   function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
-    console.log('PRODHIN_DBG doSave INICIO items=', items.length);
     if (!profile) return;
     try {
       doSaveInner(items);
     } catch (err) {
-      console.error('PRODHIN_DBG doSave ERROR', err, (err as Error)?.stack);
       Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
     }
   }
@@ -193,10 +187,8 @@ export default function RegisterDeliveryScreen() {
   function doSaveInner(items: { egg_type_id: string; cajas_plasticas: number }[]) {
     if (!profile) return;
 
-    console.log('PRODHIN_DBG markVisited');
     // Marca la visita al instante (optimista, persiste local)
     markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
-    console.log('PRODHIN_DBG antes de mutate');
 
     // Encolar la entrega SIN esperarla: offline queda pausada y se envía sola
     // al reconectar; online se ejecuta normal. No usar await/mutateAsync porque
@@ -209,6 +201,7 @@ export default function RegisterDeliveryScreen() {
         status,
         mode,
         cajas_recogidas: isDelivered ? cajasRecogidas : 0,
+        cajas_devueltas: isDelivered && mode === 'cp' ? Math.min(cajasDevueltas, totalCajas) : 0,
         notes: notes.trim() || null,
         delivered_at: new Date().toISOString(),
         items,
@@ -222,8 +215,6 @@ export default function RegisterDeliveryScreen() {
         },
       },
     );
-
-    console.log('PRODHIN_DBG despues de mutate, encolada. online=', isOnline);
 
     // Auto-sugerencia: tipos entregados que no están en los habituales
     const newTypes = items
@@ -397,6 +388,30 @@ export default function RegisterDeliveryScreen() {
                 ? 'Las cajas plásticas quedan en el local y se recogen después.'
                 : 'Se entrega en maples/cartones; no quedan cajas en el local.'}
             </Text>
+
+            {/* Cajas devueltas en el acto (solo si deja cajas) */}
+            {mode === 'cp' && (
+              <>
+                <Text style={styles.label}>Cajas vacías devueltas en el acto</Text>
+                <Text style={styles.subHint}>De las {totalCajas} que dejás, cuántas se vacían y te devolvés ahora. Quedan {Math.max(0, totalCajas - cajasDevueltas)} en el local.</Text>
+                <View style={styles.stepper}>
+                  <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasDevueltas((n) => Math.max(0, n - 1))} activeOpacity={0.7}>
+                    <Text style={styles.stepBtnText}>−</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.stepInput}
+                    value={String(cajasDevueltas)}
+                    onChangeText={(txt) => setCajasDevueltas(Math.min(totalCajas, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0))}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasDevueltas((n) => Math.min(totalCajas, n + 1))} activeOpacity={0.7}>
+                    <Text style={styles.stepBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
 
             {/* Cajas recogidas */}
             <Text style={styles.label}>Cajas plásticas recogidas</Text>

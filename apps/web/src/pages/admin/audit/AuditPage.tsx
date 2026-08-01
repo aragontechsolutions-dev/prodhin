@@ -19,7 +19,7 @@ const HIDDEN = new Set(['id', 'created_at', 'updated_at', 'edit_reason', 'avatar
 const FIELD_LABELS: Record<string, string> = {
   egg_type_id: 'Categoría', customer_id: 'Cliente', driver_id: 'Chofer',
   cajas_plasticas: 'Cajas plásticas', status: 'Estado', mode: 'Modo',
-  cajas_recogidas: 'Cajas recogidas', notes: 'Notas', is_primary: 'Principal',
+  cajas_recogidas: 'Cajas recogidas', cajas_devueltas: 'Cajas devueltas en el acto', notes: 'Notas', is_primary: 'Principal',
   name: 'Nombre', color: 'Color', sort_order: 'Orden', is_active: 'Activo',
   full_name: 'Nombre', role: 'Rol', phone: 'Teléfono', email: 'Email',
   address: 'Dirección', business_name: 'Razón social', tax_id: 'RUT',

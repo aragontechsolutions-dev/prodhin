@@ -15,7 +15,8 @@ export interface CreateDeliveryInput {
   driver_id: string;
   status: DeliveryStatus;
   mode: DeliveryMode;          // 'cp' deja cajas plásticas, 'cartones' no
-  cajas_recogidas: number;     // cajas plásticas vacías recogidas en la visita
+  cajas_recogidas: number;     // cajas plásticas vacías recogidas (de visitas anteriores)
+  cajas_devueltas?: number;    // cajas que se vacían y devuelven en el acto (de esta entrega)
   notes?: string | null;
   delivered_at: string; // ISO
   items: DeliveryLineInput[];
@@ -44,6 +45,7 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<void> 
         status: header.status,
         mode: header.mode,
         cajas_recogidas: header.cajas_recogidas,
+        cajas_devueltas: header.cajas_devueltas ?? 0,
         notes: header.notes ?? null,
         delivered_at: header.delivered_at,
       },
