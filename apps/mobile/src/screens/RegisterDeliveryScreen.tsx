@@ -28,6 +28,7 @@ import { computeStock } from '../lib/truck';
 import type { DeliveryMode } from '../lib/deliveries';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { markVisited } from '../lib/visitedStore';
+import { showToast } from '../lib/toastStore';
 import { uuidv4 } from '../lib/uuid';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RegisterDelivery'>;
@@ -207,14 +208,18 @@ export default function RegisterDeliveryScreen() {
         items,
       },
       {
+        // Con conexión: éxito/fallo reales. Offline queda en cola (no dispara).
+        onSuccess: () => showToast(isDelivered ? 'Entrega realizada con éxito' : 'Visita registrada', 'success'),
         onError: (e: unknown) => {
-          // Solo con conexión un error es real (offline queda en cola)
-          if (isOnline) {
-            Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo guardar la entrega. Reintentá.');
-          }
+          if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo guardar la entrega', 'error');
         },
       },
     );
+    // Offline la mutación queda pausada (no hay onSuccess): avisamos igual.
+    if (!isOnline) showToast('Guardado. Se enviará al reconectar.', 'success');
+
+    // Vuelve al MAPA (no al detalle del cliente)
+    const goToMap = () => navigation.popToTop();
 
     // Auto-sugerencia: tipos entregados que no están en los habituales
     const newTypes = items
@@ -228,7 +233,7 @@ export default function RegisterDeliveryScreen() {
         'Agregar a habituales',
         `¿Agregar ${names} a los tipos habituales de este cliente?`,
         [
-          { text: 'No', style: 'cancel', onPress: () => navigation.goBack() },
+          { text: 'No', style: 'cancel', onPress: goToMap },
           {
             text: 'Sí, agregar',
             onPress: () => {
@@ -239,7 +244,7 @@ export default function RegisterDeliveryScreen() {
                   make_primary: myPrefs.length === 0 && i === 0,
                 }),
               );
-              navigation.goBack();
+              goToMap();
             },
           },
         ],
@@ -247,7 +252,7 @@ export default function RegisterDeliveryScreen() {
       return;
     }
 
-    navigation.goBack();
+    goToMap();
   }
 
   return (

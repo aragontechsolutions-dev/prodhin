@@ -23,6 +23,7 @@ import { useBoxBalances } from '../hooks/useBoxBalances';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useRegisterBoxPickup } from '../hooks/useBoxPickups';
 import { useCustomerSchedules, useSetSchedule, useClearSchedule } from '../hooks/useCustomerSchedules';
+import { showToast } from '../lib/toastStore';
 import { uuidv4 } from '../lib/uuid';
 import {
   useCustomerPreferences,
@@ -84,11 +85,14 @@ export default function CustomerDetailScreen() {
     if (n <= 0) { Alert.alert('Cantidad inválida', 'Poné cuántas cajas recogés (mayor que 0).'); return; }
     registerPickup.mutate(
       { id: uuidv4(), customer_id: c.id, driver_id: profile.id, qty: n },
-      { onError: (e: unknown) => { if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo registrar.'); } },
+      {
+        onSuccess: () => showToast(`Recogida registrada: ${n} caja(s)`, 'success'),
+        onError: (e: unknown) => { if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo registrar la recogida', 'error'); },
+      },
     );
+    if (!isOnline) showToast(`Recogida de ${n} caja(s) guardada`, 'success');
     setPickupOpen(false);
     setPickupQty('');
-    Alert.alert('Recogida registrada', `Se registró la recogida de ${n} caja(s). El saldo del local baja.`);
   }
 
   function saveSchedule() {
@@ -101,16 +105,16 @@ export default function CustomerDetailScreen() {
     setSchedule.mutate(
       { customer_id: c.id, closing_time: closing, updated_by: profile.id },
       {
-        onSuccess: () => { setScheduleOpen(false); Alert.alert('Horario guardado', `Cierre a las ${closing}. Te avisaremos 1 h y 30 min antes.`); },
-        onError: () => Alert.alert('Error', 'No se pudo guardar el horario (¿hay conexión?).'),
+        onSuccess: () => { setScheduleOpen(false); showToast(`Horario guardado: cierra ${closing}`, 'success'); },
+        onError: () => showToast('No se pudo guardar el horario (¿hay conexión?)', 'error'),
       },
     );
   }
 
   function removeSchedule() {
     clearSchedule.mutate(c.id, {
-      onSuccess: () => Alert.alert('Horario quitado', 'Este cliente ya no tiene horario de cierre.'),
-      onError: () => Alert.alert('Error', 'No se pudo quitar (¿hay conexión?).'),
+      onSuccess: () => showToast('Horario quitado', 'success'),
+      onError: () => showToast('No se pudo quitar (¿hay conexión?)', 'error'),
     });
   }
 

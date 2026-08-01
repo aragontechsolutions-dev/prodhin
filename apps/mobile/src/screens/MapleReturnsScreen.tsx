@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useMapleReturns, useRegisterMapleReturn } from '../hooks/useMapleReturns';
 import type { MapleStatus, MapleReturnRow } from '../lib/mapleReturns';
+import { showToast } from '../lib/toastStore';
 import { uuidv4 } from '../lib/uuid';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'MapleReturns'>;
@@ -55,14 +56,13 @@ export default function MapleReturnsScreen() {
     register.mutate(
       { id: uuidv4(), driver_id: profile.id, declared_qty: n, driver_note: note.trim() || null },
       {
-        onError: (e: unknown) => {
-          if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo registrar.');
-        },
+        onSuccess: () => showToast(`Entrega de ${n} maples registrada`, 'success'),
+        onError: (e: unknown) => { if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo registrar', 'error'); },
       },
     );
+    if (!isOnline) showToast(`Entrega de ${n} maples guardada`, 'success');
     setQty('');
     setNote('');
-    Alert.alert('Registrado', 'Tu entrega quedó registrada. El administrador la va a contar y aprobar.');
   }
 
   function renderCard(r: MapleReturnRow) {

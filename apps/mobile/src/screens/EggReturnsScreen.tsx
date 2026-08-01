@@ -19,6 +19,7 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useEggReturns, useRegisterEggReturn } from '../hooks/useEggReturns';
 import type { EggReturnStatus, EggReturnRow } from '../lib/eggReturns';
+import { showToast } from '../lib/toastStore';
 import { uuidv4 } from '../lib/uuid';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'EggReturns'>;
@@ -111,10 +112,13 @@ export default function EggReturnsScreen() {
 
     register.mutate(
       { id: uuidv4(), driver_id: profile.id, broken_qty: brokenN, driver_note: note.trim() || null, items },
-      { onError: (e: unknown) => { if (isOnline) Alert.alert('Error', (e instanceof Error ? e.message : null) ?? 'No se pudo registrar.'); } },
+      {
+        onSuccess: () => showToast('Devolución registrada', 'success'),
+        onError: (e: unknown) => { if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo registrar', 'error'); },
+      },
     );
+    if (!isOnline) showToast('Devolución guardada', 'success');
     setBroken(''); setNote(''); setLines([]);
-    Alert.alert('Registrado', 'Tu devolución quedó registrada. El administrador la va a controlar y aprobar.');
   }
 
   function renderCard(r: EggReturnRow) {

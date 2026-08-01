@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import UpdateGate from './src/components/UpdateGate';
+import Toast from './src/components/Toast';
 import { CREATE_DELIVERY_KEY, createDelivery } from './src/lib/deliveries';
 import {
   ADD_PREFERENCE_KEY,
@@ -88,6 +89,7 @@ export default function App() {
         <StatusBar style="dark" />
         <AppNavigator />
         <UpdateGate />
+        <Toast />
       </SafeAreaProvider>
     </PersistQueryClientProvider>
   );
