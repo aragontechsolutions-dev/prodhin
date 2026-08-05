@@ -19,7 +19,8 @@
       }
     },
     "plugins": [
-      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Esta app necesita tu ubicación para mostrarte en el mapa." }]
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Esta app necesita tu ubicación para mostrarte en el mapa." }],
+      ["expo-image-picker", { "cameraPermission": "Esta app necesita la cámara para fotografiar las ofertas de la competencia." }]
     ],
     "extra": {
       "eas": {

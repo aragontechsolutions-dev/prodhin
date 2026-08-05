@@ -71,4 +71,7 @@ export const TABLE_LABELS: Record<string, string> = {
   egg_return_items: 'Devoluciones (detalle)',
   driver_customers: 'Asignaciones',
   driver_delegations: 'Delegaciones',
+  competitors: 'Competencia',
+  prospects: 'Prospectos',
+  prospect_offers: 'Ofertas de prospecto',
 };

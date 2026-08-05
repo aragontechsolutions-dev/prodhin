@@ -167,6 +167,19 @@ const SECTIONS: Item[] = [
     tip: 'Sin señal se guarda igual y se envía al reconectar. Podés cargar rotos, vencidos, o ambos en el mismo registro.',
   },
   {
+    icon: '🎯',
+    title: 'Captar cliente (prospectos)',
+    body: [
+      'Entrá a "Captar cliente" en el menú cuando visites un local potencial.',
+      'Poné el nombre del local, dirección y teléfono si los tenés.',
+      'Tocá "Ubicación actual" para marcar dónde está con el GPS.',
+      'Marcá si el local ya tiene oferta de la competencia.',
+      'Agregá las ofertas que ves: tipo de huevo, formato (de a 30, 15, 6, etc.), precio y una FOTO tocando la cámara.',
+      'Tocá "Registrar prospecto": el admin lo revisa y puede convertirlo en cliente.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Las fotos se suben cuando hay conexión.',
+  },
+  {
     icon: '📦',
     title: 'Mis entregas',
     body: [

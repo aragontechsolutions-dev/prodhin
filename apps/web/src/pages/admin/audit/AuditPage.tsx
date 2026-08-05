@@ -39,6 +39,9 @@ const FIELD_LABELS: Record<string, string> = {
   qty: 'Cantidad', expiry_date: 'Vence (envase)',
   returned_qty: 'Devuelto', returned_expiry_date: 'Vence (devuelto)',
   eggs_per_package: 'Huevos por paquete', packages_per_box: 'Paquetes por caja',
+  lat: 'Latitud', lng: 'Longitud', radius_m: 'Radio (m)',
+  has_competition: 'Tiene competencia', format: 'Formato', price: 'Precio',
+  photo_path: 'Foto', converted_customer_id: 'Cliente convertido',
 };
 
 const STATUS_LABEL: Record<string, string> = {

@@ -1514,6 +1514,13 @@ export default function MapScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.drawerNavItem}
+            onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('ProspectCapture'), 300); }}
+          >
+            <Text style={styles.drawerNavIcon}>🎯</Text>
+            <Text style={styles.drawerNavLabel}>Captar cliente</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerNavItem}
             onPress={() => { closeDrawer(); setTimeout(() => navigation.navigate('DeliveriesHistory'), 300); }}
           >
             <Text style={styles.drawerNavIcon}>📦</Text>

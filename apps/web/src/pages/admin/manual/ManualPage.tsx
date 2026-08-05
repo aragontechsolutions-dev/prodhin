@@ -12,6 +12,7 @@ const sections = [
   { id: 'stock', emoji: '🚚', label: 'Stock camiones' },
   { id: 'maples', emoji: '🧺', label: 'Maples' },
   { id: 'devoluciones', emoji: '♻️', label: 'Rotos y devoluciones' },
+  { id: 'competencia', emoji: '🎯', label: 'Competencia' },
   { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
@@ -472,6 +473,28 @@ export default function ManualPage() {
             'Aprobás (o rechazás, con nota). El chofer recibe el aviso.',
           ]} />
           <Tip>Todo queda en Auditoría ("Rotos y devoluciones" y su detalle): lo declarado, lo devuelto y las fechas de caducidad.</Tip>
+        </section>
+
+        {/* Competencia */}
+        <section id="competencia" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🎯 Módulo Competencia (inteligencia de mercado)</SectionTitle>
+          <P>Combina un <strong>mapa de calor de la competencia</strong> con un <strong>módulo de prospectos</strong> (potenciales clientes que los choferes relevan en la calle).</P>
+          <SubTitle>Mapa</SubTitle>
+          <P>En el mapa ves dos capas: los <strong>competidores</strong> como zonas rojas (marca su ubicación y un <strong>radio de acción</strong> estimado en metros), y los <strong>prospectos</strong> como puntos de calor —<strong>naranja</strong> si el local ya tiene oferta de la competencia, <strong>turquesa</strong> si no—. Así visualizás rápido dónde está operando la competencia y dónde hay oportunidades.</P>
+          <SubTitle>Marcar competidores</SubTitle>
+          <Steps items={[
+            'Activá "Agregar competidor" y hacé clic en el mapa donde opera.',
+            'Poné un nombre y el radio de acción estimado (en metros, por defecto 500).',
+            'Guardá. Podés editar o eliminar cada zona desde su globo en el mapa.',
+          ]} />
+          <SubTitle>Prospectos (captados por los choferes)</SubTitle>
+          <P>Desde la app, el chofer entra a un local potencial, marca su ubicación (GPS), indica si ya tiene competencia y registra las <strong>ofertas que ve</strong>: tipo de huevo, formato (de a 30, 15, 6, etc.), precio y una <strong>foto</strong>. Todo eso aparece acá en fichas, filtrables por estado.</P>
+          <Steps items={[
+            'Revisás cada prospecto con sus ofertas y fotos.',
+            'Cambiás su estado: Nuevo → Contactado, o Descartado.',
+            'Si cerrás la venta, usás "Convertir en cliente": completás número de cliente y tipo, y se crea el cliente real con la ubicación y datos del prospecto.',
+          ]} />
+          <Tip>Todo queda en Auditoría (Competencia, Prospectos y Ofertas de prospecto).</Tip>
         </section>
 
         {/* App móvil */}

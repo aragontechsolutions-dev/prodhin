@@ -27,6 +27,7 @@ import { CONFIRM_LOAD_KEY, confirmLoad } from './src/lib/loadConfirm';
 import { REGISTER_MAPLE_KEY, registerMapleReturn } from './src/lib/mapleReturns';
 import { REGISTER_EGG_RETURN_KEY, registerEggReturn } from './src/lib/eggReturns';
 import { REGISTER_PICKUP_KEY, registerBoxPickup } from './src/lib/boxPickups';
+import { REGISTER_PROSPECT_KEY, registerProspect } from './src/lib/prospects';
 
 // React Query sabe si hay conexión a través de NetInfo. Cuando no hay red,
 // las mutaciones quedan "pausadas" y se persisten; al reconectar se reanudan.
@@ -65,6 +66,7 @@ queryClient.setMutationDefaults(CONFIRM_LOAD_KEY, { mutationFn: confirmLoad });
 queryClient.setMutationDefaults(REGISTER_MAPLE_KEY, { mutationFn: registerMapleReturn });
 queryClient.setMutationDefaults(REGISTER_EGG_RETURN_KEY, { mutationFn: registerEggReturn });
 queryClient.setMutationDefaults(REGISTER_PICKUP_KEY, { mutationFn: registerBoxPickup });
+queryClient.setMutationDefaults(REGISTER_PROSPECT_KEY, { mutationFn: registerProspect });
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
