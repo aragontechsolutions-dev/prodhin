@@ -167,7 +167,8 @@ export default function ManualPage() {
           <SectionTitle>🏠 Dashboard (inicio)</SectionTitle>
           <P>Es la pantalla de resumen. Arriba, tarjetas con el estado general: choferes activos, clientes activos/inactivos, rutas activas, rutas sin chofer y delegaciones de hoy.</P>
           <SubTitle>Requiere tu atención</SubTitle>
-          <P>Una fila con lo pendiente de aprobar, que se pone en <strong>ámbar</strong> cuando hay algo: <strong>Maples por aprobar</strong>, <strong>Rotos/devoluciones por aprobar</strong> y el total de <strong>cajas plásticas en locales</strong>. Cada tarjeta es un acceso directo al módulo correspondiente.</P>
+          <P>Al entrar, si hay algo pendiente aparece un <strong>aviso 🔔</strong> arriba de todo que resume cuántas cosas tenés por aprobar o gestionar, con accesos directos a cada una.</P>
+          <P>Debajo, una fila de tarjetas que se ponen en <strong>ámbar</strong> cuando hay algo: <strong>Maples por aprobar</strong>, <strong>Rotos/devoluciones por aprobar</strong>, <strong>Prospectos por gestionar</strong>, <strong>Competencia por aprobar</strong> (marcada por choferes) y el total de <strong>cajas plásticas en locales</strong>. Cada tarjeta es un acceso directo al módulo correspondiente.</P>
           <SubTitle>Estado de rutas y accesos rápidos</SubTitle>
           <P>Debajo ves las rutas activas con su chofer, y una grilla de accesos rápidos a todos los módulos (Usuarios, Clientes, Asignaciones, Rutas, Reportes, Categorías, Stock, Maples, Rotos y devoluciones, Auditoría y Manual).</P>
         </section>
