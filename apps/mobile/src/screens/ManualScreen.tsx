@@ -180,6 +180,18 @@ const SECTIONS: Item[] = [
     tip: 'Sin señal se guarda igual y se envía al reconectar. Las fotos se suben cuando hay conexión.',
   },
   {
+    icon: '🚩',
+    title: 'Marcar competencia',
+    body: [
+      'Entrá a "Marcar competencia" en el menú cuando veas operar a un competidor.',
+      'Poné el nombre de la competencia.',
+      'Tocá "Usar mi ubicación" para marcar dónde opera con el GPS.',
+      'Elegí un radio de acción aproximado (200 m, 500 m, 1 km, 2 km).',
+      'Tocá "Marcar competencia": queda pendiente hasta que la administración la revise y apruebe.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. No hace falta que ubiques nada en un mapa: se usa tu GPS.',
+  },
+  {
     icon: '📦',
     title: 'Mis entregas',
     body: [

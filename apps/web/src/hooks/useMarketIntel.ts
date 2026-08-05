@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
 // ── Competidores ────────────────────────────────────────────
+export type CompetitorStatus = 'pendiente' | 'aprobado';
+
 export interface Competitor {
   id: string;
   name: string;
@@ -9,15 +11,20 @@ export interface Competitor {
   lng: number;
   radius_m: number;
   notes: string | null;
+  status: CompetitorStatus;
+  creator?: { full_name: string | null } | null;
 }
 
 export function useCompetitors() {
   return useQuery({
     queryKey: ['competitors'],
     queryFn: async (): Promise<Competitor[]> => {
-      const { data, error } = await supabase.from('competitors').select('id, name, lat, lng, radius_m, notes').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('competitors')
+        .select('id, name, lat, lng, radius_m, notes, status, creator:created_by(full_name)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Competitor[];
+      return (data ?? []) as unknown as Competitor[];
     },
   });
 }
@@ -26,10 +33,22 @@ export function useSaveCompetitor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (c: Partial<Competitor> & { name: string; lat: number; lng: number; radius_m: number }) => {
-      const payload = { name: c.name, lat: c.lat, lng: c.lng, radius_m: c.radius_m, notes: c.notes ?? null };
+      // Al guardar desde el panel de admin la zona queda aprobada.
+      const payload = { name: c.name, lat: c.lat, lng: c.lng, radius_m: c.radius_m, notes: c.notes ?? null, status: 'aprobado' as const };
       const { error } = c.id
         ? await supabase.from('competitors').update(payload).eq('id', c.id)
         : await supabase.from('competitors').insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['competitors'] }),
+  });
+}
+
+export function useApproveCompetitor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('competitors').update({ status: 'aprobado' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['competitors'] }),

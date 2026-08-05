@@ -487,6 +487,8 @@ export default function ManualPage() {
             'Poné un nombre y el radio de acción estimado (en metros, por defecto 500).',
             'Guardá. Podés editar o eliminar cada zona desde su globo en el mapa.',
           ]} />
+          <SubTitle>Competidores marcados por los choferes</SubTitle>
+          <P>Como la administración no está en la calle, los <strong>choferes</strong> pueden marcar desde la app (con su GPS) dónde ven operar a la competencia. Esas propuestas entran como <strong>pendientes</strong>: aparecen arriba en un aviso ámbar y en el mapa con borde <strong>punteado</strong>. Vos las revisás, ajustás el nombre/radio si hace falta y las <strong>aprobás</strong> (o las borrás). Solo las aprobadas cuentan como zona de competencia.</P>
           <SubTitle>Prospectos (captados por los choferes)</SubTitle>
           <P>Desde la app, el chofer entra a un local potencial, marca su ubicación (GPS), indica si ya tiene competencia y registra las <strong>ofertas que ve</strong>: tipo de huevo, formato (de a 30, 15, 6, etc.), precio y una <strong>foto</strong>. Todo eso aparece acá en fichas, filtrables por estado.</P>
           <Steps items={[

@@ -9,7 +9,7 @@ import Select from '../../../components/ui/Select';
 import Modal from '../../../components/ui/Modal';
 import Badge from '../../../components/ui/Badge';
 import {
-  useCompetitors, useSaveCompetitor, useDeleteCompetitor,
+  useCompetitors, useSaveCompetitor, useDeleteCompetitor, useApproveCompetitor,
   useProspects, useUpdateProspectStatus, useConvertProspect,
   prospectPhotoUrl, type Competitor, type Prospect, type ProspectStatus,
 } from '../../../hooks/useMarketIntel';
@@ -48,6 +48,7 @@ export default function CompetitionPage() {
   const { data: allProspects } = useProspects();
   const saveComp = useSaveCompetitor();
   const delComp = useDeleteCompetitor();
+  const approveComp = useApproveCompetitor();
   const updStatus = useUpdateProspectStatus();
   const convert = useConvertProspect();
 
@@ -58,6 +59,9 @@ export default function CompetitionPage() {
 
   const prospects = allProspects ?? [];
   const listProspects = tab === 'all' ? prospects : prospects.filter((p) => p.status === tab);
+
+  const approvedComp = (competitors ?? []).filter((c) => c.status === 'aprobado');
+  const pendingComp = (competitors ?? []).filter((c) => c.status === 'pendiente');
 
   const center = useMemo<[number, number]>(() => {
     if (competitors?.[0]) return [competitors[0].lat, competitors[0].lng];
@@ -90,11 +94,36 @@ export default function CompetitionPage() {
         </p>
       </div>
 
+      {/* Competencia propuesta por choferes, pendiente de aprobar */}
+      {pendingComp.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            🚩 {pendingComp.length} competidor(es) marcado(s) por choferes, pendiente(s) de aprobar
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {pendingComp.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 bg-white dark:bg-gray-900 rounded-xl border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{c.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Radio {c.radius_m} m · {c.creator?.full_name ?? 'chofer'}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" onClick={() => approveComp.mutate(c.id)}>Aprobar</Button>
+                  <Button size="sm" variant="secondary" onClick={() => editCompetitor(c)}>Editar</Button>
+                  <Button size="sm" variant="danger" onClick={() => delComp.mutate(c.id)}>Borrar</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Mapa */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500/30 border border-red-500" /> zona competidor</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-400/30 border border-amber-500 border-dashed" /> propuesta del chofer</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-orange-500/60" /> prospecto c/competencia</span>
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-teal-500/70" /> prospecto s/competencia</span>
           </div>
@@ -106,13 +135,28 @@ export default function CompetitionPage() {
           <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <ClickToAdd onPick={pickOnMap} />
-            {/* Zonas de competidores */}
-            {(competitors ?? []).map((c) => (
+            {/* Zonas de competidores aprobadas */}
+            {approvedComp.map((c) => (
               <Circle key={c.id} center={[c.lat, c.lng]} radius={c.radius_m}
                 pathOptions={{ color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.12, weight: 1.5 }}>
                 <Popup>
                   <strong>{c.name}</strong><br />Radio: {c.radius_m} m
                   <br /><button onClick={() => editCompetitor(c)} style={{ color: '#1d4ed8' }}>Editar</button>
+                  {' · '}
+                  <button onClick={() => delComp.mutate(c.id)} style={{ color: '#dc2626' }}>Borrar</button>
+                </Popup>
+              </Circle>
+            ))}
+            {/* Propuestas de choferes (pendientes de aprobar) */}
+            {pendingComp.map((c) => (
+              <Circle key={c.id} center={[c.lat, c.lng]} radius={c.radius_m}
+                pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.12, weight: 1.5, dashArray: '6 6' }}>
+                <Popup>
+                  <strong>{c.name}</strong> <em>(pendiente)</em><br />Radio: {c.radius_m} m
+                  <br />Propuesto por: {c.creator?.full_name ?? 'chofer'}
+                  <br /><button onClick={() => approveComp.mutate(c.id)} style={{ color: '#16a34a' }}>Aprobar</button>
+                  {' · '}
+                  <button onClick={() => editCompetitor(c)} style={{ color: '#1d4ed8' }}>Editar</button>
                   {' · '}
                   <button onClick={() => delComp.mutate(c.id)} style={{ color: '#dc2626' }}>Borrar</button>
                 </Popup>
