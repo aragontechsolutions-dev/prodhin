@@ -103,8 +103,8 @@ export default function AuditPage() {
   function resolve(key: string, val: unknown): string {
     if (val === null || val === undefined || val === '') return '—';
     if (key === 'egg_type_id' || key === 'preferred_egg_type_id') return eggName.get(String(val)) ?? 'categoría';
-    if (key === 'customer_id') return custName.get(String(val)) ?? 'cliente';
-    if (['driver_id', 'from_driver_id', 'to_driver_id', 'assigned_by', 'created_by'].includes(key)) return userName.get(String(val)) ?? 'usuario';
+    if (key === 'customer_id' || key === 'converted_customer_id') return custName.get(String(val)) ?? 'cliente';
+    if (['driver_id', 'from_driver_id', 'to_driver_id', 'assigned_by', 'created_by', 'reviewed_by'].includes(key)) return userName.get(String(val)) ?? 'usuario';
     if (key === 'route_id') return routeName.get(String(val)) ?? 'ruta';
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
     if (key === 'status') return STATUS_LABEL[String(val)] ?? String(val);
