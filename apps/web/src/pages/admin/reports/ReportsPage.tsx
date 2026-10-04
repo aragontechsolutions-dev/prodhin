@@ -244,8 +244,15 @@ export default function ReportsPage() {
       String(r.cajas_devueltas ?? 0),
       (r.notes ?? '').replace(/"/g, "'").replace(/\n/g, ' '),
     ]);
+    // Anti CSV-injection: una celda que empieza con = + - @ (o tab/CR) podría
+    // ejecutarse como fórmula en Excel/Sheets. Se antepone un apóstrofo.
+    const safeCell = (v: string) => {
+      const s = String(v ?? '');
+      const needsGuard = /^[=+\-@\t\r]/.test(s);
+      return `"${(needsGuard ? "'" + s : s).replace(/"/g, '""')}"`;
+    };
     const csv = [header, ...lines]
-      .map((cols) => cols.map((c) => `"${c}"`).join(','))
+      .map((cols) => cols.map(safeCell).join(','))
       .join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -35,5 +35,10 @@ export function priceUnitLabel(isPackaged: boolean): string {
 }
 
 export function formatMoney(n: number): string {
-  return '$' + Math.round(n).toLocaleString('es-UY');
+  // Separador de miles manual (no depende de Intl/locale, que en Hermes/RN
+  // puede no estar disponible). Ej: 1234567 -> "$1.234.567".
+  const rounded = Math.round(n || 0);
+  const sign = rounded < 0 ? '-' : '';
+  const digits = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}$${digits}`;
 }
