@@ -511,7 +511,7 @@ export default function ManualPage() {
         {/* Deudas */}
         <section id="deudas" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
           <SectionTitle>💳 Módulo Deudas de crédito</SectionTitle>
-          <P>Cada entrega tiene una <strong>forma de pago</strong>: <strong>efectivo</strong> (se cobra en el momento) o <strong>crédito</strong> (queda como deuda del cliente). El chofer ingresa el precio de venta (nunca por debajo del mínimo de la categoría) y el sistema calcula el total.</P>
+          <P>Cada entrega tiene una <strong>forma de pago</strong>: <strong>efectivo</strong> (se cobra en el momento) o <strong>crédito</strong> (queda como deuda del cliente). El chofer puede ingresar el precio de venta (es <strong>opcional</strong> por ahora; si lo pone, nunca por debajo del mínimo de la categoría) y el sistema calcula el total.</P>
           <SubTitle>Cómo funciona la deuda</SubTitle>
           <Steps items={[
             'Cada entrega a crédito suma su total a la deuda del cliente.',

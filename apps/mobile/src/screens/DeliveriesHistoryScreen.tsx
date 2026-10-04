@@ -14,7 +14,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import { formatCajones, type EggType } from '../types';
+import { type EggType } from '../types';
+import { formatCajonesFor, formatMoney } from '../lib/pricing';
 import { useAuth } from '../hooks/useAuth';
 import { useMyDeliveries, type MyDeliveryRow } from '../hooks/useMyDeliveries';
 import { useEggTypes } from '../hooks/useEggTypes';
@@ -62,7 +63,7 @@ function eggDotColor(color: EggType['color']): string {
 }
 
 /* Tarjeta de categoría con animación de entrada escalonada */
-function CategoryTile({ index, name, color, cp }: { index: number; name: string; color: EggType['color']; cp: number }) {
+function CategoryTile({ index, name, color, cp, isPackaged }: { index: number; name: string; color: EggType['color']; cp: number; isPackaged: boolean }) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(anim, { toValue: 1, duration: 350, delay: index * 55, useNativeDriver: true }).start();
@@ -80,7 +81,7 @@ function CategoryTile({ index, name, color, cp }: { index: number; name: string;
         <Text style={styles.catName} numberOfLines={2}>{name}</Text>
       </View>
       <Text style={styles.catCp}>{cp} <Text style={styles.catCpUnit}>cp</Text></Text>
-      <Text style={styles.catCajones}>{formatCajones(cp)} cajones</Text>
+      <Text style={styles.catCajones}>{formatCajonesFor(cp, isPackaged)} cajones</Text>
     </Animated.View>
   );
 }
@@ -102,7 +103,7 @@ export default function DeliveriesHistoryScreen() {
   const animKey = customRange ? `c${customRange.from}-${customRange.to}` : rangeKey;
 
   // base = rango + búsqueda (sin filtro de categoría) → alimenta el resumen por categoría
-  const { view, summary, categorySummary, totalCp } = useMemo(() => {
+  const { view, summary, categorySummary, totalCp, totalCajones } = useMemo(() => {
     const since = customRange ? customRange.from : startOfRange(rangeDays);
     const until = customRange ? customRange.to : Date.now();
     const q = query.trim().toLowerCase();
@@ -129,9 +130,14 @@ export default function DeliveriesHistoryScreen() {
 
     // Métricas generales (según lo visible)
     let cajas = 0;
+    let facturado = 0;
     const clientes = new Set<string>();
-    for (const d of view) { cajas += d.total_cajas_plasticas; clientes.add(d.customer_id); }
-    const summary = { entregas: view.length, clientes: clientes.size, cajas };
+    for (const d of view) {
+      cajas += d.total_cajas_plasticas;
+      if (d.status === 'entregado') facturado += d.total_amount ?? 0;
+      clientes.add(d.customer_id);
+    }
+    const summary = { entregas: view.length, clientes: clientes.size, cajas, facturado };
 
     // Resumen por categoría existente (cp por tipo, sobre base)
     const cpByType = new Map<string, number>();
@@ -141,12 +147,16 @@ export default function DeliveriesHistoryScreen() {
     }
     // Solo las categorías que tuvieron entregas en el período
     const categorySummary = (eggTypes ?? [])
-      .map((t) => ({ id: t.id, name: t.name, color: t.color, cp: cpByType.get(t.id) ?? 0 }))
+      .map((t) => ({ id: t.id, name: t.name, color: t.color, cp: cpByType.get(t.id) ?? 0, is_packaged: t.is_packaged }))
       .filter((c) => c.cp > 0);
     const totalCp = categorySummary.reduce((s, c) => s + c.cp, 0);
+    // Cajones correctos según clasificación (suelto 2:1, envasado 3:1)
+    const totalCajones = categorySummary.reduce((s, c) => s + c.cp / (c.is_packaged ? 3 : 2), 0);
 
-    return { view, summary, categorySummary, totalCp };
+    return { view, summary, categorySummary, totalCp, totalCajones };
   }, [deliveries, eggTypes, rangeDays, customRange, query, eggFilter]);
+
+  const totalCajonesFmt = Number.isInteger(totalCajones) ? String(totalCajones) : totalCajones.toFixed(1);
 
   const rangeTitle = customRange
     ? (customRange.to - customRange.from < 24 * 60 * 60 * 1000
@@ -170,7 +180,18 @@ export default function DeliveriesHistoryScreen() {
               {STATUS_LABEL[d.status] ?? d.status}
             </Text>
           </View>
-          {delivered && <Text style={styles.cardTotal}>{formatCajones(d.total_cajas_plasticas)} cajones</Text>}
+          {delivered && (
+            <View style={styles.cardRight}>
+              {d.payment_method && (
+                <View style={[styles.payPill, d.payment_method === 'credito' ? styles.payCredito : styles.payEfectivo]}>
+                  <Text style={[styles.payText, d.payment_method === 'credito' ? styles.payTextCredito : styles.payTextEfectivo]}>
+                    {d.payment_method === 'credito' ? 'Crédito' : 'Efectivo'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.cardTotal}>{d.total_amount > 0 ? formatMoney(d.total_amount) : `${d.total_cajas_plasticas} cp`}</Text>
+            </View>
+          )}
         </View>
         {delivered && d.items.length > 0 && (
           <View style={styles.itemsRow}>
@@ -195,12 +216,12 @@ export default function DeliveriesHistoryScreen() {
           <>
             <View style={styles.catTotalRow}>
               <Text style={styles.catTotalLbl}>Total entregado</Text>
-              <Text style={styles.catTotalVal}>{totalCp} cp · {formatCajones(totalCp)} cajones</Text>
+              <Text style={styles.catTotalVal}>{totalCp} cp · {totalCajonesFmt} cajones</Text>
             </View>
             <Text style={styles.catNote}>Solo se muestran las categorías que tuvieron entregas.</Text>
             <View style={styles.catGrid} key={animKey}>
               {categorySummary.map((c, i) => (
-                <CategoryTile key={c.id} index={i} name={c.name} color={c.color} cp={c.cp} />
+                <CategoryTile key={c.id} index={i} name={c.name} color={c.color} cp={c.cp} isPackaged={c.is_packaged} />
               ))}
             </View>
           </>
@@ -271,7 +292,7 @@ export default function DeliveriesHistoryScreen() {
       <View style={styles.summary}>
         <View style={styles.summaryItem}><Text style={styles.summaryNum}>{summary.entregas}</Text><Text style={styles.summaryLbl}>entregas</Text></View>
         <View style={styles.summaryItem}><Text style={styles.summaryNum}>{summary.clientes}</Text><Text style={styles.summaryLbl}>clientes</Text></View>
-        <View style={styles.summaryItem}><Text style={styles.summaryNum}>{formatCajones(summary.cajas)}</Text><Text style={styles.summaryLbl}>cajones</Text></View>
+        <View style={styles.summaryItem}><Text style={styles.summaryNum}>{formatMoney(summary.facturado)}</Text><Text style={styles.summaryLbl}>facturado</Text></View>
       </View>
     </View>
   );
@@ -391,6 +412,13 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700' },
   statusTextOk: { color: '#166534' },
   statusTextOther: { color: '#6b7280' },
+  cardRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  payPill: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999 },
+  payEfectivo: { backgroundColor: '#dcfce7' },
+  payCredito: { backgroundColor: '#fef3c7' },
+  payText: { fontSize: 11, fontWeight: '700' },
+  payTextEfectivo: { color: '#166534' },
+  payTextCredito: { color: '#92400e' },
   cardTotal: { fontSize: 14, fontWeight: '800', color: '#111827' },
   itemsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   itemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#f9fafb', borderRadius: 999, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#f3f4f6' },

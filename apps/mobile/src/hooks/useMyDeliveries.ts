@@ -2,12 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { DeliveryStatus } from '../types';
 
+export type PaymentMethod = 'efectivo' | 'credito';
+
 export interface DeliveryItemRow {
   id: string;
   cajas_plasticas: number;
   egg_type_id: string;
   egg_type_name: string | null;
   egg_type_color: 'rojo' | 'blanco' | null;
+  is_packaged: boolean;
 }
 
 export interface MyDeliveryRow {
@@ -16,6 +19,8 @@ export interface MyDeliveryRow {
   customer_name: string;
   customer_tax_id: string | null;
   status: DeliveryStatus;
+  payment_method: PaymentMethod | null;
+  total_amount: number;
   notes: string | null;
   delivered_at: string;
   items: DeliveryItemRow[];
@@ -26,6 +31,8 @@ interface RawDelivery {
   id: string;
   customer_id: string;
   status: DeliveryStatus;
+  payment_method: PaymentMethod | null;
+  total_amount: number | null;
   notes: string | null;
   delivered_at: string;
   customers: {
@@ -39,7 +46,7 @@ interface RawDelivery {
     id: string;
     cajas_plasticas: number;
     egg_type_id: string;
-    egg_types: { name: string; color: 'rojo' | 'blanco' | null } | null;
+    egg_types: { name: string; color: 'rojo' | 'blanco' | null; is_packaged: boolean } | null;
   }[];
 }
 
@@ -65,9 +72,9 @@ export function useMyDeliveries(driverId: string | undefined) {
       const { data, error } = await supabase
         .from('deliveries')
         .select(`
-          id, customer_id, status, notes, delivered_at,
+          id, customer_id, status, payment_method, total_amount, notes, delivered_at,
           customers!customer_id(customer_type, first_name, last_name, business_name, tax_id),
-          delivery_items(id, cajas_plasticas, egg_type_id, egg_types(name, color))
+          delivery_items(id, cajas_plasticas, egg_type_id, egg_types(name, color, is_packaged))
         `)
         .eq('driver_id', driverId!)
         .gte('delivered_at', since)
@@ -81,6 +88,7 @@ export function useMyDeliveries(driverId: string | undefined) {
           egg_type_id: it.egg_type_id,
           egg_type_name: it.egg_types?.name ?? null,
           egg_type_color: it.egg_types?.color ?? null,
+          is_packaged: it.egg_types?.is_packaged ?? false,
         }));
         return {
           id: d.id,
@@ -88,6 +96,8 @@ export function useMyDeliveries(driverId: string | undefined) {
           customer_name: customerName(d.customers),
           customer_tax_id: d.customers?.tax_id ?? null,
           status: d.status,
+          payment_method: d.payment_method ?? null,
+          total_amount: d.total_amount ?? 0,
           notes: d.notes,
           delivered_at: d.delivered_at,
           items,

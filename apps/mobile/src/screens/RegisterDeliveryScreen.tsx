@@ -97,19 +97,15 @@ export default function RegisterDeliveryScreen() {
   const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? myPrefs[0]?.egg_type_id ?? null;
 
   const typeById = (id: string): EggType | undefined => eggTypes?.find((t) => t.id === id);
-  // Precio por defecto = mínimo de la categoría (el chofer lo sube si quiere)
-  const defaultPriceFor = (id: string): string => {
-    const t = typeById(id);
-    return t?.min_price != null ? String(t.min_price) : '';
-  };
 
-  // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas
+  // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas.
+  // El precio queda vacío: es OPCIONAL (el chofer lo pone si cobra).
   const inited = useRef(false);
   useEffect(() => {
     if (inited.current) return;
     if (!eggTypes || preferences === undefined) return;
     inited.current = true;
-    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: defaultPriceFor(primaryPrefId) }]);
+    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: '' }]);
   }, [eggTypes, preferences, primaryPrefId]);
 
   const selectedIds = new Set(lines.map((l) => l.egg_type_id));
@@ -130,7 +126,7 @@ export default function RegisterDeliveryScreen() {
     setLines((prev) =>
       prev.some((l) => l.egg_type_id === id)
         ? prev.filter((l) => l.egg_type_id !== id)
-        : [...prev, { egg_type_id: id, cajas: 2, precio: defaultPriceFor(id) }],
+        : [...prev, { egg_type_id: id, cajas: 2, precio: '' }],
     );
   }
 
@@ -184,18 +180,16 @@ export default function RegisterDeliveryScreen() {
       return;
     }
 
-    // Validación de precio: obligatorio y ≥ al mínimo de la categoría
+    // El precio es OPCIONAL: el chofer puede dejarlo vacío y la entrega se
+    // registra igual. Si SÍ ingresa un precio, no puede ser menor al mínimo
+    // de la categoría.
     if (isDelivered) {
       for (const l of activeLines) {
+        if (l.precio.trim() === '') continue;
         const t = typeById(l.egg_type_id);
         const price = parseFloat(l.precio.replace(',', '.'));
-        const unidad = t ? priceUnitLabel(t.is_packaged) : 'unidad';
-        if (!Number.isFinite(price) || price <= 0) {
-          Alert.alert('Falta el precio', `Ingresá el precio por ${unidad} de ${t?.name ?? 'cada tipo'}.`);
-          return;
-        }
-        if (t?.min_price != null && price < t.min_price) {
-          Alert.alert('Precio por debajo del mínimo', `${t.name}: el precio no puede ser menor a ${formatMoney(t.min_price)} por ${unidad}.`);
+        if (Number.isFinite(price) && price > 0 && t?.min_price != null && price < t.min_price) {
+          Alert.alert('Precio por debajo del mínimo', `${t.name}: el precio no puede ser menor a ${formatMoney(t.min_price)} por ${priceUnitLabel(t.is_packaged)}.`);
           return;
         }
       }
@@ -457,7 +451,7 @@ export default function RegisterDeliveryScreen() {
                           value={l.precio}
                           onChangeText={(txt) => setPrecio(l.egg_type_id, txt)}
                           keyboardType="decimal-pad"
-                          placeholder="precio"
+                          placeholder="precio (opc.)"
                           placeholderTextColor="#9ca3af"
                           selectTextOnFocus
                         />
@@ -469,8 +463,9 @@ export default function RegisterDeliveryScreen() {
                   );
                 })}
                 <Text style={styles.totalEquiv}>
-                  {totalCajas} cajas plásticas · Total a {payment === 'credito' ? 'crédito' : 'cobrar'}: {formatMoney(grandTotal)}
+                  {totalCajas} cajas plásticas{grandTotal > 0 ? ` · Total a ${payment === 'credito' ? 'crédito' : 'cobrar'}: ${formatMoney(grandTotal)}` : ''}
                 </Text>
+                <Text style={styles.subHint}>El precio es opcional: dejalo vacío si no cobrás ahora.</Text>
               </View>
             )}
 

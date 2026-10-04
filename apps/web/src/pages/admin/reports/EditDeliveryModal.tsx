@@ -53,12 +53,13 @@ export default function EditDeliveryModal({ delivery, onClose }: { delivery: Del
       toast.error('Escribí el motivo de la corrección');
       return;
     }
-    // Validación de precio mínimo
+    // Precio opcional: si se ingresa, no puede ser menor al mínimo.
     if (status === 'entregado') {
       for (const it of items) {
+        if (it.price.trim() === '') continue;
         const t = typeById(it.egg_type_id);
         const price = parseFloat(it.price.replace(',', '.'));
-        if (it.cajas > 0 && t?.min_price != null && (!Number.isFinite(price) || price < t.min_price)) {
+        if (it.cajas > 0 && Number.isFinite(price) && price > 0 && t?.min_price != null && price < t.min_price) {
           toast.error(`${t.name}: el precio no puede ser menor a $${t.min_price} por ${priceUnitLabel(t.is_packaged)}`);
           return;
         }
