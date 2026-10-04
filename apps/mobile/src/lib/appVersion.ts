@@ -14,7 +14,7 @@
 
 // Versión ACTUALMENTE instalada. ⚠️ Subila junto con "version" en app.json
 // cada vez que publiques una APK nueva.
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 // URL pública del manifiesto de versión. Debe devolver un JSON como:
 //   {
