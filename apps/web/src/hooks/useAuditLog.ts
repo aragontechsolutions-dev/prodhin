@@ -74,4 +74,5 @@ export const TABLE_LABELS: Record<string, string> = {
   competitors: 'Competencia',
   prospects: 'Prospectos',
   prospect_offers: 'Ofertas de prospecto',
+  customer_payments: 'Cobros de deuda',
 };

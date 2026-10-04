@@ -89,6 +89,10 @@ const SECTIONS: Item[] = [
       'Elegí el resultado: Entregado, Ausente, No quiso o Sin stock.',
       'Marcá uno o varios tipos de huevo (se prellena con el principal del cliente).',
       'Poné la cantidad de cajas plásticas de cada tipo (con +/− o tocando el número).',
+      'Ingresá el PRECIO: por cajón en los sueltos, por envase en los envasados. La app no te deja vender por debajo del mínimo que fija la administración (podés venderlo más caro, no más barato).',
+      'La app te muestra el total de cada línea y el total de la entrega.',
+      'Elegí la FORMA DE PAGO: Efectivo (se cobra ahora) o Crédito (queda como deuda del cliente).',
+      'Si el cliente ya tiene deuda, arriba ves cuánto debe. Si acumula 2+ entregas a crédito sin cobrar, te avisa con una alerta.',
       'La app valida el stock del camión: no deja entregar más de lo que hay.',
       'Elegí el modo: "deja cajas plásticas" o "en cartones (sin dejar cajas)".',
       'Si dejás cajas pero algunas se vacían y te las devuelven en el acto, poné cuántas en "Cajas vacías devueltas en el acto" (así el saldo del local queda exacto).',
@@ -190,6 +194,17 @@ const SECTIONS: Item[] = [
       'Tocá "Marcar competencia": queda pendiente hasta que la administración la revise y apruebe.',
     ],
     tip: 'Sin señal se guarda igual y se envía al reconectar. No hace falta que ubiques nada en un mapa: se usa tu GPS.',
+  },
+  {
+    icon: '💳',
+    title: 'Deudas de clientes',
+    body: [
+      'Entrá a "Deudas de clientes" en el menú para ver quién te debe.',
+      'La lista va de mayor a menor deuda. Los que tienen 2+ entregas a crédito sin cobrar salen marcados con ⚠️.',
+      'Cuando cobrás, tocá "Cobrar", poné el monto y confirmá: la deuda del cliente baja.',
+      'Podés cobrar el total o una parte (pago parcial).',
+    ],
+    tip: 'Sin señal el cobro se guarda igual y se envía al reconectar. Cuando registrás una 2ª entrega a crédito sin cobrar, la app te avisa con una notificación.',
   },
   {
     icon: '📦',

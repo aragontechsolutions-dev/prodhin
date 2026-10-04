@@ -35,6 +35,22 @@ export async function ensureNotifPermission(): Promise<boolean> {
   }
 }
 
+// Muestra una notificación local inmediata (ej: aviso de deuda).
+export async function notifyNow(title: string, body: string): Promise<void> {
+  try {
+    const ok = await ensureNotifPermission();
+    if (!ok) return;
+    const content: Record<string, unknown> = { title, body, sound: 'default' };
+    if (Platform.OS === 'android') content.channelId = CHANNEL_ID;
+    await Notifications.scheduleNotificationAsync({
+      content: content as unknown as Notifications.NotificationContentInput,
+      trigger: null, // inmediata
+    });
+  } catch {
+    /* noop */
+  }
+}
+
 export interface ClosingTarget {
   customerId: string;
   name: string;

@@ -32,6 +32,8 @@ export interface EggType {
   is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
+  min_price: number | null;
+  maples_per_box: number | null;
 }
 
 export type DeliveryStatus =

@@ -36,12 +36,12 @@ export default function EggTypesPage() {
   const [editing, setEditing] = useState<EggType | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<EggType | null>(null);
 
-  const [form, setForm] = useState({ name: '', color: '' as '' | 'rojo' | 'blanco', sort_order: 0, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '' });
+  const [form, setForm] = useState({ name: '', color: '' as '' | 'rojo' | 'blanco', sort_order: 0, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '', min_price: '', maples_per_box: '' });
 
   function openCreate() {
     const nextOrder = (eggTypes ?? []).reduce((max, t) => Math.max(max, t.sort_order), 0) + 10;
     setEditing(null);
-    setForm({ name: '', color: '', sort_order: nextOrder, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '' });
+    setForm({ name: '', color: '', sort_order: nextOrder, is_active: true, is_packaged: false, eggs_per_package: '', packages_per_box: '', min_price: '', maples_per_box: '6' });
     setFormOpen(true);
   }
 
@@ -52,6 +52,8 @@ export default function EggTypesPage() {
       is_packaged: t.is_packaged,
       eggs_per_package: t.eggs_per_package != null ? String(t.eggs_per_package) : '',
       packages_per_box: t.packages_per_box != null ? String(t.packages_per_box) : '',
+      min_price: t.min_price != null ? String(t.min_price) : '',
+      maples_per_box: t.maples_per_box != null ? String(t.maples_per_box) : '',
     });
     setFormOpen(true);
   }
@@ -64,6 +66,8 @@ export default function EggTypesPage() {
     }
     const epp = parseInt(form.eggs_per_package, 10);
     const ppb = parseInt(form.packages_per_box, 10);
+    const mpb = parseInt(form.maples_per_box, 10);
+    const mp = parseFloat(form.min_price.replace(',', '.'));
     const input = {
       name: form.name.trim(),
       color: form.color === '' ? null : form.color,
@@ -73,6 +77,10 @@ export default function EggTypesPage() {
       // Solo los envasados guardan datos de paquete/caja
       eggs_per_package: form.is_packaged && Number.isFinite(epp) && epp > 0 ? epp : null,
       packages_per_box: form.is_packaged && Number.isFinite(ppb) && ppb > 0 ? ppb : null,
+      // Solo los sueltos guardan maples por caja plástica
+      maples_per_box: !form.is_packaged && Number.isFinite(mpb) && mpb > 0 ? mpb : null,
+      // Precio mínimo (opcional): por cajón en sueltos, por envase en envasados
+      min_price: Number.isFinite(mp) && mp > 0 ? mp : null,
     };
     try {
       if (editing) {
@@ -162,9 +170,17 @@ export default function EggTypesPage() {
                           <p className="text-gray-500 dark:text-gray-400 mt-1">
                             {t.eggs_per_package ?? '?'} huevos/paq · {t.packages_per_box ?? '?'} paq/caja
                           </p>
+                          <p className="text-gray-400 dark:text-gray-500 mt-0.5">
+                            {t.min_price != null ? `mín. $${t.min_price}/envase` : 'sin precio mín.'}
+                          </p>
                         </div>
                       ) : (
-                        <span className="text-gray-500 dark:text-gray-400">Suelto</span>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Suelto</span>
+                          <p className="text-gray-400 dark:text-gray-500 mt-0.5">
+                            {t.maples_per_box ?? 6} maples/caja · {t.min_price != null ? `mín. $${t.min_price}/cajón` : 'sin precio mín.'}
+                          </p>
+                        </div>
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400">{t.sort_order}</td>
@@ -230,7 +246,7 @@ export default function EggTypesPage() {
               { value: 'envasado', label: 'Huevo envasado (paquetes)' },
             ]}
           />
-          {form.is_packaged && (
+          {form.is_packaged ? (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Datos del envase</p>
               <div className="grid grid-cols-2 gap-3">
@@ -249,8 +265,41 @@ export default function EggTypesPage() {
                   placeholder="Ej: 24"
                 />
               </div>
+              <Input
+                label="Precio mínimo por envase (UYU)"
+                type="number"
+                value={form.min_price}
+                onChange={(e) => setForm((f) => ({ ...f, min_price: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                placeholder="Ej: 60"
+                hint="El chofer no podrá vender por debajo de este valor."
+              />
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                Sirve para el control fino de devoluciones (ej: 4 paquetes de "x6" = 24 huevos).
+                1 cajón = 3 cajas plásticas. Ej: 4 paquetes de "x6" = 24 huevos. El precio se cobra por envase.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Datos del suelto</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Maples por caja plástica"
+                  type="number"
+                  value={form.maples_per_box}
+                  onChange={(e) => setForm((f) => ({ ...f, maples_per_box: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="Ej: 6 (Jumbo: 5)"
+                  hint="Cada maple trae 30 huevos."
+                />
+                <Input
+                  label="Precio mínimo por cajón (UYU)"
+                  type="number"
+                  value={form.min_price}
+                  onChange={(e) => setForm((f) => ({ ...f, min_price: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                  placeholder="Ej: 2400"
+                  hint="El chofer no podrá vender por debajo."
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                1 cajón = 2 cajas plásticas. Con 6 maples/caja hay 180 huevos por caja plástica (Jumbo 5 = 150).
               </p>
             </div>
           )}

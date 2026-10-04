@@ -13,6 +13,7 @@ const sections = [
   { id: 'maples', emoji: '🧺', label: 'Maples' },
   { id: 'devoluciones', emoji: '♻️', label: 'Rotos y devoluciones' },
   { id: 'competencia', emoji: '🎯', label: 'Competencia' },
+  { id: 'deudas', emoji: '💳', label: 'Deudas' },
   { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
@@ -290,6 +291,13 @@ export default function ManualPage() {
 
           <SubTitle>Tipo: suelto vs. envasado</SubTitle>
           <P>Cada categoría se clasifica como <strong>huevo suelto</strong> (se vende en maples de cartón) o <strong>huevo envasado</strong> (paquetes). En las envasadas definís <strong>huevos por paquete</strong> y <strong>paquetes por caja plástica</strong> (ej: "Doña Clara x6" → 6 huevos/paquete y 24 paquetes/caja). Con eso, cuando un chofer devuelve productos vencidos, el sistema muestra el equivalente en huevos y cajas (ej: 4 paquetes = 24 huevos). En "Rotos y devoluciones", el chofer solo puede elegir categorías <strong>envasadas</strong> para los vencidos.</P>
+          <P>En los <strong>sueltos</strong> definís los <strong>maples por caja plástica</strong> (normalmente 6; el <strong>Jumbo suelto</strong> trae 5 porque son más grandes). Con eso se sabe cuántos huevos hay en una caja (6 maples × 30 = 180; Jumbo 5 × 30 = 150).</P>
+
+          <SubTitle>Equivalencia cajón ↔ caja plástica</SubTitle>
+          <P>En los <strong>sueltos</strong>, 1 cajón = <strong>2 cajas plásticas</strong>. En los <strong>envasados</strong>, 1 cajón = <strong>3 cajas plásticas</strong> (entran más por ser más chicas).</P>
+
+          <SubTitle>Precio mínimo</SubTitle>
+          <P>Definís un <strong>precio mínimo</strong> por categoría: por <strong>cajón</strong> en los sueltos y por <strong>envase</strong> en los envasados. El chofer puede vender al precio que acuerde con cada cliente, pero <strong>nunca por debajo</strong> de ese mínimo (la app lo valida). Dejalo vacío si no querés fijar mínimo.</P>
 
           <SubTitle>Desactivar vs. eliminar</SubTitle>
           <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -498,6 +506,21 @@ export default function ManualPage() {
             'Si cerrás la venta, usás "Convertir en cliente": completás número de cliente y tipo, y se crea el cliente real con la ubicación y datos del prospecto.',
           ]} />
           <Tip>Todo queda en Auditoría (Competencia, Prospectos y Ofertas de prospecto).</Tip>
+        </section>
+
+        {/* Deudas */}
+        <section id="deudas" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>💳 Módulo Deudas de crédito</SectionTitle>
+          <P>Cada entrega tiene una <strong>forma de pago</strong>: <strong>efectivo</strong> (se cobra en el momento) o <strong>crédito</strong> (queda como deuda del cliente). El chofer ingresa el precio de venta (nunca por debajo del mínimo de la categoría) y el sistema calcula el total.</P>
+          <SubTitle>Cómo funciona la deuda</SubTitle>
+          <Steps items={[
+            'Cada entrega a crédito suma su total a la deuda del cliente.',
+            'Los cobros (pagos) la bajan. Los puede registrar el chofer (desde la app) o la administración (desde este módulo).',
+            'La lista va de mayor a menor deuda. Podés registrar cobros totales o parciales.',
+            'Cuando un cliente acumula 2 o más entregas a crédito sin cobrar, queda en ALERTA (⚠️) y se avisa al chofer y a la administración.',
+          ]} />
+          <P>El chofer, al visitar a un cliente, ve cuánto debe antes de venderle. En el Dashboard aparece la deuda total y cuántos clientes están en alerta.</P>
+          <Tip>Todo queda en Auditoría (Cobros de deuda). El precio mínimo de cada categoría se configura en el módulo Categorías.</Tip>
         </section>
 
         {/* App móvil */}

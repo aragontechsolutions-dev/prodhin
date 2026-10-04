@@ -11,6 +11,7 @@ import {
 } from '../../../hooks/useDeliveries';
 import { usePagination, PAGE_SIZE_OPTIONS } from '../../../hooks/usePagination';
 import { useBoxBalances } from '../../../hooks/useBoxBalances';
+import { formatCajonesFor, formatMoney } from '../../../lib/pricing';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import EditDeliveryModal from './EditDeliveryModal';
@@ -57,8 +58,15 @@ function fmtDateTime(iso: string): string {
 function itemsSummary(row: DeliveryRow): string {
   if (row.items.length === 0) return '—';
   return row.items
-    .map((it) => `${it.egg_type_name ?? '¿?'} (${formatCajones(it.cajas_plasticas)} cj)`)
+    .map((it) => `${it.egg_type_name ?? '¿?'} (${formatCajonesFor(it.cajas_plasticas, it.is_packaged)} cj)`)
     .join(', ');
+}
+
+function paymentBadge(r: DeliveryRow) {
+  if (r.status !== 'entregado' || !r.payment_method) return <span className="text-gray-400">—</span>;
+  return r.payment_method === 'credito'
+    ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30">Crédito</span>
+    : <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30">Efectivo</span>;
 }
 
 export default function ReportsPage() {
@@ -134,6 +142,9 @@ export default function ReportsPage() {
     const clientes = new Set(rows.map((r) => r.customer_id)).size;
     const sinVenta = rows.filter((r) => r.status !== 'entregado').length;
     const recogidas = rows.reduce((s, r) => s + (r.cajas_recogidas ?? 0) + (r.cajas_devueltas ?? 0), 0);
+    const facturado = entregadas.reduce((s, r) => s + (r.total_amount ?? 0), 0);
+    const efectivo = entregadas.filter((r) => r.payment_method === 'efectivo').reduce((s, r) => s + (r.total_amount ?? 0), 0);
+    const credito = entregadas.filter((r) => r.payment_method === 'credito').reduce((s, r) => s + (r.total_amount ?? 0), 0);
     return {
       totalVisitas: rows.length,
       entregadas: entregadas.length,
@@ -141,6 +152,9 @@ export default function ReportsPage() {
       clientes,
       sinVenta,
       recogidas,
+      facturado,
+      efectivo,
+      credito,
     };
   }, [rows]);
 
@@ -216,7 +230,7 @@ export default function ReportsPage() {
   const { paginated, page, totalPages, pageSize, changePage, changePageSize } = usePagination(rows, 20);
 
   function exportCsv() {
-    const header = ['Fecha', 'Cliente', 'Chofer', 'Estado', 'Detalle', 'Cajones', 'Cajas recogidas', 'Cajas devueltas', 'Notas'];
+    const header = ['Fecha', 'Cliente', 'Chofer', 'Estado', 'Detalle', 'Cajones', 'Pago', 'Total (UYU)', 'Cajas recogidas', 'Cajas devueltas', 'Notas'];
     const lines = rows.map((r) => [
       fmtDateTime(r.delivered_at),
       r.customer_name,
@@ -224,6 +238,8 @@ export default function ReportsPage() {
       DELIVERY_STATUS_LABEL[r.status],
       itemsSummary(r).replace(/"/g, "'"),
       formatCajones(r.total_cajas_plasticas),
+      r.status === 'entregado' && r.payment_method ? (r.payment_method === 'credito' ? 'Crédito' : 'Efectivo') : '',
+      r.status === 'entregado' && r.total_amount > 0 ? String(Math.round(r.total_amount)) : '',
       String(r.cajas_recogidas ?? 0),
       String(r.cajas_devueltas ?? 0),
       (r.notes ?? '').replace(/"/g, "'").replace(/\n/g, ' '),
@@ -326,6 +342,14 @@ export default function ReportsPage() {
             <StatCard label="Cajas recogidas" value={metrics.recogidas} sub="recogidas + devueltas en el acto"
               colorBg="bg-cyan-50 dark:bg-cyan-900/30" colorText="text-cyan-600 dark:text-cyan-400"
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
+            />
+            <StatCard label="Facturado" value={formatMoney(metrics.facturado)} sub={`efectivo ${formatMoney(metrics.efectivo)}`}
+              colorBg="bg-green-50 dark:bg-green-900/30" colorText="text-green-600 dark:text-green-400"
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            />
+            <StatCard label="Vendido a crédito" value={formatMoney(metrics.credito)} sub="genera deuda"
+              colorBg="bg-amber-50 dark:bg-amber-900/30" colorText="text-amber-600 dark:text-amber-400"
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
             />
           </div>
 
@@ -498,6 +522,8 @@ export default function ReportsPage() {
                         <th className="px-5 py-3 font-medium">Estado</th>
                         <th className="px-5 py-3 font-medium">Detalle</th>
                         <th className="px-5 py-3 font-medium text-right">Cajones</th>
+                        <th className="px-5 py-3 font-medium">Pago</th>
+                        <th className="px-5 py-3 font-medium text-right">Total</th>
                         <th className="px-5 py-3" />
                       </tr>
                     </thead>
@@ -519,6 +545,10 @@ export default function ReportsPage() {
                           <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{itemsSummary(r)}</td>
                           <td className="px-5 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">
                             {r.status === 'entregado' ? formatCajones(r.total_cajas_plasticas) : '—'}
+                          </td>
+                          <td className="px-5 py-3">{paymentBadge(r)}</td>
+                          <td className="px-5 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">
+                            {r.status === 'entregado' && r.total_amount > 0 ? formatMoney(r.total_amount) : '—'}
                           </td>
                           <td className="px-5 py-3 text-right">
                             <button

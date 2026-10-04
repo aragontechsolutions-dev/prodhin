@@ -10,6 +10,8 @@ export interface EggType {
   is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
+  min_price: number | null;      // mínimo: por cajón (suelto) o por envase (envasado)
+  maples_per_box: number | null; // maples por caja plástica (sueltos)
 }
 
 export interface EggTypeInput {
@@ -20,6 +22,8 @@ export interface EggTypeInput {
   is_packaged: boolean;
   eggs_per_package: number | null;
   packages_per_box: number | null;
+  min_price: number | null;
+  maples_per_box: number | null;
 }
 
 const KEY = ['egg-types'];
@@ -30,7 +34,7 @@ export function useEggTypes() {
     queryFn: async (): Promise<EggType[]> => {
       const { data, error } = await supabase
         .from('egg_types')
-        .select('id, name, color, sort_order, is_active, is_packaged, eggs_per_package, packages_per_box')
+        .select('id, name, color, sort_order, is_active, is_packaged, eggs_per_package, packages_per_box, min_price, maples_per_box')
         .order('sort_order', { ascending: true });
       if (error) throw error;
       return (data ?? []) as EggType[];

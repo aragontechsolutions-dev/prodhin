@@ -42,6 +42,9 @@ const FIELD_LABELS: Record<string, string> = {
   lat: 'Latitud', lng: 'Longitud', radius_m: 'Radio (m)',
   has_competition: 'Tiene competencia', format: 'Formato', price: 'Precio',
   photo_path: 'Foto', converted_customer_id: 'Cliente convertido',
+  payment_method: 'Forma de pago', total_amount: 'Monto total', unit_price: 'Precio unitario',
+  line_total: 'Total de línea', amount: 'Monto cobrado', received_at: 'Fecha de cobro',
+  min_price: 'Precio mínimo', maples_per_box: 'Maples por caja',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -109,6 +112,7 @@ export default function AuditPage() {
     if (typeof val === 'boolean') return val ? 'Sí' : 'No';
     if (key === 'status') return STATUS_LABEL[String(val)] ?? String(val);
     if (key === 'mode') return val === 'cp' ? 'Deja cajas plásticas' : 'En cartones';
+    if (key === 'payment_method') return val === 'credito' ? 'Crédito' : val === 'efectivo' ? 'Efectivo' : String(val);
     if (key === 'day_of_week') return DAYS[Number(val)] ?? String(val);
     if (key === 'customer_type') return val === 'empresa' ? 'Empresa' : 'Persona física';
     if (key === 'role') return String(val) === 'admin' ? 'Administrador' : 'Chofer';

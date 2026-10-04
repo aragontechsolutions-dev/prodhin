@@ -1,9 +1,13 @@
 import { supabase } from './supabase';
 import type { DeliveryStatus } from '../types';
 
+export type PaymentMethod = 'efectivo' | 'credito';
+
 export interface DeliveryLineInput {
   egg_type_id: string;
   cajas_plasticas: number;
+  unit_price?: number | null;  // por cajón (suelto) o por envase (envasado)
+  line_total?: number | null;
 }
 
 export type DeliveryMode = 'cp' | 'cartones';
@@ -17,6 +21,8 @@ export interface CreateDeliveryInput {
   mode: DeliveryMode;          // 'cp' deja cajas plásticas, 'cartones' no
   cajas_recogidas: number;     // cajas plásticas vacías recogidas (de visitas anteriores)
   cajas_devueltas?: number;    // cajas que se vacían y devuelven en el acto (de esta entrega)
+  payment_method?: PaymentMethod | null;
+  total_amount?: number;
   notes?: string | null;
   delivered_at: string; // ISO
   items: DeliveryLineInput[];
@@ -46,6 +52,8 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<void> 
         mode: header.mode,
         cajas_recogidas: header.cajas_recogidas,
         cajas_devueltas: header.cajas_devueltas ?? 0,
+        payment_method: header.payment_method ?? null,
+        total_amount: header.total_amount ?? 0,
         notes: header.notes ?? null,
         delivered_at: header.delivered_at,
       },
@@ -66,6 +74,8 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<void> 
       delivery_id: header.id,
       egg_type_id: it.egg_type_id,
       cajas_plasticas: it.cajas_plasticas,
+      unit_price: it.unit_price ?? null,
+      line_total: it.line_total ?? null,
     }));
 
   if (rows.length > 0) {

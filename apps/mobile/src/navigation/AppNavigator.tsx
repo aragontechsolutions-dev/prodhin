@@ -14,6 +14,7 @@ import MapleReturnsScreen from '../screens/MapleReturnsScreen';
 import EggReturnsScreen from '../screens/EggReturnsScreen';
 import ProspectCaptureScreen from '../screens/ProspectCaptureScreen';
 import MarkCompetitorScreen from '../screens/MarkCompetitorScreen';
+import DebtsScreen from '../screens/DebtsScreen';
 import ManualScreen from '../screens/ManualScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
@@ -30,6 +31,7 @@ export type RootStackParamList = {
   EggReturns: undefined;
   ProspectCapture: undefined;
   MarkCompetitor: undefined;
+  Debts: undefined;
   Manual: undefined;
 };
 
@@ -64,6 +66,7 @@ export default function AppNavigator() {
         <Stack.Screen name="EggReturns" component={EggReturnsScreen} />
         <Stack.Screen name="ProspectCapture" component={ProspectCaptureScreen} />
         <Stack.Screen name="MarkCompetitor" component={MarkCompetitorScreen} />
+        <Stack.Screen name="Debts" component={DebtsScreen} />
         <Stack.Screen name="Manual" component={ManualScreen} />
       </Stack.Navigator>
     </NavigationContainer>

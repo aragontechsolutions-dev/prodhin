@@ -7,6 +7,8 @@ import { useMapleReturns } from '../../hooks/useMapleReturns';
 import { useEggReturns } from '../../hooks/useEggReturns';
 import { useBoxBalances } from '../../hooks/useBoxBalances';
 import { useProspects, useCompetitors } from '../../hooks/useMarketIntel';
+import { useDebtBalances } from '../../hooks/useDebts';
+import { formatMoney } from '../../lib/pricing';
 
 function StatCard({
   label, value, icon, colorBg, colorText, alert,
@@ -46,18 +48,22 @@ export default function DashboardPage() {
   const { data: boxBalances } = useBoxBalances();
   const { data: prospectosNuevosList } = useProspects('nuevo');
   const { data: competidores } = useCompetitors();
+  const { data: debtBalances } = useDebtBalances();
 
   const maplesPendientes = (maplesPend ?? []).length;
   const devolucionesPendientes = (returnsPend ?? []).length;
   const prospectosNuevos = (prospectosNuevosList ?? []).length;
   const competenciaPendiente = (competidores ?? []).filter((c) => c.status === 'pendiente').length;
   const cajasEnLocales = (() => { let t = 0; for (const v of boxBalances?.values() ?? []) t += Math.max(0, v); return t; })();
+  const deudaTotal = (debtBalances ?? []).reduce((s, b) => s + Math.max(0, b.saldo), 0);
+  const clientesEnAlerta = (debtBalances ?? []).filter((b) => b.saldo > 0 && b.entregas_credito_sin_cobrar >= 2).length;
 
   const pendientes = [
     { n: maplesPendientes, label: 'maples por aprobar', to: '/admin/maples' },
     { n: devolucionesPendientes, label: 'rotos/devoluciones por aprobar', to: '/admin/devoluciones' },
     { n: prospectosNuevos, label: 'prospectos por gestionar', to: '/admin/competencia' },
     { n: competenciaPendiente, label: 'competidores por aprobar', to: '/admin/competencia' },
+    { n: clientesEnAlerta, label: 'clientes con deuda en alerta', to: '/admin/deudas' },
   ].filter((p) => p.n > 0);
   const totalPendientes = pendientes.reduce((s, p) => s + p.n, 0);
 
@@ -82,6 +88,7 @@ export default function DashboardPage() {
     { to: '/admin/maples', emoji: '🧺', label: 'Maples', desc: 'Aprobar entregas de maples' },
     { to: '/admin/devoluciones', emoji: '♻️', label: 'Rotos y devoluciones', desc: 'Aprobar rotos y vencidos' },
     { to: '/admin/competencia', emoji: '🎯', label: 'Competencia', desc: 'Mapa de calor y prospectos' },
+    { to: '/admin/deudas', emoji: '💳', label: 'Deudas', desc: 'Deudas de crédito y cobros' },
     { to: '/admin/auditoria', emoji: '📝', label: 'Auditoría', desc: 'Historial de acciones' },
     { to: '/admin/manual', emoji: '📖', label: 'Manual', desc: 'Guía completa del sistema' },
   ];
@@ -140,7 +147,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Requiere atención: aprobaciones pendientes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         <Link to="/admin/maples" className={`rounded-2xl p-5 shadow-sm border transition ${maplesPendientes > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 hover:border-amber-400' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
           <p className="text-xs text-gray-500 dark:text-gray-400">Maples por aprobar</p>
           <p className={`text-2xl font-bold mt-1 ${maplesPendientes > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>{maplesPendientes} 🧺</p>
@@ -160,6 +167,11 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400">Competencia por aprobar</p>
           <p className={`text-2xl font-bold mt-1 ${competenciaPendiente > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>{competenciaPendiente} 🚩</p>
           <p className="text-xs text-gray-400 mt-0.5">{competenciaPendiente > 0 ? 'Marcada por choferes' : 'Nada pendiente'}</p>
+        </Link>
+        <Link to="/admin/deudas" className={`rounded-2xl p-5 shadow-sm border transition ${clientesEnAlerta > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 hover:border-red-400' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Deuda de crédito</p>
+          <p className={`text-2xl font-bold mt-1 ${clientesEnAlerta > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatMoney(deudaTotal)} 💳</p>
+          <p className="text-xs text-gray-400 mt-0.5">{clientesEnAlerta > 0 ? `${clientesEnAlerta} en alerta (≥2 sin cobrar)` : 'Total adeudado'}</p>
         </Link>
         <Link to="/admin/reportes" className="rounded-2xl p-5 shadow-sm border bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-teal-300 transition">
           <p className="text-xs text-gray-500 dark:text-gray-400">Cajas plásticas en locales</p>

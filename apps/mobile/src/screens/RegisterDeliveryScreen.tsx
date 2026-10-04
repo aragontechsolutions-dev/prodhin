@@ -14,18 +14,21 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import { getDisplayName, formatCajones, type DeliveryStatus, type EggType } from '../types';
+import { getDisplayName, type DeliveryStatus, type EggType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useEggTypes } from '../hooks/useEggTypes';
 import { useCreateDelivery } from '../hooks/useCreateDelivery';
 import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useBoxBalances } from '../hooks/useBoxBalances';
+import { useCustomerDebt } from '../hooks/useDebts';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
 import { getPendingLoad } from '../lib/loadConfirm';
 import { computeStock } from '../lib/truck';
-import type { DeliveryMode } from '../lib/deliveries';
+import type { DeliveryMode, PaymentMethod } from '../lib/deliveries';
+import { formatCajonesFor, lineTotal, formatMoney, priceUnitLabel } from '../lib/pricing';
+import { notifyNow } from '../lib/notifications';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { markVisited } from '../lib/visitedStore';
 import { showToast } from '../lib/toastStore';
@@ -33,6 +36,13 @@ import { uuidv4 } from '../lib/uuid';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RegisterDelivery'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'RegisterDelivery'>;
+
+interface SaveItem {
+  egg_type_id: string;
+  cajas_plasticas: number;
+  unit_price: number | null;
+  line_total: number | null;
+}
 
 const STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
   { value: 'entregado', label: 'Entregado' },
@@ -57,12 +67,14 @@ export default function RegisterDeliveryScreen() {
   const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
   const { data: boxBalances } = useBoxBalances();
   const boxBalance = boxBalances?.[c.id] ?? 0;
+  const { data: debt } = useCustomerDebt(c.id);
   const createDelivery = useCreateDelivery();
   const addPref = useAddPreference();
 
   const [status, setStatus] = useState<DeliveryStatus>('entregado');
-  // Una línea por tipo de huevo entregado
-  const [lines, setLines] = useState<{ egg_type_id: string; cajas: number }[]>([]);
+  // Una línea por tipo de huevo entregado (cajas + precio unitario)
+  const [lines, setLines] = useState<{ egg_type_id: string; cajas: number; precio: string }[]>([]);
+  const [payment, setPayment] = useState<PaymentMethod>('efectivo');
   const [mode, setMode] = useState<DeliveryMode>('cp');
   const [cajasRecogidas, setCajasRecogidas] = useState(0);
   const [cajasDevueltas, setCajasDevueltas] = useState(0);
@@ -84,29 +96,52 @@ export default function RegisterDeliveryScreen() {
   // Principal si existe; si no, el primer tipo habitual del cliente
   const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? myPrefs[0]?.egg_type_id ?? null;
 
+  const typeById = (id: string): EggType | undefined => eggTypes?.find((t) => t.id === id);
+  // Precio por defecto = mínimo de la categoría (el chofer lo sube si quiere)
+  const defaultPriceFor = (id: string): string => {
+    const t = typeById(id);
+    return t?.min_price != null ? String(t.min_price) : '';
+  };
+
   // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas
   const inited = useRef(false);
   useEffect(() => {
     if (inited.current) return;
     if (!eggTypes || preferences === undefined) return;
     inited.current = true;
-    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2 }]);
+    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: defaultPriceFor(primaryPrefId) }]);
   }, [eggTypes, preferences, primaryPrefId]);
 
   const selectedIds = new Set(lines.map((l) => l.egg_type_id));
   const totalCajas = lines.reduce((s, l) => s + (l.cajas || 0), 0);
 
+  // Total facturado de la entrega (según precios ingresados)
+  const grandTotal = useMemo(() => {
+    return lines.reduce((s, l) => {
+      const t = typeById(l.egg_type_id);
+      const price = parseFloat(l.precio.replace(',', '.'));
+      if (!t || !Number.isFinite(price) || price <= 0) return s;
+      return s + lineTotal(l.cajas, price, t.is_packaged, t.packages_per_box);
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, eggTypes]);
+
   function toggleType(id: string) {
     setLines((prev) =>
       prev.some((l) => l.egg_type_id === id)
         ? prev.filter((l) => l.egg_type_id !== id)
-        : [...prev, { egg_type_id: id, cajas: 2 }],
+        : [...prev, { egg_type_id: id, cajas: 2, precio: defaultPriceFor(id) }],
     );
   }
 
   function setCajas(id: string, value: number) {
     const v = Math.max(0, Math.min(99999, Math.floor(value) || 0));
     setLines((prev) => prev.map((l) => (l.egg_type_id === id ? { ...l, cajas: v } : l)));
+  }
+
+  function setPrecio(id: string, value: string) {
+    const clean = value.replace(/[^0-9.,]/g, '');
+    setLines((prev) => prev.map((l) => (l.egg_type_id === id ? { ...l, precio: clean } : l)));
   }
 
   async function onSave() {
@@ -142,17 +177,40 @@ export default function RegisterDeliveryScreen() {
       }
     }
 
-    const items = isDelivered
-      ? lines.filter((l) => l.cajas > 0).map((l) => ({
-          egg_type_id: l.egg_type_id,
-          cajas_plasticas: l.cajas,
-        }))
-      : [];
+    const activeLines = isDelivered ? lines.filter((l) => l.cajas > 0) : [];
 
-    if (isDelivered && items.length === 0) {
+    if (isDelivered && activeLines.length === 0) {
       Alert.alert('Falta la cantidad', 'Agregá al menos un tipo de huevo con cantidad.');
       return;
     }
+
+    // Validación de precio: obligatorio y ≥ al mínimo de la categoría
+    if (isDelivered) {
+      for (const l of activeLines) {
+        const t = typeById(l.egg_type_id);
+        const price = parseFloat(l.precio.replace(',', '.'));
+        const unidad = t ? priceUnitLabel(t.is_packaged) : 'unidad';
+        if (!Number.isFinite(price) || price <= 0) {
+          Alert.alert('Falta el precio', `Ingresá el precio por ${unidad} de ${t?.name ?? 'cada tipo'}.`);
+          return;
+        }
+        if (t?.min_price != null && price < t.min_price) {
+          Alert.alert('Precio por debajo del mínimo', `${t.name}: el precio no puede ser menor a ${formatMoney(t.min_price)} por ${unidad}.`);
+          return;
+        }
+      }
+    }
+
+    const items = activeLines.map((l) => {
+      const t = typeById(l.egg_type_id);
+      const price = parseFloat(l.precio.replace(',', '.'));
+      return {
+        egg_type_id: l.egg_type_id,
+        cajas_plasticas: l.cajas,
+        unit_price: Number.isFinite(price) && price > 0 ? price : null,
+        line_total: t ? lineTotal(l.cajas, price, t.is_packaged, t.packages_per_box) : null,
+      };
+    });
 
     // Validación de stock/cajas SOLO con conexión: los datos son exactos y se
     // bloquea. Sin conexión NO se valida (el stock puede estar viejo o en 0 por
@@ -176,7 +234,7 @@ export default function RegisterDeliveryScreen() {
     doSave(items);
   }
 
-  function doSave(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+  function doSave(items: SaveItem[]) {
     if (!profile) return;
     try {
       doSaveInner(items);
@@ -185,11 +243,14 @@ export default function RegisterDeliveryScreen() {
     }
   }
 
-  function doSaveInner(items: { egg_type_id: string; cajas_plasticas: number }[]) {
+  function doSaveInner(items: SaveItem[]) {
     if (!profile) return;
 
     // Marca la visita al instante (optimista, persiste local)
     markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
+
+    const totalAmount = isDelivered ? items.reduce((s, it) => s + (it.line_total ?? 0), 0) : 0;
+    const paymentMethod = isDelivered ? payment : null;
 
     // Encolar la entrega SIN esperarla: offline queda pausada y se envía sola
     // al reconectar; online se ejecuta normal. No usar await/mutateAsync porque
@@ -203,6 +264,8 @@ export default function RegisterDeliveryScreen() {
         mode,
         cajas_recogidas: isDelivered ? cajasRecogidas : 0,
         cajas_devueltas: isDelivered && mode === 'cp' ? Math.min(cajasDevueltas, totalCajas) : 0,
+        payment_method: paymentMethod,
+        total_amount: totalAmount,
         notes: notes.trim() || null,
         delivered_at: new Date().toISOString(),
         items,
@@ -217,6 +280,16 @@ export default function RegisterDeliveryScreen() {
     );
     // Offline la mutación queda pausada (no hay onSuccess): avisamos igual.
     if (!isOnline) showToast('Guardado. Se enviará al reconectar.', 'success');
+
+    // Aviso de deuda: si esta venta a crédito deja 2+ entregas sin cobrar.
+    if (isDelivered && paymentMethod === 'credito') {
+      const sinCobrar = (debt?.entregas_credito_sin_cobrar ?? 0) + 1;
+      if (sinCobrar >= 2) {
+        const nombre = getDisplayName(c);
+        showToast(`⚠️ ${nombre} ya tiene ${sinCobrar} entregas a crédito sin cobrar`, 'error');
+        notifyNow('⚠️ Deuda sin cobrar', `${nombre} acumula ${sinCobrar} entregas a crédito sin cobrar. Conviene cobrar.`);
+      }
+    }
 
     // Vuelve al MAPA (no al detalle del cliente)
     const goToMap = () => navigation.popToTop();
@@ -273,6 +346,19 @@ export default function RegisterDeliveryScreen() {
           </View>
         )}
 
+        {/* Deuda del cliente */}
+        {debt && debt.saldo > 0 && (
+          <View style={[styles.debtBanner, debt.entregas_credito_sin_cobrar >= 2 && styles.debtBannerAlert]}>
+            <Text style={[styles.debtText, debt.entregas_credito_sin_cobrar >= 2 && styles.debtTextAlert]}>
+              {debt.entregas_credito_sin_cobrar >= 2 ? '⚠️ ' : '💳 '}
+              Este cliente debe {formatMoney(debt.saldo)}
+              {debt.entregas_credito_sin_cobrar >= 2
+                ? ` · ${debt.entregas_credito_sin_cobrar} entregas a crédito sin cobrar`
+                : ''}
+            </Text>
+          </View>
+        )}
+
         {/* Estado de la visita */}
         <Text style={styles.label}>Resultado de la visita</Text>
         <View style={styles.chipRow}>
@@ -326,7 +412,8 @@ export default function RegisterDeliveryScreen() {
                   // Offline el stock puede estar desactualizado: no lo marcamos como error.
                   const over = isOnline && l.cajas > disp;
                   return (
-                    <View key={l.egg_type_id} style={styles.lineCard}>
+                    <View key={l.egg_type_id} style={styles.lineGroup}>
+                      <View style={styles.lineCard}>
                       <View style={styles.lineNameCol}>
                         <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
                         <Text style={[styles.lineStock, over && styles.lineStockOver]}>
@@ -359,16 +446,57 @@ export default function RegisterDeliveryScreen() {
                           <Text style={styles.qtyBtnText}>+</Text>
                         </TouchableOpacity>
                       </View>
-                      <Text style={styles.lineEquiv}>{formatCajones(l.cajas)} cj</Text>
+                      <Text style={styles.lineEquiv}>{formatCajonesFor(l.cajas, t?.is_packaged ?? false)} cj</Text>
+                      </View>
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceUnit}>
+                          $/{t ? priceUnitLabel(t.is_packaged) : 'cajón'}{t?.min_price != null ? ` · mín ${t.min_price}` : ''}
+                        </Text>
+                        <TextInput
+                          style={styles.priceInput}
+                          value={l.precio}
+                          onChangeText={(txt) => setPrecio(l.egg_type_id, txt)}
+                          keyboardType="decimal-pad"
+                          placeholder="precio"
+                          placeholderTextColor="#9ca3af"
+                          selectTextOnFocus
+                        />
+                        <Text style={styles.priceLineTotal}>
+                          {(() => { const p = parseFloat(l.precio.replace(',', '.')); return formatMoney(t && Number.isFinite(p) && p > 0 ? lineTotal(l.cajas, p, t.is_packaged, t.packages_per_box) : 0); })()}
+                        </Text>
+                      </View>
                     </View>
                   );
                 })}
                 <Text style={styles.totalEquiv}>
-                  Total: {totalCajas} cajas plásticas = {formatCajones(totalCajas)}{' '}
-                  {formatCajones(totalCajas) === '1' ? 'cajón' : 'cajones'}
+                  {totalCajas} cajas plásticas · Total a {payment === 'credito' ? 'crédito' : 'cobrar'}: {formatMoney(grandTotal)}
                 </Text>
               </View>
             )}
+
+            {/* Forma de pago */}
+            <Text style={styles.label}>Forma de pago</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, payment === 'efectivo' && styles.chipActive]}
+                onPress={() => setPayment('efectivo')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, payment === 'efectivo' && styles.chipTextActive]}>💵 Efectivo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, payment === 'credito' && styles.chipActive]}
+                onPress={() => setPayment('credito')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, payment === 'credito' && styles.chipTextActive]}>💳 Crédito (fiado)</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>
+              {payment === 'credito'
+                ? 'Queda como deuda del cliente hasta que se cobre.'
+                : 'Se cobra en el momento.'}
+            </Text>
 
             {/* Modo de entrega */}
             <Text style={styles.label}>Modo de entrega</Text>
@@ -515,6 +643,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   offlineText: { color: '#92400e', fontSize: 12, fontWeight: '600' },
+  debtBanner: { backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: '#bfdbfe', marginBottom: 4 },
+  debtBannerAlert: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  debtText: { color: '#1d4ed8', fontSize: 13, fontWeight: '700' },
+  debtTextAlert: { color: '#b91c1c' },
+  lineGroup: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 0 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 10, paddingTop: 2 },
+  priceUnit: { flex: 1, fontSize: 11, color: '#6b7280', fontWeight: '600' },
+  priceInput: { width: 90, height: 38, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f9fafb', textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#111827', padding: 0 },
+  priceLineTotal: { minWidth: 72, textAlign: 'right', fontSize: 14, fontWeight: '800', color: '#059669' },
   label: {
     fontSize: 12,
     fontWeight: '700',
@@ -540,10 +677,7 @@ const styles = StyleSheet.create({
   lineCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: 'transparent',
     paddingVertical: 10,
     paddingHorizontal: 12,
     gap: 10,

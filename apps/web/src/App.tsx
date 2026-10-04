@@ -16,6 +16,7 @@ import StockPage from './pages/admin/stock/StockPage';
 import MapleReturnsPage from './pages/admin/maples/MapleReturnsPage';
 import EggReturnsPage from './pages/admin/eggreturns/EggReturnsPage';
 import CompetitionPage from './pages/admin/competition/CompetitionPage';
+import DebtsPage from './pages/admin/debts/DebtsPage';
 import AuditPage from './pages/admin/audit/AuditPage';
 import ManualPage from './pages/admin/manual/ManualPage';
 import CustomerIntakePage from './pages/public/CustomerIntakePage';
@@ -78,6 +79,7 @@ function App() {
           <Route path="/admin/maples" element={<MapleReturnsPage />} />
           <Route path="/admin/devoluciones" element={<EggReturnsPage />} />
           <Route path="/admin/competencia" element={<CompetitionPage />} />
+          <Route path="/admin/deudas" element={<DebtsPage />} />
           <Route path="/admin/auditoria" element={<AuditPage />} />
           <Route path="/admin/manual" element={<ManualPage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
