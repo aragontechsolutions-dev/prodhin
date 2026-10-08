@@ -48,6 +48,102 @@ export function useCustomerDebt(customerId?: string) {
   });
 }
 
+// ── Detalle por cliente (entregas a crédito + cobros) ───────
+export interface DebtDeliveryItem {
+  cajas_plasticas: number;
+  egg_type_name: string | null;
+  color: 'rojo' | 'blanco' | null;
+  is_packaged: boolean;
+  packages_per_box: number | null;
+  eggs_per_package: number | null;
+  maples_per_box: number | null;
+}
+
+export interface DebtDelivery {
+  id: string;
+  delivered_at: string;
+  total_amount: number;
+  items: DebtDeliveryItem[];
+}
+
+interface RawDebtDelivery {
+  id: string;
+  delivered_at: string;
+  total_amount: number | null;
+  delivery_items: {
+    cajas_plasticas: number;
+    egg_types: {
+      name: string; color: 'rojo' | 'blanco' | null; is_packaged: boolean;
+      packages_per_box: number | null; eggs_per_package: number | null; maples_per_box: number | null;
+    } | null;
+  }[];
+}
+
+/** Entregas a crédito del chofer a un cliente (las que forman la deuda). */
+export function useCustomerCreditDeliveries(customerId?: string) {
+  return useQuery({
+    queryKey: ['customer-credit-deliveries', customerId],
+    enabled: !!customerId,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 60 * 24 * 3,
+    networkMode: 'offlineFirst',
+    queryFn: async (): Promise<DebtDelivery[]> => {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .select(`
+          id, delivered_at, total_amount,
+          delivery_items(cajas_plasticas, egg_types(name, color, is_packaged, packages_per_box, eggs_per_package, maples_per_box))
+        `)
+        .eq('customer_id', customerId!)
+        .eq('payment_method', 'credito')
+        .eq('status', 'entregado')
+        .order('delivered_at', { ascending: false });
+      if (error) throw error;
+      return ((data ?? []) as unknown as RawDebtDelivery[]).map((d) => ({
+        id: d.id,
+        delivered_at: d.delivered_at,
+        total_amount: d.total_amount ?? 0,
+        items: (d.delivery_items ?? []).map((it) => ({
+          cajas_plasticas: it.cajas_plasticas,
+          egg_type_name: it.egg_types?.name ?? null,
+          color: it.egg_types?.color ?? null,
+          is_packaged: it.egg_types?.is_packaged ?? false,
+          packages_per_box: it.egg_types?.packages_per_box ?? null,
+          eggs_per_package: it.egg_types?.eggs_per_package ?? null,
+          maples_per_box: it.egg_types?.maples_per_box ?? null,
+        })),
+      }));
+    },
+  });
+}
+
+export interface DebtPayment {
+  id: string;
+  amount: number;
+  note: string | null;
+  received_at: string;
+}
+
+/** Cobros registrados a un cliente. */
+export function useCustomerPaymentsHistory(customerId?: string) {
+  return useQuery({
+    queryKey: ['customer-payments-history', customerId],
+    enabled: !!customerId,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 60 * 24 * 3,
+    networkMode: 'offlineFirst',
+    queryFn: async (): Promise<DebtPayment[]> => {
+      const { data, error } = await supabase
+        .from('customer_payments')
+        .select('id, amount, note, received_at')
+        .eq('customer_id', customerId!)
+        .order('received_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as DebtPayment[];
+    },
+  });
+}
+
 export function useRegisterCustomerPayment() {
   const qc = useQueryClient();
   return useMutation({
@@ -56,6 +152,7 @@ export function useRegisterCustomerPayment() {
     onSettled: (_d, _e, vars: RegisterPaymentInput) => {
       qc.invalidateQueries({ queryKey: ['debt-balances'] });
       qc.invalidateQueries({ queryKey: ['customer-debt', vars.customer_id] });
+      qc.invalidateQueries({ queryKey: ['customer-payments-history', vars.customer_id] });
     },
   });
 }

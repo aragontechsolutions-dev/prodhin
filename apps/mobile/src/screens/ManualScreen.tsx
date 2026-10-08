@@ -201,6 +201,7 @@ const SECTIONS: Item[] = [
     body: [
       'Entrá a "Deudas de clientes" en el menú para ver quién te debe.',
       'La lista va de mayor a menor deuda. Los que tienen 2+ entregas a crédito sin cobrar salen marcados con ⚠️.',
+      'Tocá "Ver detalle" para ver el desglose: cada entrega a crédito con su fecha, categoría de huevo, cajas plásticas, cajones y cantidad de huevos, más el historial de cobros.',
       'Cuando cobrás, tocá "Cobrar", poné el monto y confirmá: la deuda del cliente baja.',
       'Podés cobrar el total o una parte (pago parcial).',
     ],

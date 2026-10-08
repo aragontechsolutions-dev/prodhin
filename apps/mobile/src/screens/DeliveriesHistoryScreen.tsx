@@ -131,13 +131,20 @@ export default function DeliveriesHistoryScreen() {
     // Métricas generales (según lo visible)
     let cajas = 0;
     let facturado = 0;
+    let efectivo = 0;
+    let credito = 0;
     const clientes = new Set<string>();
     for (const d of view) {
       cajas += d.total_cajas_plasticas;
-      if (d.status === 'entregado') facturado += d.total_amount ?? 0;
+      if (d.status === 'entregado') {
+        const monto = d.total_amount ?? 0;
+        facturado += monto;
+        if (d.payment_method === 'credito') credito += monto;
+        else if (d.payment_method === 'efectivo') efectivo += monto;
+      }
       clientes.add(d.customer_id);
     }
-    const summary = { entregas: view.length, clientes: clientes.size, cajas, facturado };
+    const summary = { entregas: view.length, clientes: clientes.size, cajas, facturado, efectivo, credito };
 
     // Resumen por categoría existente (cp por tipo, sobre base)
     const cpByType = new Map<string, number>();
@@ -294,6 +301,18 @@ export default function DeliveriesHistoryScreen() {
         <View style={styles.summaryItem}><Text style={styles.summaryNum}>{summary.clientes}</Text><Text style={styles.summaryLbl}>clientes</Text></View>
         <View style={styles.summaryItem}><Text style={styles.summaryNum}>{formatMoney(summary.facturado)}</Text><Text style={styles.summaryLbl}>facturado</Text></View>
       </View>
+
+      {/* Desglose efectivo / crédito */}
+      <View style={styles.payBreakdown}>
+        <View style={[styles.payBox, styles.payBoxEfectivo]}>
+          <Text style={styles.payBoxLbl}>💵 Efectivo</Text>
+          <Text style={[styles.payBoxVal, { color: '#166534' }]}>{formatMoney(summary.efectivo)}</Text>
+        </View>
+        <View style={[styles.payBox, styles.payBoxCredito]}>
+          <Text style={styles.payBoxLbl}>💳 Crédito</Text>
+          <Text style={[styles.payBoxVal, { color: '#92400e' }]}>{formatMoney(summary.credito)}</Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -400,6 +419,12 @@ const styles = StyleSheet.create({
   summaryItem: { flex: 1, alignItems: 'center' },
   summaryNum: { fontSize: 20, fontWeight: '800', color: '#111827' },
   summaryLbl: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  payBreakdown: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 8 },
+  payBox: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  payBoxEfectivo: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  payBoxCredito: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
+  payBoxLbl: { fontSize: 12, fontWeight: '700', color: '#6b7280' },
+  payBoxVal: { fontSize: 18, fontWeight: '800', marginTop: 2 },
   listContent: { padding: 16, paddingTop: 0, gap: 8 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#f3f4f6', gap: 8, marginTop: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },

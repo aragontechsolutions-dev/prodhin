@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
 import { useMyCustomers } from '../hooks/useMyCustomers';
 import { useMyDebts, useRegisterCustomerPayment, type DebtRow } from '../hooks/useDebts';
@@ -15,7 +17,7 @@ import { showToast } from '../lib/toastStore';
 import { uuidv4 } from '../lib/uuid';
 
 export default function DebtsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Debts'>>();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { isOnline } = useNetworkStatus();
@@ -83,12 +85,14 @@ export default function DebtsScreen() {
             const alerta = r.entregas_credito_sin_cobrar >= 2;
             return (
               <View key={r.customer_id} style={[styles.card, alerta && styles.cardAlert]}>
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.7}
+                  onPress={() => navigation.navigate('CustomerDebtDetail', { customerId: r.customer_id, name: r.name })}>
                   <Text style={styles.cardName} numberOfLines={1}>{alerta ? '⚠️ ' : ''}{r.name}</Text>
                   <Text style={[styles.cardSub, alerta && styles.cardSubAlert]}>
                     {formatMoney(r.saldo)} · {r.entregas_credito_sin_cobrar} entrega(s) sin cobrar
                   </Text>
-                </View>
+                  <Text style={styles.verDetalle}>Ver detalle ›</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.cobrarBtn} onPress={() => { setCobro({ row: r, name: r.name }); setAmount(String(Math.round(r.saldo))); }} activeOpacity={0.85}>
                   <Text style={styles.cobrarBtnText}>Cobrar</Text>
                 </TouchableOpacity>
@@ -145,6 +149,7 @@ const styles = StyleSheet.create({
   cardName: { fontSize: 15, fontWeight: '700', color: '#111827' },
   cardSub: { fontSize: 13, color: '#6b7280', marginTop: 2, fontWeight: '600' },
   cardSubAlert: { color: '#b91c1c' },
+  verDetalle: { fontSize: 12, color: '#1d4ed8', fontWeight: '700', marginTop: 4 },
   cobrarBtn: { backgroundColor: '#16a34a', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
   cobrarBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 24 },
