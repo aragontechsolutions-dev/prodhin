@@ -3,12 +3,23 @@ import { toast } from 'sonner';
 import type { Customer } from '@prodhin/shared';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useAuth } from '../../../hooks/useAuth';
-import { useDebtBalances, useCustomerPayments, useRegisterPayment, type DebtRow } from '../../../hooks/useDebts';
+import {
+  useDebtBalances, useCustomerPayments, useRegisterPayment,
+  uploadPaymentProof, paymentProofSignedUrl, type DebtRow, type PaymentMethod,
+} from '../../../hooks/useDebts';
 import { formatMoney } from '../../../lib/pricing';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
+import Select from '../../../components/ui/Select';
 import Modal from '../../../components/ui/Modal';
 import Badge from '../../../components/ui/Badge';
+
+const METHOD_LABEL: Record<string, string> = { efectivo: 'Efectivo', cheque: 'Cheque', transferencia: 'Transferencia' };
+
+async function openProof(path: string) {
+  const url = await paymentProofSignedUrl(path);
+  if (url) window.open(url, '_blank', 'noopener');
+}
 
 function customerName(c: Customer | undefined): string {
   if (!c) return 'Cliente';
@@ -25,7 +36,6 @@ export default function DebtsPage() {
   const { profile } = useAuth();
   const { data: balances, isLoading } = useDebtBalances();
   const { data: customers } = useCustomers();
-  const register = useRegisterPayment();
 
   const [cobro, setCobro] = useState<{ row: DebtRow; name: string } | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
@@ -123,20 +133,16 @@ export default function DebtsPage() {
         )}
       </div>
 
-      <CobroModal
-        open={cobro !== null}
-        name={cobro?.name ?? ''}
-        saldo={cobro?.row.saldo ?? 0}
-        onClose={() => setCobro(null)}
-        onConfirm={(amount, note) => {
-          if (!cobro) return;
-          register.mutate(
-            { customer_id: cobro.row.customer_id, amount, note, driver_id: profile?.id ?? null },
-            { onSuccess: () => { toast.success('Cobro registrado'); setCobro(null); }, onError: () => toast.error('No se pudo registrar el cobro') },
-          );
-        }}
-        isLoading={register.isPending}
-      />
+      {cobro && (
+        <CobroModal
+          open={cobro !== null}
+          customerId={cobro.row.customer_id}
+          name={cobro.name}
+          saldo={cobro.row.saldo}
+          driverId={profile?.id ?? null}
+          onClose={() => setCobro(null)}
+        />
+      )}
     </div>
   );
 }
@@ -149,39 +155,70 @@ function PaymentHistory({ customerId }: { customerId: string }) {
     <div className="mt-2 space-y-1 text-right">
       {data.map((p) => (
         <p key={p.id} className="text-xs text-gray-500 dark:text-gray-400">
-          {fmtDate(p.received_at)} · {formatMoney(p.amount)} · {p.driver?.full_name ?? 'admin'}{p.note ? ` · ${p.note}` : ''}
+          {fmtDate(p.received_at)} · {formatMoney(p.amount)} · {METHOD_LABEL[p.method] ?? p.method} · {p.driver?.full_name ?? 'admin'}{p.note ? ` · ${p.note}` : ''}
+          {p.proof_path && (
+            <> · <button onClick={() => openProof(p.proof_path!)} className="text-primary-600 dark:text-primary-400 hover:underline">comprobante</button></>
+          )}
         </p>
       ))}
     </div>
   );
 }
 
-function CobroModal({ open, name, saldo, onClose, onConfirm, isLoading }: {
-  open: boolean; name: string; saldo: number;
-  onClose: () => void; onConfirm: (amount: number, note: string | null) => void; isLoading: boolean;
+function CobroModal({ open, customerId, name, saldo, driverId, onClose }: {
+  open: boolean; customerId: string; name: string; saldo: number; driverId: string | null; onClose: () => void;
 }) {
+  const register = useRegisterPayment();
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('efectivo');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function submit() {
+  function close() { setAmount(''); setNote(''); setMethod('efectivo'); setFile(null); setBusy(false); onClose(); }
+
+  async function submit() {
     const n = parseFloat(amount.replace(',', '.'));
     if (!Number.isFinite(n) || n <= 0) { toast.error('Ingresá un monto válido'); return; }
-    onConfirm(n, note.trim() || null);
-    setAmount(''); setNote('');
+    setBusy(true);
+    let proofPath: string | null = null;
+    if (file && (method === 'cheque' || method === 'transferencia')) {
+      try { proofPath = await uploadPaymentProof(file, customerId); }
+      catch { toast.error('No se pudo subir el comprobante; el cobro se registra igual'); }
+    }
+    register.mutate(
+      { customer_id: customerId, amount: n, method, proof_path: proofPath, note: note.trim() || null, driver_id: driverId },
+      { onSuccess: () => { toast.success('Cobro registrado'); close(); }, onError: () => { toast.error('No se pudo registrar el cobro'); setBusy(false); } },
+    );
   }
 
+  const needsProof = method === 'cheque' || method === 'transferencia';
+
   return (
-    <Modal isOpen={open} onClose={onClose} title="Registrar cobro" size="sm">
+    <Modal isOpen={open} onClose={close} title="Registrar cobro" size="sm">
       <div className="p-6 space-y-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Cobro a <strong>{name}</strong>. Deuda actual: <strong>{formatMoney(saldo)}</strong>.
         </p>
         <Input label="Monto cobrado (UYU)" type="number" value={amount}
           onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ej: 1440" />
+        <Select label="Forma de cobro" value={method}
+          onChange={(e) => { setMethod(e.target.value as PaymentMethod); setFile(null); }}
+          options={[{ value: 'efectivo', label: 'Efectivo' }, { value: 'cheque', label: 'Cheque' }, { value: 'transferencia', label: 'Transferencia' }]} />
+        {needsProof && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Comprobante ({method === 'cheque' ? 'foto del cheque' : 'PDF o imagen'}) — opcional
+            </label>
+            <input type="file" accept="image/*,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />
+          </div>
+        )}
         <Input label="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: pago parcial" />
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>Cancelar</Button>
-          <Button onClick={submit} isLoading={isLoading}>Registrar cobro</Button>
+          <Button variant="secondary" onClick={close} disabled={busy}>Cancelar</Button>
+          <Button onClick={submit} isLoading={busy}>Registrar cobro</Button>
         </div>
       </div>
     </Modal>

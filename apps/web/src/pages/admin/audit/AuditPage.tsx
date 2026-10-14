@@ -45,6 +45,7 @@ const FIELD_LABELS: Record<string, string> = {
   payment_method: 'Forma de pago', total_amount: 'Monto total', unit_price: 'Precio unitario',
   line_total: 'Total de línea', amount: 'Monto cobrado', received_at: 'Fecha de cobro',
   min_price: 'Precio mínimo', maples_per_box: 'Maples por caja',
+  method: 'Forma de cobro', proof_path: 'Comprobante',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -113,6 +114,7 @@ export default function AuditPage() {
     if (key === 'status') return STATUS_LABEL[String(val)] ?? String(val);
     if (key === 'mode') return val === 'cp' ? 'Deja cajas plásticas' : 'En cartones';
     if (key === 'payment_method') return val === 'credito' ? 'Crédito' : val === 'efectivo' ? 'Efectivo' : String(val);
+    if (key === 'method') return ({ efectivo: 'Efectivo', cheque: 'Cheque', transferencia: 'Transferencia' } as Record<string, string>)[String(val)] ?? String(val);
     if (key === 'day_of_week') return DAYS[Number(val)] ?? String(val);
     if (key === 'customer_type') return val === 'empresa' ? 'Empresa' : 'Persona física';
     if (key === 'role') return String(val) === 'admin' ? 'Administrador' : 'Chofer';

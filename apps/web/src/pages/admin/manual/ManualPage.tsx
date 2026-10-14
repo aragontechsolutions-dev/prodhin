@@ -343,7 +343,8 @@ export default function ManualPage() {
             'En Asignaciones → sección Delegaciones → "Nueva delegación".',
             'Seleccionar el chofer ausente y el chofer que lo cubre.',
             'Definir fecha de inicio y fin de la cobertura.',
-            'El chofer cubridor verá los clientes del ausente con marcador naranja (diamante) en su mapa.',
+            'El chofer cubridor verá los clientes del ausente con marcador naranja (diamante) en su mapa, con TODO su detalle (deuda, cajas en el local, historial de entregas), como si fueran propios.',
+            'El chofer ausente NO puede usar la app mientras dura su licencia: al abrirla ve un aviso de que está de licencia y debe cerrar sesión.',
           ]} />
           <Tip>La delegación es automática por fecha. Al llegar la fecha de fin, los clientes naranjas desaparecen del mapa del cubridor sin ninguna acción adicional.</Tip>
           <Warning>Los clientes del ausente aparecen en el mapa del cubridor pero no forman parte de su ruta propia. Si necesitás que el cubridor los vea resaltados en verde, deberás agregarlos a su ruta manualmente.</Warning>
@@ -515,7 +516,8 @@ export default function ManualPage() {
           <SubTitle>Cómo funciona la deuda</SubTitle>
           <Steps items={[
             'Cada entrega a crédito suma su total a la deuda del cliente.',
-            'Los cobros (pagos) la bajan. Los puede registrar el chofer (desde la app) o la administración (desde este módulo).',
+            'Los cobros (pagos) la bajan. Los puede registrar el chofer (desde la app) o la administración (desde este módulo), eligiendo la forma de cobro: efectivo, cheque o transferencia.',
+            'En cheque o transferencia se puede adjuntar un comprobante (foto o PDF). Queda guardado y se abre con el enlace "comprobante" en el historial de cobros.',
             'La lista va de mayor a menor deuda. Podés registrar cobros totales o parciales.',
             'Cuando un cliente acumula 2 o más entregas a crédito sin cobrar, queda en ALERTA (⚠️) y se avisa al chofer y a la administración.',
           ]} />

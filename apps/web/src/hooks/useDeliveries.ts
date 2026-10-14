@@ -117,7 +117,8 @@ export function useDeliveries(filters: DeliveryFilters) {
         `)
         .gte('delivered_at', fromTs)
         .lte('delivered_at', toTs)
-        .order('delivered_at', { ascending: false });
+        .order('delivered_at', { ascending: false })
+        .limit(5000); // evita el tope por defecto de 1000 en rangos amplios
 
       if (filters.driverId) query = query.eq('driver_id', filters.driverId);
 
