@@ -1,0 +1,320 @@
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Platform,
+  LayoutAnimation,
+  UIManager,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_VERSION } from '../lib/appVersion';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Manual'>;
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+interface Item {
+  icon: string;
+  title: string;
+  body: string[]; // párrafos / pasos
+  tip?: string;
+}
+
+const SECTIONS: Item[] = [
+  {
+    icon: '🗺️',
+    title: 'El mapa y tus clientes',
+    body: [
+      'Al abrir la app ves tus clientes en el mapa.',
+      'Verde pulsante: cliente de tu ruta de hoy (pendiente).',
+      'Verde con ✓: le registraste una entrega (con venta).',
+      'Gris con ✓: lo visitaste pero sin venta (ausente / no quiso / sin stock).',
+      'Rojo: cliente tuyo que hoy no está en la ruta.',
+      'Naranja (rombo): cliente que estás cubriendo por otro chofer. Mientras cubrís su licencia ves todo del cliente (deuda, cajas en el local, historial), como si fuera tuyo.',
+      'Al abrir con señal, un aviso verde confirma que los datos quedaron listos para trabajar sin conexión.',
+      'Cada acción (entrega, recogida de cajas, maples, devoluciones, horario) muestra arriba un aviso de éxito (verde) o error (rojo) que desaparece solo a los segundos.',
+    ],
+    tip: 'Usá el buscador (🔍) para encontrar un cliente por nombre o RUT: el mapa vuela hasta él.',
+  },
+  {
+    icon: '➡️',
+    title: 'Sugerencia de próximo cliente',
+    body: [
+      'Al empezar la ruta y después de cada entrega, aparece arriba un aviso con el cliente pendiente MÁS CERCANO a tu posición (por GPS).',
+      'Solo tiene en cuenta la distancia más corta; no usa el orden histórico de entregas.',
+      'El aviso trae un botón "🧭 Ir hasta el cliente": elegís navegar con la app, Google Maps o Waze.',
+      'Es solo una sugerencia: podés ir a quien quieras. El aviso queda hasta que lo cerrás con la ✕.',
+    ],
+    tip: 'Cuando terminás todas las entregas del día, aparece una animación de "¡Todas completadas!".',
+  },
+  {
+    icon: '☰',
+    title: 'El menú lateral',
+    body: [
+      'Tocá las tres líneas (☰) arriba a la izquierda para abrir el menú.',
+      '📍 Mis clientes: todos tus clientes.',
+      '🗓️ Ruta de hoy: pendientes, entregados y visitados sin venta.',
+      '🥚 Tipos de huevo: qué compra cada cliente.',
+      '🚚 Carga del día: cuánto conviene cargar hoy.',
+      '📦 Stock del camión: lo que hay arriba del camión.',
+      '📦 Mis entregas: historial de lo que entregaste.',
+    ],
+    tip: 'Tocando fuera del menú, se cierra y volvés al mapa.',
+  },
+  {
+    icon: '🧭',
+    title: 'Navegar hasta un cliente',
+    body: [
+      'Tocá un cliente y luego "Navegar".',
+      'La flecha apunta hacia donde te movés y el mapa gira para que la calle quede vertical.',
+      'Te avisa los giros por voz.',
+      'Si te salís del camino, recalcula la ruta solo.',
+      'Botón 📍 (abajo a la derecha): vuelve a centrar el mapa en tu posición.',
+    ],
+    tip: 'No necesitás salir a Google Maps: la navegación es dentro de la app.',
+  },
+  {
+    icon: '🥚',
+    title: 'Registrar una entrega',
+    body: [
+      'Entrá al detalle del cliente y tocá "🥚 Registrar entrega".',
+      'Elegí el resultado: Entregado, Ausente, No quiso o Sin stock.',
+      'Marcá uno o varios tipos de huevo (se prellena con el principal del cliente).',
+      'Poné la cantidad de cajas plásticas de cada tipo (con +/− o tocando el número).',
+      'Podés ingresar el PRECIO (opcional): por cajón en los sueltos, por envase en los envasados. Si lo dejás vacío, la entrega se registra igual. Si lo ponés, no puede ser menor al mínimo que fija la administración (más caro sí, más barato no).',
+      'Cuando ponés precio, la app te muestra el total de cada línea y el total de la entrega.',
+      'Elegí la FORMA DE PAGO: Efectivo (se cobra ahora) o Crédito (queda como deuda del cliente).',
+      'Si el cliente ya tiene deuda, arriba ves cuánto debe. Si acumula 2+ entregas a crédito sin cobrar, te avisa con una alerta.',
+      'La app valida el stock del camión: no deja entregar más de lo que hay.',
+      'Elegí el modo: "deja cajas plásticas" o "en cartones (sin dejar cajas)".',
+      'Si dejás cajas pero algunas se vacían y te las devuelven en el acto, poné cuántas en "Cajas vacías devueltas en el acto" (así el saldo del local queda exacto).',
+      'Poné cuántas cajas vacías recogés en la visita (de visitas anteriores).',
+      'Al guardar volvés directo al MAPA y aparece un aviso arriba: "Entrega realizada con éxito" (o el error si algo falló). El cliente queda marcado como visitado.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía sola al reconectar. En el detalle del cliente ves su N° de cliente (el que asigna la administración), sus datos y cuántas cajas plásticas quedan en su local.',
+  },
+  {
+    icon: '🕒',
+    title: 'Cajas sin entrega y horarios de cierre',
+    body: [
+      'En el detalle del cliente tenés "📦 Recoger cajas (sin entrega)": si el cliente no compra pero devuelve cajas, registrá cuántas y baja solo el saldo del local.',
+      'También podés marcar el "Horario de cierre" del cliente (a qué hora deja de recibir mercadería).',
+      'La app te avisa 1 hora y 30 minutos antes del cierre de los clientes de tu ruta que tengan horario, aunque tengas la app cerrada.',
+      'La primera vez te va a pedir permiso para enviarte notificaciones: aceptalo.',
+    ],
+    tip: 'El horario lo cargás vos que estás en la calle. Se guarda igual todos los días. Cuando visitás al cliente, deja de avisarte por él.',
+  },
+  {
+    icon: '⭐',
+    title: 'Tipos de huevo del cliente',
+    body: [
+      'En el detalle del cliente podés marcar los tipos que suele comprar.',
+      'Tocá un tipo para agregarlo o quitarlo.',
+      'Mantené presionado un tipo para marcarlo como principal (⭐).',
+      'Si entregás un tipo nuevo, la app te ofrece agregarlo a los habituales.',
+    ],
+  },
+  {
+    icon: '🚚',
+    title: 'Carga del día',
+    body: [
+      'Cuando el administrador registra la carga del camión, te aparece un aviso y el menú marca "Carga del día" con ⚠️ sin confirmar.',
+      'Entrá y CONFIRMÁ la carga: "Todo correcto" si coincide, o "Hay diferencias" para poner las cantidades reales por tipo y una nota.',
+      'Hasta que no confirmes, no vas a poder registrar entregas (te lo avisa y te manda a confirmar).',
+      'Abajo te dice cuántas cajas plásticas de cada tipo cargar para la ruta: demanda estimada (lo que suelen comprar + 10%) menos lo que hay en el camión.',
+      'Tocá un tipo para ver qué clientes lo aportan.',
+    ],
+    tip: 'Podés confirmar sin conexión: queda guardado y se envía al reconectar. Si hay diferencias, ponelas igual y confirmá; no te bloquea, solo queda avisado el administrador.',
+  },
+  {
+    icon: '📦',
+    title: 'Stock del camión',
+    body: [
+      'Muestra lo que hay arriba del camión por tipo de huevo (solo lectura).',
+      'Cada entrega descuenta sola del stock.',
+      'El sobrante queda para el día siguiente.',
+      'Las cargas y los recuentos los registra el administrador desde la web.',
+    ],
+    tip: 'Si el stock que ves no coincide con lo real, avisá al admin para que haga una carga o un recuento.',
+  },
+  {
+    icon: '🧺',
+    title: 'Entregar maples a la empresa',
+    body: [
+      'Si recogiste maples plásticos, tenés que entregarlos en la empresa.',
+      'Entrá a "Entregar maples" en el menú y poné cuántos le entregás al administrador (ej: 40). Podés agregar una nota.',
+      'Tocá "Registrar entrega": queda como PENDIENTE hasta que el admin los cuente.',
+      'El admin cuenta los maples y aprueba (con la cantidad real) o rechaza.',
+      'Vas a ver el estado en la lista y un aviso cuando el admin resuelva.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Si el admin contó una cantidad distinta a la que declaraste, la vas a ver en el detalle.',
+  },
+  {
+    icon: '♻️',
+    title: 'Rotos y devoluciones',
+    body: [
+      'Entrá a "Rotos y devoluciones" en el menú para devolver a la empresa huevos rotos y/o productos envasados vencidos.',
+      'Huevos rotos: poné el total de huevos rotos que devolvés.',
+      'Envasados vencidos: tocá el producto (Doña Clara x6, etc.), poné la cantidad y la FECHA DE CADUCIDAD que dice el envase.',
+      'Tocá "Registrar devolución": queda PENDIENTE hasta que el admin la controle.',
+      'El admin cuenta y aprueba, y registra cuántos te devuelve (rotos sanos y/o envasados con su nueva fecha).',
+      'Vas a ver el estado en la lista y un aviso cuando el admin resuelva.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Podés cargar rotos, vencidos, o ambos en el mismo registro.',
+  },
+  {
+    icon: '🎯',
+    title: 'Captar cliente (prospectos)',
+    body: [
+      'Entrá a "Captar cliente" en el menú cuando visites un local potencial.',
+      'Poné el nombre del local, dirección y teléfono si los tenés.',
+      'Tocá "Ubicación actual" para marcar dónde está con el GPS.',
+      'Marcá si el local ya tiene oferta de la competencia.',
+      'Agregá las ofertas que ves: tipo de huevo, formato (de a 30, 15, 6, etc.), precio y una FOTO tocando la cámara.',
+      'Tocá "Registrar prospecto": el admin lo revisa y puede convertirlo en cliente.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. Las fotos se suben cuando hay conexión.',
+  },
+  {
+    icon: '🚩',
+    title: 'Marcar competencia',
+    body: [
+      'Entrá a "Marcar competencia" en el menú cuando veas operar a un competidor.',
+      'Poné el nombre de la competencia.',
+      'Tocá "Usar mi ubicación" para marcar dónde opera con el GPS.',
+      'Elegí un radio de acción aproximado (200 m, 500 m, 1 km, 2 km).',
+      'Tocá "Marcar competencia": queda pendiente hasta que la administración la revise y apruebe.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. No hace falta que ubiques nada en un mapa: se usa tu GPS.',
+  },
+  {
+    icon: '💳',
+    title: 'Deudas de clientes',
+    body: [
+      'Entrá a "Deudas de clientes" en el menú para ver quién te debe.',
+      'La lista va de mayor a menor deuda. Los que tienen 2+ entregas a crédito sin cobrar salen marcados con ⚠️.',
+      'Tocá "Ver detalle" para ver el desglose: cada entrega a crédito con su fecha, categoría de huevo, cajas plásticas, cajones y cantidad de huevos, más el historial de cobros.',
+      'Cuando cobrás, tocá "Cobrar", poné el monto y elegí la forma: efectivo, cheque o transferencia.',
+      'Si es cheque podés tomarle una foto; si es transferencia podés adjuntar el comprobante (PDF o imagen). El comprobante es opcional y se sube con conexión.',
+      'Podés cobrar el total o una parte (pago parcial). La deuda del cliente baja.',
+    ],
+    tip: 'Sin señal el cobro se guarda igual y se envía al reconectar. Cuando registrás una 2ª entrega a crédito sin cobrar, la app te avisa con una notificación.',
+  },
+  {
+    icon: '📦',
+    title: 'Mis entregas',
+    body: [
+      'Arriba ves un resumen por tipo de huevo (cajas plásticas y cajones).',
+      'Filtrá por Hoy, 7/15/30/90 días, "Todas" (todo el historial) o un día/rango con 📅 Fechas.',
+      'Se muestran paginadas: 20 por página (podés cambiar a 50 o 100) con Anterior/Siguiente.',
+      'Tocá una entrega para ver su detalle: forma de pago, total, productos con precio, cajas y notas.',
+      'Buscá por cliente o RUT, y filtrá por tipo de huevo.',
+      'Útil si un cliente te pregunta por una entrega de hace días.',
+    ],
+  },
+  {
+    icon: '🔒',
+    title: 'Sesión y contraseña',
+    body: [
+      'La primera vez la app te pide cambiar la contraseña temporal.',
+      'Por seguridad, la sesión se cierra sola si no usás la app un buen rato.',
+      'Si ves "Sesión expirada", volvé a ingresar con tu email y contraseña.',
+      'Sin credenciales correctas no se entra.',
+    ],
+  },
+];
+
+function AccordionCard({ item, open, onToggle }: { item: Item; open: boolean; onToggle: () => void }) {
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHead} activeOpacity={0.7} onPress={onToggle}>
+        <Text style={styles.cardIcon}>{item.icon}</Text>
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        <Text style={styles.chevron}>{open ? '▾' : '▸'}</Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          {item.body.map((line, i) => (
+            <View key={i} style={styles.line}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.lineText}>{line}</Text>
+            </View>
+          ))}
+          {item.tip && (
+            <View style={styles.tip}>
+              <Text style={styles.tipText}>💡 {item.tip}</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function ManualScreen() {
+  const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+
+  function toggle(i: number) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpenIdx((prev) => (prev === i ? null : i));
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backBtnText}>← Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>Manual del chofer</Text>
+        <View style={{ width: 80 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
+        <Text style={styles.intro}>Guía rápida para usar la app en la calle. Tocá cada tema para ver los detalles.</Text>
+        {SECTIONS.map((item, i) => (
+          <AccordionCard key={item.title} item={item} open={openIdx === i} onToggle={() => toggle(i)} />
+        ))}
+        <Text style={styles.footer}>SISGESDEL Drivers · versión {APP_VERSION} · ¿Dudas? Consultá con el administrador.</Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f9fafb' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 12,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  backBtn: {
+    height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: '#fffbeb',
+    borderWidth: 1, borderColor: '#fde68a', alignItems: 'center', justifyContent: 'center',
+  },
+  backBtnText: { fontSize: 14, color: '#92400e', fontWeight: '700' },
+  headerTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginHorizontal: 8 },
+  content: { padding: 16, gap: 10, paddingBottom: 40 },
+  intro: { fontSize: 13, color: '#6b7280', lineHeight: 19, marginBottom: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden' },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  cardIcon: { fontSize: 22 },
+  cardTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: '#111827' },
+  chevron: { fontSize: 14, color: '#9ca3af' },
+  cardBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  line: { flexDirection: 'row', gap: 8 },
+  bullet: { color: '#1d4ed8', fontSize: 15, lineHeight: 20 },
+  lineText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 20 },
+  tip: { backgroundColor: '#fffbeb', borderRadius: 10, borderWidth: 1, borderColor: '#fde68a', padding: 10, marginTop: 4 },
+  tipText: { fontSize: 13, color: '#92400e', lineHeight: 18 },
+  footer: { fontSize: 12, color: '#9ca3af', textAlign: 'center', marginTop: 12 },
+});
