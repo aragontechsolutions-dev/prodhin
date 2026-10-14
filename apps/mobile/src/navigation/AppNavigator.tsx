@@ -2,7 +2,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useMyLeave } from '../hooks/useMyLeave';
 import LoginScreen from '../screens/LoginScreen';
+import LeaveScreen from '../screens/LeaveScreen';
 import MapScreen from '../screens/MapScreen';
 import CustomerDetailScreen from '../screens/CustomerDetailScreen';
 import RegisterDeliveryScreen from '../screens/RegisterDeliveryScreen';
@@ -41,6 +43,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   const { profile, loading } = useAuth();
+  const { data: leave } = useMyLeave(profile?.role === 'chofer' ? profile.id : undefined);
 
   if (loading) {
     return (
@@ -53,6 +56,9 @@ export default function AppNavigator() {
   if (!profile) return <LoginScreen />;
 
   if (profile.must_change_password) return <ChangePasswordScreen />;
+
+  // Chofer de licencia: no puede operar mientras otro lo cubre.
+  if (profile.role === 'chofer' && leave) return <LeaveScreen leave={leave} />;
 
   return (
     <NavigationContainer>
