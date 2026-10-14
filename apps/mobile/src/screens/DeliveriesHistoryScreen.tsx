@@ -8,6 +8,8 @@ import {
   FlatList,
   ActivityIndicator,
   Animated,
+  Modal,
+  ScrollView,
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -15,9 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { type EggType } from '../types';
-import { formatCajonesFor, formatMoney } from '../lib/pricing';
+import { formatCajonesFor, formatMoney, priceUnitLabel } from '../lib/pricing';
 import { useAuth } from '../hooks/useAuth';
-import { useMyDeliveries, type MyDeliveryRow } from '../hooks/useMyDeliveries';
+import { useMyDeliveriesRange, type MyDeliveryRow } from '../hooks/useMyDeliveries';
 import { useEggTypes } from '../hooks/useEggTypes';
 import DateRangeModal from '../components/DateRangeModal';
 
@@ -29,7 +31,10 @@ const RANGES = [
   { key: '15', label: '15 días', days: 15 },
   { key: '30', label: '30 días', days: 30 },
   { key: '90', label: '90 días', days: 90 },
+  { key: 'todas', label: 'Todas', days: -1 },
 ] as const;
+
+const PAGE_SIZES = [20, 50, 100] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   entregado: 'Entregado',
@@ -86,11 +91,54 @@ function CategoryTile({ index, name, color, cp, isPackaged }: { index: number; n
   );
 }
 
+function DeliveryDetailModal({ detail: d, onClose }: { detail: MyDeliveryRow | null; onClose: () => void }) {
+  const delivered = d?.status === 'entregado';
+  return (
+    <Modal visible={!!d} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.detailBg}>
+        <View style={styles.detailCard}>
+          {d && (
+            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              <Text style={styles.detailName}>{d.customer_name}</Text>
+              <Text style={styles.detailDate}>{fmtDateTime(d.delivered_at)}</Text>
+              <View style={[styles.statusPill, delivered ? styles.statusOk : styles.statusOther, { alignSelf: 'flex-start' }]}>
+                <Text style={[styles.statusText, delivered ? styles.statusTextOk : styles.statusTextOther]}>{STATUS_LABEL[d.status] ?? d.status}</Text>
+              </View>
+              {delivered && (
+                <>
+                  <View style={styles.detailRow}><Text style={styles.detailLbl}>Forma de pago</Text><Text style={styles.detailVal}>{d.payment_method === 'credito' ? 'Crédito' : d.payment_method === 'efectivo' ? 'Efectivo' : '—'}</Text></View>
+                  <View style={styles.detailRow}><Text style={styles.detailLbl}>Total</Text><Text style={styles.detailVal}>{d.total_amount > 0 ? formatMoney(d.total_amount) : '—'}</Text></View>
+                  <Text style={styles.detailSection}>Productos</Text>
+                  {d.items.map((it) => (
+                    <View key={it.id} style={styles.detailItem}>
+                      <View style={[styles.itemDot, { backgroundColor: eggDotColor(it.egg_type_color) }]} />
+                      <Text style={styles.detailItemName} numberOfLines={1}>{it.egg_type_name ?? 'Categoría'}</Text>
+                      <Text style={styles.detailItemQty}>
+                        {it.cajas_plasticas} cp · {formatCajonesFor(it.cajas_plasticas, it.is_packaged)} cj{it.unit_price != null ? ` · ${formatMoney(it.unit_price)}/${priceUnitLabel(it.is_packaged)}` : ''}{it.line_total != null ? ` · ${formatMoney(it.line_total)}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={styles.detailRow}><Text style={styles.detailLbl}>Modo</Text><Text style={styles.detailVal}>{d.mode === 'cp' ? 'Deja cajas plásticas' : 'En cartones'}</Text></View>
+                  <View style={styles.detailRow}><Text style={styles.detailLbl}>Cajas recogidas</Text><Text style={styles.detailVal}>{d.cajas_recogidas}</Text></View>
+                  {d.mode === 'cp' && <View style={styles.detailRow}><Text style={styles.detailLbl}>Devueltas en el acto</Text><Text style={styles.detailVal}>{d.cajas_devueltas}</Text></View>}
+                </>
+              )}
+              {d.notes ? <><Text style={styles.detailSection}>Notas</Text><Text style={styles.detailNotes}>{d.notes}</Text></> : null}
+            </ScrollView>
+          )}
+          <TouchableOpacity style={styles.detailClose} onPress={onClose} activeOpacity={0.85}>
+            <Text style={styles.detailCloseTxt}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function DeliveriesHistoryScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
-  const { data: deliveries, isLoading } = useMyDeliveries(profile?.id);
   const { data: eggTypes } = useEggTypes();
 
   const [rangeKey, setRangeKey] = useState<string>('hoy');
@@ -98,19 +146,29 @@ export default function DeliveriesHistoryScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [eggFilter, setEggFilter] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [page, setPage] = useState(1);
+  const [detail, setDetail] = useState<MyDeliveryRow | null>(null);
 
   const rangeDays = RANGES.find((r) => r.key === rangeKey)?.days ?? 0;
   const animKey = customRange ? `c${customRange.from}-${customRange.to}` : rangeKey;
 
-  // base = rango + búsqueda (sin filtro de categoría) → alimenta el resumen por categoría
-  const { view, summary, categorySummary, totalCp, totalCajones } = useMemo(() => {
-    const since = customRange ? customRange.from : startOfRange(rangeDays);
-    const until = customRange ? customRange.to : Date.now();
-    const q = query.trim().toLowerCase();
+  // Límites del rango (estables por selección) → se filtra en el servidor.
+  const { since, until } = useMemo<{ since: number | null; until: number | null }>(() => {
+    if (customRange) return { since: customRange.from, until: customRange.to };
+    if (rangeDays < 0) return { since: null, until: null }; // "Todas"
+    return { since: startOfRange(rangeDays), until: Date.now() };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeKey, customRange]);
 
+  const { data: deliveries, isLoading } = useMyDeliveriesRange(profile?.id, since, until);
+
+  // Al cambiar filtros o rango, volver a la primera página.
+  useEffect(() => { setPage(1); }, [rangeKey, customRange, query, eggFilter, pageSize]);
+
+  const { view, summary, categorySummary, totalCp, totalCajones } = useMemo(() => {
+    const q = query.trim().toLowerCase();
     const base = (deliveries ?? []).filter((d) => {
-      const t = new Date(d.delivered_at).getTime();
-      if (t < since || t > until) return false;
       if (q) {
         const name = d.customer_name.toLowerCase();
         const rut = (d.customer_tax_id ?? '').toLowerCase();
@@ -146,22 +204,24 @@ export default function DeliveriesHistoryScreen() {
     }
     const summary = { entregas: view.length, clientes: clientes.size, cajas, facturado, efectivo, credito };
 
-    // Resumen por categoría existente (cp por tipo, sobre base)
+    // Resumen por categoría (cp por tipo, sobre base = sin filtro de categoría)
     const cpByType = new Map<string, number>();
     for (const d of base) {
       if (d.status !== 'entregado') continue;
       for (const it of d.items) cpByType.set(it.egg_type_id, (cpByType.get(it.egg_type_id) ?? 0) + it.cajas_plasticas);
     }
-    // Solo las categorías que tuvieron entregas en el período
     const categorySummary = (eggTypes ?? [])
       .map((t) => ({ id: t.id, name: t.name, color: t.color, cp: cpByType.get(t.id) ?? 0, is_packaged: t.is_packaged }))
       .filter((c) => c.cp > 0);
     const totalCp = categorySummary.reduce((s, c) => s + c.cp, 0);
-    // Cajones correctos según clasificación (suelto 2:1, envasado 3:1)
     const totalCajones = categorySummary.reduce((s, c) => s + c.cp / (c.is_packaged ? 3 : 2), 0);
 
     return { view, summary, categorySummary, totalCp, totalCajones };
-  }, [deliveries, eggTypes, rangeDays, customRange, query, eggFilter]);
+  }, [deliveries, eggTypes, query, eggFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(view.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = view.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const totalCajonesFmt = Number.isInteger(totalCajones) ? String(totalCajones) : totalCajones.toFixed(1);
 
@@ -176,7 +236,7 @@ export default function DeliveriesHistoryScreen() {
   function renderItem({ item: d }: { item: MyDeliveryRow }) {
     const delivered = d.status === 'entregado';
     return (
-      <View style={styles.card}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => setDetail(d)}>
         <View style={styles.cardTop}>
           <Text style={styles.custName} numberOfLines={1}>{d.customer_name}</Text>
           <Text style={styles.dateText}>{fmtDateTime(d.delivered_at)}</Text>
@@ -210,7 +270,8 @@ export default function DeliveriesHistoryScreen() {
             ))}
           </View>
         )}
-      </View>
+        <Text style={styles.verDetalle}>Ver detalle ›</Text>
+      </TouchableOpacity>
     );
   }
 
@@ -316,6 +377,28 @@ export default function DeliveriesHistoryScreen() {
     </View>
   );
 
+  const ListFooter = view.length > 0 ? (
+    <View style={styles.pager}>
+      <View style={styles.pagerSizes}>
+        <Text style={styles.pagerLbl}>Por página:</Text>
+        {PAGE_SIZES.map((s) => (
+          <TouchableOpacity key={s} style={[styles.pagerChip, pageSize === s && styles.pagerChipOn]} onPress={() => setPageSize(s)}>
+            <Text style={[styles.pagerChipTxt, pageSize === s && styles.pagerChipTxtOn]}>{s}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.pagerNav}>
+        <TouchableOpacity style={[styles.pagerBtn, safePage <= 1 && styles.pagerBtnOff]} disabled={safePage <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
+          <Text style={styles.pagerBtnTxt}>‹ Anterior</Text>
+        </TouchableOpacity>
+        <Text style={styles.pagerInfo}>Pág. {safePage}/{totalPages} · {view.length} reg.</Text>
+        <TouchableOpacity style={[styles.pagerBtn, safePage >= totalPages && styles.pagerBtnOff]} disabled={safePage >= totalPages} onPress={() => setPage((p) => Math.min(totalPages, p + 1))}>
+          <Text style={styles.pagerBtnTxt}>Siguiente ›</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ) : null;
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -330,10 +413,11 @@ export default function DeliveriesHistoryScreen() {
         <ActivityIndicator color="#f59e0b" size="large" style={{ marginTop: 30 }} />
       ) : (
         <FlatList
-          data={view}
+          data={pageItems}
           keyExtractor={(d) => d.id}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 40 }]}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
@@ -344,6 +428,8 @@ export default function DeliveriesHistoryScreen() {
           }
         />
       )}
+
+      <DeliveryDetailModal detail={detail} onClose={() => setDetail(null)} />
 
       <DateRangeModal
         visible={pickerOpen}
@@ -449,6 +535,33 @@ const styles = StyleSheet.create({
   itemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#f9fafb', borderRadius: 999, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#f3f4f6' },
   itemDot: { width: 8, height: 8, borderRadius: 4 },
   itemText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  verDetalle: { fontSize: 12, color: '#1d4ed8', fontWeight: '700', marginTop: 4 },
+  pager: { marginTop: 10, gap: 10 },
+  pagerSizes: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pagerLbl: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
+  pagerChip: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#fff' },
+  pagerChipOn: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
+  pagerChipTxt: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  pagerChipTxtOn: { color: '#fff' },
+  pagerNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pagerBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#dbeafe' },
+  pagerBtnOff: { opacity: 0.4 },
+  pagerBtnTxt: { fontSize: 13, fontWeight: '700', color: '#1d4ed8' },
+  pagerInfo: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
+  detailBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  detailCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
+  detailName: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  detailDate: { fontSize: 13, color: '#9ca3af' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  detailLbl: { fontSize: 13, color: '#6b7280' },
+  detailVal: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  detailSection: { fontSize: 12, fontWeight: '800', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8 },
+  detailItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  detailItemName: { fontSize: 13, fontWeight: '700', color: '#374151', width: 96 },
+  detailItemQty: { flex: 1, fontSize: 12, color: '#6b7280', textAlign: 'right' },
+  detailNotes: { fontSize: 13, color: '#374151' },
+  detailClose: { marginTop: 12, backgroundColor: '#f3f4f6', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  detailCloseTxt: { color: '#374151', fontWeight: '700', fontSize: 15 },
   empty: { alignItems: 'center', marginTop: 40, gap: 8 },
   emptyIcon: { fontSize: 40 },
   emptyText: { fontSize: 14, color: '#9ca3af' },
