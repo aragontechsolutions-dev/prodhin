@@ -122,6 +122,8 @@ export interface DebtPayment {
   amount: number;
   note: string | null;
   received_at: string;
+  method: 'efectivo' | 'cheque' | 'transferencia';
+  proof_path: string | null;
 }
 
 /** Cobros registrados a un cliente. */
@@ -135,7 +137,7 @@ export function useCustomerPaymentsHistory(customerId?: string) {
     queryFn: async (): Promise<DebtPayment[]> => {
       const { data, error } = await supabase
         .from('customer_payments')
-        .select('id, amount, note, received_at')
+        .select('id, amount, note, received_at, method, proof_path')
         .eq('customer_id', customerId!)
         .order('received_at', { ascending: false });
       if (error) throw error;

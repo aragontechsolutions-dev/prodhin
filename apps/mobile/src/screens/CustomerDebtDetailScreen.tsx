@@ -1,23 +1,29 @@
 import { useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput,
-  Modal, Platform, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator, Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-import { useAuth } from '../hooks/useAuth';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
   useCustomerDebt, useCustomerCreditDeliveries, useCustomerPaymentsHistory,
-  useRegisterCustomerPayment, type DebtDeliveryItem,
+  type DebtDeliveryItem,
 } from '../hooks/useDebts';
 import { formatMoney, formatCajonesFor } from '../lib/pricing';
+import { paymentProofSignedUrl } from '../lib/customerPayments';
 import { showToast } from '../lib/toastStore';
-import { uuidv4 } from '../lib/uuid';
+import CobroModal from '../components/CobroModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerDebtDetail'>;
+
+const METHOD_LABEL: Record<string, string> = { efectivo: 'Efectivo', cheque: 'Cheque', transferencia: 'Transferencia' };
+
+async function openProof(path: string) {
+  const url = await paymentProofSignedUrl(path);
+  if (url) Linking.openURL(url).catch(() => showToast('No se pudo abrir el comprobante', 'error'));
+  else showToast('No se pudo abrir el comprobante', 'error');
+}
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -47,16 +53,12 @@ export default function CustomerDebtDetailScreen() {
   const route = useRoute<Props['route']>();
   const insets = useSafeAreaInsets();
   const { customerId, name } = route.params;
-  const { profile } = useAuth();
-  const { isOnline } = useNetworkStatus();
 
   const { data: debt } = useCustomerDebt(customerId);
   const { data: deliveries, isLoading } = useCustomerCreditDeliveries(customerId);
   const { data: payments } = useCustomerPaymentsHistory(customerId);
-  const register = useRegisterCustomerPayment();
 
   const [cobroOpen, setCobroOpen] = useState(false);
-  const [amount, setAmount] = useState('');
 
   const saldo = debt?.saldo ?? 0;
   const totalEntregas = (deliveries ?? []).length;
@@ -64,22 +66,6 @@ export default function CustomerDebtDetailScreen() {
     () => (deliveries ?? []).reduce((s, d) => s + d.items.reduce((a, it) => a + eggsInLine(it), 0), 0),
     [deliveries],
   );
-
-  function submitCobro() {
-    if (!profile) return;
-    const n = parseFloat(amount.replace(',', '.'));
-    if (!Number.isFinite(n) || n <= 0) { showToast('Ingresá un monto válido', 'error'); return; }
-    register.mutate(
-      { id: uuidv4(), customer_id: customerId, driver_id: profile.id, amount: n },
-      {
-        onSuccess: () => showToast('Cobro registrado', 'success'),
-        onError: (e: unknown) => { if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo registrar', 'error'); },
-      },
-    );
-    if (!isOnline) showToast('Cobro guardado (se enviará al reconectar)', 'success');
-    setCobroOpen(false);
-    setAmount('');
-  }
 
   return (
     <View style={styles.container}>
@@ -99,7 +85,7 @@ export default function CustomerDebtDetailScreen() {
           <Text style={styles.saldoSub}>
             {totalEntregas} entrega(s) a crédito · ~{grp(totalHuevos)} huevos
           </Text>
-          <TouchableOpacity style={styles.cobrarBtn} onPress={() => { setCobroOpen(true); setAmount(String(Math.round(Math.max(0, saldo)))); }} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.cobrarBtn} onPress={() => setCobroOpen(true)} activeOpacity={0.85}>
             <Text style={styles.cobrarBtnText}>Registrar cobro</Text>
           </TouchableOpacity>
         </View>
@@ -139,39 +125,27 @@ export default function CustomerDebtDetailScreen() {
         ) : (
           (payments ?? []).map((p) => (
             <View key={p.id} style={styles.payRow}>
-              <Text style={styles.payDate}>{fmtDate(p.received_at)}{p.note ? ` · ${p.note}` : ''}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.payDate}>{fmtDate(p.received_at)} · {METHOD_LABEL[p.method] ?? p.method}{p.note ? ` · ${p.note}` : ''}</Text>
+                {p.proof_path && (
+                  <TouchableOpacity onPress={() => openProof(p.proof_path!)}>
+                    <Text style={styles.proofLink}>📎 Ver comprobante</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <Text style={styles.payAmount}>− {formatMoney(p.amount)}</Text>
             </View>
           ))
         )}
       </ScrollView>
 
-      <Modal visible={cobroOpen} transparent animationType="fade" onRequestClose={() => setCobroOpen(false)}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Registrar cobro</Text>
-            <Text style={styles.modalSub}>{name} debe {formatMoney(saldo)}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={amount}
-              onChangeText={(t) => setAmount(t.replace(/[^0-9.,]/g, ''))}
-              keyboardType="decimal-pad"
-              placeholder="Monto cobrado"
-              placeholderTextColor="#9ca3af"
-              selectTextOnFocus
-              autoFocus
-            />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => { setCobroOpen(false); setAmount(''); }}>
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalOk} onPress={submitCobro}>
-                <Text style={styles.modalOkText}>Registrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <CobroModal
+        visible={cobroOpen}
+        customerId={customerId}
+        name={name}
+        saldo={saldo}
+        onClose={() => setCobroOpen(false)}
+      />
     </View>
   );
 }
@@ -202,7 +176,8 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 13, fontWeight: '700', color: '#374151', width: 110 },
   itemQty: { flex: 1, fontSize: 12, color: '#6b7280', textAlign: 'right' },
   payRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f0fdf4', borderRadius: 10, borderWidth: 1, borderColor: '#bbf7d0', paddingVertical: 10, paddingHorizontal: 12, marginTop: 6 },
-  payDate: { flex: 1, fontSize: 12, color: '#374151' },
+  payDate: { fontSize: 12, color: '#374151' },
+  proofLink: { fontSize: 12, color: '#1d4ed8', fontWeight: '700', marginTop: 2 },
   payAmount: { fontSize: 14, fontWeight: '800', color: '#166534' },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 20, gap: 10 },

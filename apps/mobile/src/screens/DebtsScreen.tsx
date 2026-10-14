@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput,
-  Modal, Platform, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,24 +8,19 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../hooks/useAuth';
 import { useMyCustomers } from '../hooks/useMyCustomers';
-import { useMyDebts, useRegisterCustomerPayment, type DebtRow } from '../hooks/useDebts';
-import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { useMyDebts } from '../hooks/useDebts';
 import { getDisplayName, type Customer } from '../types';
 import { formatMoney } from '../lib/pricing';
-import { showToast } from '../lib/toastStore';
-import { uuidv4 } from '../lib/uuid';
+import CobroModal from '../components/CobroModal';
 
 export default function DebtsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Debts'>>();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
-  const { isOnline } = useNetworkStatus();
   const { data: debts, isLoading } = useMyDebts();
   const { data: myCustomers } = useMyCustomers(profile?.id);
-  const register = useRegisterCustomerPayment();
 
-  const [cobro, setCobro] = useState<{ row: DebtRow; name: string } | null>(null);
-  const [amount, setAmount] = useState('');
+  const [cobro, setCobro] = useState<{ customerId: string; name: string; saldo: number } | null>(null);
 
   const custMap = useMemo(() => {
     const m = new Map<string, Customer>();
@@ -42,22 +36,6 @@ export default function DebtsScreen() {
   }, [debts, custMap]);
 
   const total = rows.reduce((s, r) => s + r.saldo, 0);
-
-  function submitCobro() {
-    if (!cobro || !profile) return;
-    const n = parseFloat(amount.replace(',', '.'));
-    if (!Number.isFinite(n) || n <= 0) { showToast('Ingresá un monto válido', 'error'); return; }
-    register.mutate(
-      { id: uuidv4(), customer_id: cobro.row.customer_id, driver_id: profile.id, amount: n },
-      {
-        onSuccess: () => showToast('Cobro registrado', 'success'),
-        onError: (e: unknown) => { if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo registrar', 'error'); },
-      },
-    );
-    if (!isOnline) showToast('Cobro guardado (se enviará al reconectar)', 'success');
-    setCobro(null);
-    setAmount('');
-  }
 
   return (
     <View style={styles.container}>
@@ -93,7 +71,7 @@ export default function DebtsScreen() {
                   </Text>
                   <Text style={styles.verDetalle}>Ver detalle ›</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cobrarBtn} onPress={() => { setCobro({ row: r, name: r.name }); setAmount(String(Math.round(r.saldo))); }} activeOpacity={0.85}>
+                <TouchableOpacity style={styles.cobrarBtn} onPress={() => setCobro({ customerId: r.customer_id, name: r.name, saldo: r.saldo })} activeOpacity={0.85}>
                   <Text style={styles.cobrarBtnText}>Cobrar</Text>
                 </TouchableOpacity>
               </View>
@@ -102,32 +80,15 @@ export default function DebtsScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={cobro !== null} transparent animationType="fade" onRequestClose={() => setCobro(null)}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Registrar cobro</Text>
-            <Text style={styles.modalSub}>{cobro?.name} debe {formatMoney(cobro?.row.saldo ?? 0)}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={amount}
-              onChangeText={(t) => setAmount(t.replace(/[^0-9.,]/g, ''))}
-              keyboardType="decimal-pad"
-              placeholder="Monto cobrado"
-              placeholderTextColor="#9ca3af"
-              selectTextOnFocus
-              autoFocus
-            />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => { setCobro(null); setAmount(''); }}>
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalOk} onPress={submitCobro}>
-                <Text style={styles.modalOkText}>Registrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {cobro && (
+        <CobroModal
+          visible={cobro !== null}
+          customerId={cobro.customerId}
+          name={cobro.name}
+          saldo={cobro.saldo}
+          onClose={() => setCobro(null)}
+        />
+      )}
     </View>
   );
 }
