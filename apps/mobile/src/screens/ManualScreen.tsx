@@ -89,7 +89,7 @@ const SECTIONS: Item[] = [
       'Elegí el resultado: Entregado, Ausente, No quiso o Sin stock.',
       'Marcá uno o varios tipos de huevo (se prellena con el principal del cliente).',
       'Poné la cantidad de cajas plásticas de cada tipo (con +/− o tocando el número).',
-      'Podés ingresar el PRECIO (opcional): por cajón en los sueltos, por envase en los envasados. Si lo dejás vacío, la entrega se registra igual. Si lo ponés, no puede ser menor al mínimo que fija la administración (más caro sí, más barato no).',
+      'Podés ingresar el PRECIO (opcional): por cajón en los sueltos, por envase en los envasados. Se te sugiere el precio que MÁS le cobraste a ese cliente; si hubo varios distintos, tocá "💲 Ya cobrados" para ver cada uno (cuántas veces y la última fecha) y elegir sin salir de la entrega. Si lo dejás vacío se registra igual; si lo ponés, no puede ser menor al mínimo.',
       'Cuando ponés precio, la app te muestra el total de cada línea y el total de la entrega.',
       'Elegí la FORMA DE PAGO: Efectivo (se cobra ahora) o Crédito (queda como deuda del cliente).',
       'Si el cliente ya tiene deuda, arriba ves cuánto debe. Si acumula 2+ entregas a crédito sin cobrar, te avisa con una alerta.',

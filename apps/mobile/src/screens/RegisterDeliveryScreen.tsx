@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,6 +23,7 @@ import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPr
 import { useMyDeliveries } from '../hooks/useMyDeliveries';
 import { useBoxBalances } from '../hooks/useBoxBalances';
 import { useCustomerDebt } from '../hooks/useDebts';
+import { useCustomerPriceHistory } from '../hooks/useCustomerPriceHistory';
 import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
 import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
 import { getPendingLoad } from '../lib/loadConfirm';
@@ -68,6 +70,7 @@ export default function RegisterDeliveryScreen() {
   const { data: boxBalances } = useBoxBalances();
   const boxBalance = boxBalances?.[c.id] ?? 0;
   const { data: debt } = useCustomerDebt(c.id);
+  const { data: priceHints } = useCustomerPriceHistory(c.id);
   const createDelivery = useCreateDelivery();
   const addPref = useAddPreference();
 
@@ -79,6 +82,14 @@ export default function RegisterDeliveryScreen() {
   const [cajasRecogidas, setCajasRecogidas] = useState(0);
   const [cajasDevueltas, setCajasDevueltas] = useState(0);
   const [notes, setNotes] = useState('');
+  // Tipo de huevo cuyo historial de precios se está viendo (modal)
+  const [priceInfoFor, setPriceInfoFor] = useState<string | null>(null);
+
+  // Precio sugerido = el más cobrado a este cliente para ese tipo.
+  const suggestedPriceFor = (id: string): string => {
+    const s = priceHints?.[id]?.suggested;
+    return s != null ? String(s) : '';
+  };
 
   // Stock actual del camión (para validar que haya suficiente)
   const stock = useMemo(
@@ -99,14 +110,23 @@ export default function RegisterDeliveryScreen() {
   const typeById = (id: string): EggType | undefined => eggTypes?.find((t) => t.id === id);
 
   // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas.
-  // El precio queda vacío: es OPCIONAL (el chofer lo pone si cobra).
   const inited = useRef(false);
   useEffect(() => {
     if (inited.current) return;
     if (!eggTypes || preferences === undefined) return;
     inited.current = true;
-    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: '' }]);
+    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: suggestedPriceFor(primaryPrefId) }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eggTypes, preferences, primaryPrefId]);
+
+  // Cuando llega el historial de precios, sugerir el precio en las líneas que
+  // todavía están vacías (sin pisar lo que el chofer ya escribió).
+  useEffect(() => {
+    if (!priceHints) return;
+    setLines((prev) => prev.map((l) => (l.precio === '' && priceHints[l.egg_type_id]?.suggested != null
+      ? { ...l, precio: String(priceHints[l.egg_type_id].suggested) }
+      : l)));
+  }, [priceHints]);
 
   const selectedIds = new Set(lines.map((l) => l.egg_type_id));
   const totalCajas = lines.reduce((s, l) => s + (l.cajas || 0), 0);
@@ -126,7 +146,7 @@ export default function RegisterDeliveryScreen() {
     setLines((prev) =>
       prev.some((l) => l.egg_type_id === id)
         ? prev.filter((l) => l.egg_type_id !== id)
-        : [...prev, { egg_type_id: id, cajas: 2, precio: '' }],
+        : [...prev, { egg_type_id: id, cajas: 2, precio: suggestedPriceFor(id) }],
     );
   }
 
@@ -459,6 +479,13 @@ export default function RegisterDeliveryScreen() {
                           {(() => { const p = parseFloat(l.precio.replace(',', '.')); return formatMoney(t && Number.isFinite(p) && p > 0 ? lineTotal(l.cajas, p, t.is_packaged, t.packages_per_box) : 0); })()}
                         </Text>
                       </View>
+                      {priceHints?.[l.egg_type_id] && priceHints[l.egg_type_id].options.length > 1 && (
+                        <TouchableOpacity onPress={() => setPriceInfoFor(l.egg_type_id)} style={styles.priceHistBtn} activeOpacity={0.7}>
+                          <Text style={styles.priceHistTxt} numberOfLines={1}>
+                            💲 Ya cobrados: {priceHints[l.egg_type_id].options.slice(0, 3).map((o) => formatMoney(o.price)).join(' · ')}{priceHints[l.egg_type_id].options.length > 3 ? '…' : ''} · ver/elegir
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   );
                 })}
@@ -590,6 +617,31 @@ export default function RegisterDeliveryScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Historial de precios cobrados a este cliente para el tipo elegido */}
+      <Modal visible={priceInfoFor !== null} transparent animationType="fade" onRequestClose={() => setPriceInfoFor(null)}>
+        <View style={styles.pModalBg}>
+          <View style={styles.pModalCard}>
+            <Text style={styles.pModalTitle}>Precios ya cobrados</Text>
+            <Text style={styles.pModalSub}>
+              {typeById(priceInfoFor ?? '')?.name ?? ''} · por {typeById(priceInfoFor ?? '')?.is_packaged ? 'envase' : 'cajón'}
+            </Text>
+            {(priceInfoFor && priceHints?.[priceInfoFor]?.options || []).map((o) => (
+              <TouchableOpacity key={o.price} style={styles.pOpt}
+                onPress={() => { if (priceInfoFor) setPrecio(priceInfoFor, String(o.price)); setPriceInfoFor(null); }}
+                activeOpacity={0.8}>
+                <Text style={styles.pOptPrice}>{formatMoney(o.price)}</Text>
+                <Text style={styles.pOptMeta}>
+                  {o.count} {o.count === 1 ? 'vez' : 'veces'} · últ. {new Date(o.lastAt).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.pClose} onPress={() => setPriceInfoFor(null)}>
+              <Text style={styles.pCloseTxt}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -647,6 +699,17 @@ const styles = StyleSheet.create({
   priceUnit: { flex: 1, fontSize: 11, color: '#6b7280', fontWeight: '600' },
   priceInput: { width: 90, height: 38, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f9fafb', textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#111827', padding: 0 },
   priceLineTotal: { minWidth: 72, textAlign: 'right', fontSize: 14, fontWeight: '800', color: '#059669' },
+  priceHistBtn: { paddingHorizontal: 12, paddingBottom: 10, marginTop: -2 },
+  priceHistTxt: { fontSize: 12, color: '#1d4ed8', fontWeight: '700' },
+  pModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  pModalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 18, gap: 8 },
+  pModalTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  pModalSub: { fontSize: 13, color: '#6b7280', marginBottom: 4 },
+  pOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
+  pOptPrice: { fontSize: 17, fontWeight: '800', color: '#059669' },
+  pOptMeta: { fontSize: 12, color: '#6b7280' },
+  pClose: { marginTop: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center' },
+  pCloseTxt: { color: '#374151', fontWeight: '700' },
   label: {
     fontSize: 12,
     fontWeight: '700',
