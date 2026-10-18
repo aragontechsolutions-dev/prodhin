@@ -14,6 +14,7 @@ const sections = [
   { id: 'devoluciones', emoji: '♻️', label: 'Rotos y devoluciones' },
   { id: 'competencia', emoji: '🎯', label: 'Competencia' },
   { id: 'deudas', emoji: '💳', label: 'Deudas' },
+  { id: 'descuadres', emoji: '🔎', label: 'Descuadres' },
   { id: 'auditoria', emoji: '📝', label: 'Auditoría' },
   { id: 'app-movil', emoji: '📱', label: 'App móvil' },
   { id: 'faq', emoji: '❓', label: 'Preguntas frecuentes' },
@@ -507,6 +508,19 @@ export default function ManualPage() {
             'Si cerrás la venta, usás "Convertir en cliente": completás número de cliente y tipo, y se crea el cliente real con la ubicación y datos del prospecto.',
           ]} />
           <Tip>Todo queda en Auditoría (Competencia, Prospectos y Ofertas de prospecto).</Tip>
+        </section>
+
+        {/* Descuadres */}
+        <section id="descuadres" className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800 scroll-mt-6">
+          <SectionTitle>🔎 Módulo Descuadres de stock</SectionTitle>
+          <P>Cuando el conteo físico del camión no coincide con lo que dice el sistema (ej: el sistema dice 10 cp de blanco mediano pero hay 9), el <strong>chofer reporta el descuadre</strong> desde la app (hace un "arqueo"). Acá lo <strong>revisás y aplicás el ajuste</strong> — el chofer no ajusta nada.</P>
+          <Steps items={[
+            'El chofer cuenta físicamente, ve la diferencia con el sistema y el detalle de movimientos, y reporta el descuadre.',
+            'En Descuadres → pestaña Pendientes ves cada reporte: chofer, fecha y por tipo "sistema / real / diferencia".',
+            'Tocás "Resolver": elegís el motivo (roto, merma, error de carga, entrega no registrada, otro), una nota opcional y si querés ajustar el stock a lo contado.',
+            'Al resolver con ajuste, el stock del chofer queda alineado a lo contado (equivale a un recuento).',
+          ]} />
+          <Tip>Todo queda en Auditoría (Descuadres de stock y su detalle). Si un reporte no corresponde, podés Descartarlo.</Tip>
         </section>
 
         {/* Deudas */}

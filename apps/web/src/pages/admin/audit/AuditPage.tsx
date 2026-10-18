@@ -46,6 +46,8 @@ const FIELD_LABELS: Record<string, string> = {
   line_total: 'Total de línea', amount: 'Monto cobrado', received_at: 'Fecha de cobro',
   min_price: 'Precio mínimo', maples_per_box: 'Maples por caja',
   method: 'Forma de cobro', proof_path: 'Comprobante',
+  system_qty: 'Sistema (cp)', counted_qty: 'Contado (cp)',
+  resolution_reason: 'Motivo del ajuste', resolution_note: 'Nota del ajuste', resolved_at: 'Resuelto',
 };
 
 const STATUS_LABEL: Record<string, string> = {

@@ -8,6 +8,7 @@ import { useEggReturns } from '../../hooks/useEggReturns';
 import { useBoxBalances } from '../../hooks/useBoxBalances';
 import { useProspects, useCompetitors } from '../../hooks/useMarketIntel';
 import { useDebtBalances } from '../../hooks/useDebts';
+import { useStockDiscrepancies } from '../../hooks/useStockDiscrepancies';
 import { formatMoney } from '../../lib/pricing';
 
 function StatCard({
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const { data: prospectosNuevosList } = useProspects('nuevo');
   const { data: competidores } = useCompetitors();
   const { data: debtBalances } = useDebtBalances();
+  const { data: descuadresPend } = useStockDiscrepancies('pendiente');
 
   const maplesPendientes = (maplesPend ?? []).length;
   const devolucionesPendientes = (returnsPend ?? []).length;
@@ -64,6 +66,7 @@ export default function DashboardPage() {
     { n: prospectosNuevos, label: 'prospectos por gestionar', to: '/admin/competencia' },
     { n: competenciaPendiente, label: 'competidores por aprobar', to: '/admin/competencia' },
     { n: clientesEnAlerta, label: 'clientes con deuda en alerta', to: '/admin/deudas' },
+    { n: (descuadresPend ?? []).length, label: 'descuadres de stock por revisar', to: '/admin/descuadres' },
   ].filter((p) => p.n > 0);
   const totalPendientes = pendientes.reduce((s, p) => s + p.n, 0);
 
@@ -89,6 +92,7 @@ export default function DashboardPage() {
     { to: '/admin/devoluciones', emoji: '♻️', label: 'Rotos y devoluciones', desc: 'Aprobar rotos y vencidos' },
     { to: '/admin/competencia', emoji: '🎯', label: 'Competencia', desc: 'Mapa de calor y prospectos' },
     { to: '/admin/deudas', emoji: '💳', label: 'Deudas', desc: 'Deudas de crédito y cobros' },
+    { to: '/admin/descuadres', emoji: '🔎', label: 'Descuadres', desc: 'Descuadres de stock reportados' },
     { to: '/admin/auditoria', emoji: '📝', label: 'Auditoría', desc: 'Historial de acciones' },
     { to: '/admin/manual', emoji: '📖', label: 'Manual', desc: 'Guía completa del sistema' },
   ];

@@ -18,6 +18,7 @@ import ProspectCaptureScreen from '../screens/ProspectCaptureScreen';
 import MarkCompetitorScreen from '../screens/MarkCompetitorScreen';
 import DebtsScreen from '../screens/DebtsScreen';
 import CustomerDebtDetailScreen from '../screens/CustomerDebtDetailScreen';
+import ReportDiscrepancyScreen from '../screens/ReportDiscrepancyScreen';
 import ManualScreen from '../screens/ManualScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import type { Customer } from '../types';
@@ -36,6 +37,7 @@ export type RootStackParamList = {
   MarkCompetitor: undefined;
   Debts: undefined;
   CustomerDebtDetail: { customerId: string; name: string };
+  ReportDiscrepancy: undefined;
   Manual: undefined;
 };
 
@@ -76,6 +78,7 @@ export default function AppNavigator() {
         <Stack.Screen name="MarkCompetitor" component={MarkCompetitorScreen} />
         <Stack.Screen name="Debts" component={DebtsScreen} />
         <Stack.Screen name="CustomerDebtDetail" component={CustomerDebtDetailScreen} />
+        <Stack.Screen name="ReportDiscrepancy" component={ReportDiscrepancyScreen} />
         <Stack.Screen name="Manual" component={ManualScreen} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -209,6 +209,18 @@ const SECTIONS: Item[] = [
     tip: 'Sin señal el cobro se guarda igual y se envía al reconectar. Cuando registrás una 2ª entrega a crédito sin cobrar, la app te avisa con una notificación.',
   },
   {
+    icon: '🔎',
+    title: 'Arqueo de stock (descuadres)',
+    body: [
+      'Entrá a "Arqueo de stock" en el menú cuando sospeches que el stock no cuadra.',
+      'Contá físicamente cada tipo y poné el número real; la app te muestra la diferencia con el sistema.',
+      'Tocá "Ver movimientos" en un tipo para ver el extracto (recuento base + cargas + entregas) y ubicar dónde se pudo descuadrar.',
+      'Si hay diferencia, tocá "Reportar descuadre": le llega a administración.',
+      'Vos SOLO reportás y dimensionás. El ajuste del stock lo hace la administración desde la web.',
+    ],
+    tip: 'Sin señal se guarda igual y se envía al reconectar. El reporte queda registrado para que administración lo concilie (merma, roto, error de carga, etc.).',
+  },
+  {
     icon: '📦',
     title: 'Mis entregas',
     body: [

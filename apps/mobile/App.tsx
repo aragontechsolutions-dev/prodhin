@@ -30,6 +30,7 @@ import { REGISTER_PICKUP_KEY, registerBoxPickup } from './src/lib/boxPickups';
 import { REGISTER_PROSPECT_KEY, registerProspect } from './src/lib/prospects';
 import { REGISTER_COMPETITOR_KEY, registerCompetitor } from './src/lib/competitors';
 import { REGISTER_PAYMENT_KEY, registerCustomerPayment } from './src/lib/customerPayments';
+import { REPORT_DISCREPANCY_KEY, reportDiscrepancy } from './src/lib/stockDiscrepancies';
 
 // React Query sabe si hay conexión a través de NetInfo. Cuando no hay red,
 // las mutaciones quedan "pausadas" y se persisten; al reconectar se reanudan.
@@ -71,6 +72,7 @@ queryClient.setMutationDefaults(REGISTER_PICKUP_KEY, { mutationFn: registerBoxPi
 queryClient.setMutationDefaults(REGISTER_PROSPECT_KEY, { mutationFn: registerProspect });
 queryClient.setMutationDefaults(REGISTER_COMPETITOR_KEY, { mutationFn: registerCompetitor });
 queryClient.setMutationDefaults(REGISTER_PAYMENT_KEY, { mutationFn: registerCustomerPayment });
+queryClient.setMutationDefaults(REPORT_DISCREPANCY_KEY, { mutationFn: reportDiscrepancy });
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,

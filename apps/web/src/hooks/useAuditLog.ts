@@ -75,4 +75,6 @@ export const TABLE_LABELS: Record<string, string> = {
   prospects: 'Prospectos',
   prospect_offers: 'Ofertas de prospecto',
   customer_payments: 'Cobros de deuda',
+  stock_discrepancies: 'Descuadres de stock',
+  stock_discrepancy_items: 'Descuadres (detalle)',
 };

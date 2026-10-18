@@ -100,3 +100,62 @@ export function computeStock(
   for (const [k, v] of stock) stock.set(k, Math.max(0, v));
   return stock;
 }
+
+export interface Movement {
+  kind: 'base' | 'carga' | 'entrega';
+  qty: number;        // con signo (+carga, -entrega, base = valor)
+  at: string;         // ISO
+  label: string;      // cliente / nota
+  running: number;    // saldo acumulado tras este movimiento
+}
+
+/**
+ * Extracto de un tipo desde su último recuento: base + cargas (+) y entregas
+ * (−) posteriores, para que el chofer vea dónde se pudo descuadrar.
+ */
+export function extractoFor(
+  typeId: string,
+  counts: TruckCountRow[],
+  loads: TruckLoadRow[],
+  deliveries: MyDeliveryRow[],
+): { movements: Movement[]; system: number } {
+  // último recuento del tipo
+  let baseVal = 0;
+  let baseAt = 0;
+  let baseIso = '';
+  let hasBase = false;
+  for (const c of counts) {
+    if (c.egg_type_id !== typeId) continue;
+    const at = new Date(c.counted_at).getTime();
+    if (!hasBase || at > baseAt) { baseVal = c.cajas_plasticas; baseAt = at; baseIso = c.counted_at; hasBase = true; }
+  }
+
+  const movements: Movement[] = [];
+  if (hasBase) movements.push({ kind: 'base', qty: baseVal, at: baseIso, label: 'Recuento base', running: 0 });
+
+  const evts: { at: number; mv: Omit<Movement, 'running'> }[] = [];
+  for (const l of loads) {
+    if (l.egg_type_id !== typeId) continue;
+    const at = new Date(l.created_at).getTime();
+    if (hasBase && at <= baseAt) continue;
+    evts.push({ at, mv: { kind: 'carga', qty: l.cajas_plasticas, at: l.created_at, label: 'Carga', running: 0 } });
+  }
+  for (const d of deliveries) {
+    if (d.status !== 'entregado') continue;
+    const at = new Date(d.delivered_at).getTime();
+    if (hasBase && at <= baseAt) continue;
+    for (const it of d.items) {
+      if (it.egg_type_id !== typeId) continue;
+      evts.push({ at, mv: { kind: 'entrega', qty: -it.cajas_plasticas, at: d.delivered_at, label: d.customer_name, running: 0 } });
+    }
+  }
+  evts.sort((a, b) => a.at - b.at);
+
+  let running = hasBase ? baseVal : 0;
+  if (hasBase) movements[0].running = running;
+  for (const e of evts) {
+    running += e.mv.qty;
+    movements.push({ ...e.mv, running });
+  }
+  return { movements, system: Math.max(0, running) };
+}
