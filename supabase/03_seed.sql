@@ -1,0 +1,17 @@
+-- ============================================================
+-- PRODHIN — Datos de prueba
+-- SOLO ejecutar en entorno de desarrollo
+-- ============================================================
+-- NOTA: El usuario Admin se crea desde el panel de Supabase Auth
+-- o desde la app. Este seed asume que ya existe un usuario con
+-- el UUID que se indica abajo. Reemplazar con el UUID real.
+
+-- Tras crear el usuario admin en Supabase Auth, ejecutar esto
+-- para asignarle el rol admin en app_metadata:
+--
+-- UPDATE auth.users
+-- SET raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
+-- WHERE email = 'admin@prodhin.com';
+--
+-- Y actualizar su profile:
+-- UPDATE public.profiles SET role = 'admin' WHERE id = '<UUID_DEL_ADMIN>';

@@ -1,0 +1,86 @@
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityIndicator, View } from 'react-native';
+import { useAuth } from '../hooks/useAuth';
+import { useMyLeave } from '../hooks/useMyLeave';
+import LoginScreen from '../screens/LoginScreen';
+import LeaveScreen from '../screens/LeaveScreen';
+import MapScreen from '../screens/MapScreen';
+import CustomerDetailScreen from '../screens/CustomerDetailScreen';
+import RegisterDeliveryScreen from '../screens/RegisterDeliveryScreen';
+import CustomerPreferencesScreen from '../screens/CustomerPreferencesScreen';
+import DeliveriesHistoryScreen from '../screens/DeliveriesHistoryScreen';
+import DailyLoadScreen from '../screens/DailyLoadScreen';
+import TruckStockScreen from '../screens/TruckStockScreen';
+import MapleReturnsScreen from '../screens/MapleReturnsScreen';
+import EggReturnsScreen from '../screens/EggReturnsScreen';
+import ProspectCaptureScreen from '../screens/ProspectCaptureScreen';
+import MarkCompetitorScreen from '../screens/MarkCompetitorScreen';
+import DebtsScreen from '../screens/DebtsScreen';
+import CustomerDebtDetailScreen from '../screens/CustomerDebtDetailScreen';
+import ReportDiscrepancyScreen from '../screens/ReportDiscrepancyScreen';
+import ManualScreen from '../screens/ManualScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import type { Customer } from '../types';
+
+export type RootStackParamList = {
+  Map: undefined;
+  CustomerDetail: { customer: Customer };
+  RegisterDelivery: { customer: Customer };
+  CustomerPreferences: undefined;
+  DeliveriesHistory: undefined;
+  DailyLoad: undefined;
+  TruckStock: undefined;
+  MapleReturns: undefined;
+  EggReturns: undefined;
+  ProspectCapture: undefined;
+  MarkCompetitor: undefined;
+  Debts: undefined;
+  CustomerDebtDetail: { customerId: string; name: string };
+  ReportDiscrepancy: undefined;
+  Manual: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export default function AppNavigator() {
+  const { profile, loading } = useAuth();
+  const { data: leave } = useMyLeave(profile?.role === 'chofer' ? profile.id : undefined);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fffbeb' }}>
+        <ActivityIndicator size="large" color="#f59e0b" />
+      </View>
+    );
+  }
+
+  if (!profile) return <LoginScreen />;
+
+  if (profile.must_change_password) return <ChangePasswordScreen />;
+
+  // Chofer de licencia: no puede operar mientras otro lo cubre.
+  if (profile.role === 'chofer' && leave) return <LeaveScreen leave={leave} />;
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Map" component={MapScreen} />
+        <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
+        <Stack.Screen name="RegisterDelivery" component={RegisterDeliveryScreen} />
+        <Stack.Screen name="CustomerPreferences" component={CustomerPreferencesScreen} />
+        <Stack.Screen name="DeliveriesHistory" component={DeliveriesHistoryScreen} />
+        <Stack.Screen name="DailyLoad" component={DailyLoadScreen} />
+        <Stack.Screen name="TruckStock" component={TruckStockScreen} />
+        <Stack.Screen name="MapleReturns" component={MapleReturnsScreen} />
+        <Stack.Screen name="EggReturns" component={EggReturnsScreen} />
+        <Stack.Screen name="ProspectCapture" component={ProspectCaptureScreen} />
+        <Stack.Screen name="MarkCompetitor" component={MarkCompetitorScreen} />
+        <Stack.Screen name="Debts" component={DebtsScreen} />
+        <Stack.Screen name="CustomerDebtDetail" component={CustomerDebtDetailScreen} />
+        <Stack.Screen name="ReportDiscrepancy" component={ReportDiscrepancyScreen} />
+        <Stack.Screen name="Manual" component={ManualScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

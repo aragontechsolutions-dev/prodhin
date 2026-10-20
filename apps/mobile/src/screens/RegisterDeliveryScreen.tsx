@@ -1,0 +1,815 @@
+import { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import { getDisplayName, type DeliveryStatus, type EggType } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import { useEggTypes } from '../hooks/useEggTypes';
+import { useCreateDelivery } from '../hooks/useCreateDelivery';
+import { useCustomerPreferences, useAddPreference } from '../hooks/useCustomerPreferences';
+import { useMyDeliveries } from '../hooks/useMyDeliveries';
+import { useBoxBalances } from '../hooks/useBoxBalances';
+import { useCustomerDebt } from '../hooks/useDebts';
+import { useCustomerPriceHistory } from '../hooks/useCustomerPriceHistory';
+import { useTruckLoads, useTruckCounts } from '../hooks/useTruckStock';
+import { useTruckLoadConfirmations } from '../hooks/useTruckLoadConfirmations';
+import { getPendingLoad } from '../lib/loadConfirm';
+import { computeStock } from '../lib/truck';
+import type { DeliveryMode, PaymentMethod } from '../lib/deliveries';
+import { formatCajonesFor, lineTotal, formatMoney, priceUnitLabel } from '../lib/pricing';
+import { notifyNow } from '../lib/notifications';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { markVisited } from '../lib/visitedStore';
+import { showToast } from '../lib/toastStore';
+import { uuidv4 } from '../lib/uuid';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'RegisterDelivery'>;
+type Nav = NativeStackNavigationProp<RootStackParamList, 'RegisterDelivery'>;
+
+interface SaveItem {
+  egg_type_id: string;
+  cajas_plasticas: number;
+  unit_price: number | null;
+  line_total: number | null;
+}
+
+const STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
+  { value: 'entregado', label: 'Entregado' },
+  { value: 'cliente_ausente', label: 'Cliente ausente' },
+  { value: 'rechazado', label: 'No quiso' },
+  { value: 'sin_stock', label: 'Sin stock' },
+];
+
+export default function RegisterDeliveryScreen() {
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<Props['route']>();
+  const insets = useSafeAreaInsets();
+  const { customer: c } = route.params;
+  const { profile } = useAuth();
+  const { isOnline } = useNetworkStatus();
+
+  const { data: eggTypes, isLoading: loadingTypes } = useEggTypes();
+  const { data: preferences } = useCustomerPreferences();
+  const { data: myDeliveries } = useMyDeliveries(profile?.id);
+  const { data: truckCounts } = useTruckCounts(profile?.id);
+  const { data: truckLoads } = useTruckLoads(profile?.id);
+  const { data: loadConfirmations } = useTruckLoadConfirmations(profile?.id);
+  const { data: boxBalances } = useBoxBalances();
+  const boxBalance = boxBalances?.[c.id] ?? 0;
+  const { data: debt } = useCustomerDebt(c.id);
+  const { data: priceHints } = useCustomerPriceHistory(c.id);
+  const createDelivery = useCreateDelivery();
+  const addPref = useAddPreference();
+
+  const [status, setStatus] = useState<DeliveryStatus>('entregado');
+  // Una línea por tipo de huevo entregado (cajas + precio unitario)
+  const [lines, setLines] = useState<{ egg_type_id: string; cajas: number; precio: string }[]>([]);
+  const [payment, setPayment] = useState<PaymentMethod>('efectivo');
+  const [mode, setMode] = useState<DeliveryMode>('cp');
+  const [cajasRecogidas, setCajasRecogidas] = useState(0);
+  const [cajasDevueltas, setCajasDevueltas] = useState(0);
+  const [notes, setNotes] = useState('');
+  // Tipo de huevo cuyo historial de precios se está viendo (modal)
+  const [priceInfoFor, setPriceInfoFor] = useState<string | null>(null);
+
+  // Precio sugerido = el más cobrado a este cliente para ese tipo.
+  const suggestedPriceFor = (id: string): string => {
+    const s = priceHints?.[id]?.suggested;
+    return s != null ? String(s) : '';
+  };
+
+  // Stock actual del camión (para validar que haya suficiente)
+  const stock = useMemo(
+    () => computeStock(truckCounts ?? [], truckLoads ?? [], myDeliveries ?? []),
+    [truckCounts, truckLoads, myDeliveries],
+  );
+
+  const isDelivered = status === 'entregado';
+
+  // Preferencias de este cliente (principal primero)
+  const myPrefs = useMemo(
+    () => (preferences ?? []).filter((p) => p.customer_id === c.id),
+    [preferences, c.id],
+  );
+  // Principal si existe; si no, el primer tipo habitual del cliente
+  const primaryPrefId = myPrefs.find((p) => p.is_primary)?.egg_type_id ?? myPrefs[0]?.egg_type_id ?? null;
+
+  const typeById = (id: string): EggType | undefined => eggTypes?.find((t) => t.id === id);
+
+  // Prellenar (una sola vez): el tipo principal del cliente con 2 cajas.
+  const inited = useRef(false);
+  useEffect(() => {
+    if (inited.current) return;
+    if (!eggTypes || preferences === undefined) return;
+    inited.current = true;
+    if (primaryPrefId) setLines([{ egg_type_id: primaryPrefId, cajas: 2, precio: suggestedPriceFor(primaryPrefId) }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eggTypes, preferences, primaryPrefId]);
+
+  // Cuando llega el historial de precios, sugerir el precio en las líneas que
+  // todavía están vacías (sin pisar lo que el chofer ya escribió).
+  useEffect(() => {
+    if (!priceHints) return;
+    setLines((prev) => prev.map((l) => (l.precio === '' && priceHints[l.egg_type_id]?.suggested != null
+      ? { ...l, precio: String(priceHints[l.egg_type_id].suggested) }
+      : l)));
+  }, [priceHints]);
+
+  const selectedIds = new Set(lines.map((l) => l.egg_type_id));
+  const totalCajas = lines.reduce((s, l) => s + (l.cajas || 0), 0);
+
+  // Total facturado de la entrega (según precios ingresados)
+  const grandTotal = useMemo(() => {
+    return lines.reduce((s, l) => {
+      const t = typeById(l.egg_type_id);
+      const price = parseFloat(l.precio.replace(',', '.'));
+      if (!t || !Number.isFinite(price) || price <= 0) return s;
+      return s + lineTotal(l.cajas, price, t.is_packaged, t.packages_per_box);
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, eggTypes]);
+
+  function toggleType(id: string) {
+    setLines((prev) =>
+      prev.some((l) => l.egg_type_id === id)
+        ? prev.filter((l) => l.egg_type_id !== id)
+        : [...prev, { egg_type_id: id, cajas: 2, precio: suggestedPriceFor(id) }],
+    );
+  }
+
+  function setCajas(id: string, value: number) {
+    const v = Math.max(0, Math.min(99999, Math.floor(value) || 0));
+    setLines((prev) => prev.map((l) => (l.egg_type_id === id ? { ...l, cajas: v } : l)));
+  }
+
+  function setPrecio(id: string, value: string) {
+    const clean = value.replace(/[^0-9.,]/g, '');
+    setLines((prev) => prev.map((l) => (l.egg_type_id === id ? { ...l, precio: clean } : l)));
+  }
+
+  async function onSave() {
+    try {
+      if (!profile) {
+        Alert.alert('Sin perfil', 'No se pudo leer tu perfil. Abrí la app una vez con conexión y volvé a intentar.');
+        return;
+      }
+      await onSaveInner();
+    } catch (err) {
+      Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function onSaveInner() {
+    if (!profile) return;
+
+    // Bloqueo: no se puede registrar entregas si hay una carga del día sin
+    // confirmar. Solo se aplica CON conexión: offline no se puede verificar el
+    // estado real de la confirmación y la entrega offline debe seguir funcionando.
+    if (isOnline) {
+      const pendingLoad = getPendingLoad(truckLoads ?? [], loadConfirmations ?? [], Date.now());
+      if (pendingLoad) {
+        Alert.alert(
+          'Confirmá la carga del día',
+          'Antes de registrar entregas tenés que confirmar la carga que te asignó el administrador.',
+          [
+            { text: 'Ir a confirmar', onPress: () => navigation.navigate('DailyLoad') },
+            { text: 'Cancelar', style: 'cancel' },
+          ],
+        );
+        return;
+      }
+    }
+
+    const activeLines = isDelivered ? lines.filter((l) => l.cajas > 0) : [];
+
+    if (isDelivered && activeLines.length === 0) {
+      Alert.alert('Falta la cantidad', 'Agregá al menos un tipo de huevo con cantidad.');
+      return;
+    }
+
+    // El precio es OPCIONAL: el chofer puede dejarlo vacío y la entrega se
+    // registra igual. Si SÍ ingresa un precio, no puede ser menor al mínimo
+    // de la categoría.
+    if (isDelivered) {
+      for (const l of activeLines) {
+        if (l.precio.trim() === '') continue;
+        const t = typeById(l.egg_type_id);
+        const price = parseFloat(l.precio.replace(',', '.'));
+        if (Number.isFinite(price) && price > 0 && t?.min_price != null && price < t.min_price) {
+          Alert.alert('Precio por debajo del mínimo', `${t.name}: el precio no puede ser menor a ${formatMoney(t.min_price)} por ${priceUnitLabel(t.is_packaged)}.`);
+          return;
+        }
+      }
+    }
+
+    const items = activeLines.map((l) => {
+      const t = typeById(l.egg_type_id);
+      const price = parseFloat(l.precio.replace(',', '.'));
+      return {
+        egg_type_id: l.egg_type_id,
+        cajas_plasticas: l.cajas,
+        unit_price: Number.isFinite(price) && price > 0 ? price : null,
+        line_total: t ? lineTotal(l.cajas, price, t.is_packaged, t.packages_per_box) : null,
+      };
+    });
+
+    // Validación de stock/cajas SOLO con conexión: los datos son exactos y se
+    // bloquea. Sin conexión NO se valida (el stock puede estar viejo o en 0 por
+    // falta de datos) — la entrega debe guardarse igual y encolarse.
+    if (isOnline && isDelivered) {
+      const warnings: string[] = [];
+      for (const it of items) {
+        const disponible = stock.get(it.egg_type_id) ?? 0;
+        const nombre = eggTypes?.find((t) => t.id === it.egg_type_id)?.name ?? 'ese tipo';
+        if (disponible <= 0) warnings.push(`No hay ${nombre} en el camión.`);
+        else if (it.cajas_plasticas > disponible) warnings.push(`Solo hay ${disponible} cp de ${nombre} (querés ${it.cajas_plasticas}).`);
+      }
+      const enLocal = Math.max(0, boxBalance);
+      if (cajasRecogidas > enLocal) warnings.push(`En el local hay ${enLocal} caja(s); querés recoger ${cajasRecogidas}.`);
+      if (warnings.length > 0) {
+        Alert.alert('No se puede registrar', warnings.join('\n'));
+        return;
+      }
+    }
+
+    doSave(items);
+  }
+
+  function doSave(items: SaveItem[]) {
+    if (!profile) return;
+    try {
+      doSaveInner(items);
+    } catch (err) {
+      Alert.alert('Error al guardar', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function doSaveInner(items: SaveItem[]) {
+    if (!profile) return;
+
+    // Marca la visita al instante (optimista, persiste local)
+    markVisited(c.id, status === 'entregado' ? 'delivered' : 'visited');
+
+    const totalAmount = isDelivered ? items.reduce((s, it) => s + (it.line_total ?? 0), 0) : 0;
+    const paymentMethod = isDelivered ? payment : null;
+
+    // Encolar la entrega SIN esperarla: offline queda pausada y se envía sola
+    // al reconectar; online se ejecuta normal. No usar await/mutateAsync porque
+    // offline la promesa nunca resuelve (la mutación queda pausada).
+    createDelivery.mutate(
+      {
+        id: uuidv4(),
+        customer_id: c.id,
+        driver_id: profile.id,
+        status,
+        mode,
+        cajas_recogidas: isDelivered ? cajasRecogidas : 0,
+        cajas_devueltas: isDelivered && mode === 'cp' ? Math.min(cajasDevueltas, totalCajas) : 0,
+        payment_method: paymentMethod,
+        total_amount: totalAmount,
+        notes: notes.trim() || null,
+        delivered_at: new Date().toISOString(),
+        items,
+      },
+      {
+        // Con conexión: éxito/fallo reales. Offline queda en cola (no dispara).
+        onSuccess: () => showToast(isDelivered ? 'Entrega realizada con éxito' : 'Visita registrada', 'success'),
+        onError: (e: unknown) => {
+          if (isOnline) showToast((e instanceof Error ? e.message : null) ?? 'No se pudo guardar la entrega', 'error');
+        },
+      },
+    );
+    // Offline la mutación queda pausada (no hay onSuccess): avisamos igual.
+    if (!isOnline) showToast('Guardado. Se enviará al reconectar.', 'success');
+
+    // Aviso de deuda: si esta venta a crédito deja 2+ entregas sin cobrar.
+    if (isDelivered && paymentMethod === 'credito') {
+      const sinCobrar = (debt?.entregas_credito_sin_cobrar ?? 0) + 1;
+      if (sinCobrar >= 2) {
+        const nombre = getDisplayName(c);
+        showToast(`⚠️ ${nombre} ya tiene ${sinCobrar} entregas a crédito sin cobrar`, 'error');
+        notifyNow('⚠️ Deuda sin cobrar', `${nombre} acumula ${sinCobrar} entregas a crédito sin cobrar. Conviene cobrar.`);
+      }
+    }
+
+    // Vuelve al MAPA (no al detalle del cliente)
+    const goToMap = () => navigation.popToTop();
+
+    // Auto-sugerencia: tipos entregados que no están en los habituales
+    const newTypes = items
+      .map((it) => it.egg_type_id)
+      .filter((id) => !myPrefs.some((p) => p.egg_type_id === id));
+    if (newTypes.length > 0) {
+      const names = newTypes
+        .map((id) => eggTypes?.find((t) => t.id === id)?.name ?? 'tipo')
+        .join(', ');
+      Alert.alert(
+        'Agregar a habituales',
+        `¿Agregar ${names} a los tipos habituales de este cliente?`,
+        [
+          { text: 'No', style: 'cancel', onPress: goToMap },
+          {
+            text: 'Sí, agregar',
+            onPress: () => {
+              newTypes.forEach((id, i) =>
+                addPref.mutate({
+                  customer_id: c.id,
+                  egg_type_id: id,
+                  make_primary: myPrefs.length === 0 && i === 0,
+                }),
+              );
+              goToMap();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    goToMap();
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backBtnText}>← Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>Registrar entrega</Text>
+        <View style={{ width: 80 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
+        <Text style={styles.customerName}>{getDisplayName(c)}</Text>
+        {!isOnline && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>Sin conexión — se guardará y enviará al reconectar</Text>
+          </View>
+        )}
+
+        {/* Deuda del cliente */}
+        {debt && debt.saldo > 0 && (
+          <View style={[styles.debtBanner, debt.entregas_credito_sin_cobrar >= 2 && styles.debtBannerAlert]}>
+            <Text style={[styles.debtText, debt.entregas_credito_sin_cobrar >= 2 && styles.debtTextAlert]}>
+              {debt.entregas_credito_sin_cobrar >= 2 ? '⚠️ ' : '💳 '}
+              Este cliente debe {formatMoney(debt.saldo)}
+              {debt.entregas_credito_sin_cobrar >= 2
+                ? ` · ${debt.entregas_credito_sin_cobrar} entregas a crédito sin cobrar`
+                : ''}
+            </Text>
+          </View>
+        )}
+
+        {/* Estado de la visita */}
+        <Text style={styles.label}>Resultado de la visita</Text>
+        <View style={styles.chipRow}>
+          {STATUS_OPTIONS.map((s) => (
+            <TouchableOpacity
+              key={s.value}
+              style={[styles.chip, status === s.value && styles.chipActive]}
+              onPress={() => setStatus(s.value)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.chipText, status === s.value && styles.chipTextActive]}>
+                {s.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {isDelivered && (
+          <>
+            {/* Tipos de huevo (multi-selección) */}
+            <Text style={styles.label}>Tipos de huevo</Text>
+            <Text style={styles.subHint}>Tocá los tipos que se entregan. Podés registrar varios.</Text>
+            {loadingTypes ? (
+              <ActivityIndicator color="#f59e0b" style={{ marginVertical: 12 }} />
+            ) : (
+              <View style={styles.chipRow}>
+                {(eggTypes ?? []).map((t: EggType) => {
+                  const selected = selectedIds.has(t.id);
+                  return (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.chip, selected && styles.chipActive]}
+                      onPress={() => toggleType(t.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                        {selected ? '✓ ' : ''}{t.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Cantidad por tipo seleccionado */}
+            {lines.length > 0 && (
+              <View style={styles.linesWrap}>
+                {lines.map((l) => {
+                  const t = eggTypes?.find((x) => x.id === l.egg_type_id);
+                  const disp = stock.get(l.egg_type_id) ?? 0;
+                  // Offline el stock puede estar desactualizado: no lo marcamos como error.
+                  const over = isOnline && l.cajas > disp;
+                  return (
+                    <View key={l.egg_type_id} style={styles.lineGroup}>
+                      <View style={styles.lineCard}>
+                      <View style={styles.lineNameCol}>
+                        <Text style={styles.lineName} numberOfLines={1}>{t?.name ?? 'Tipo'}</Text>
+                        <Text style={[styles.lineStock, over && styles.lineStockOver]}>
+                          {isOnline
+                            ? `en camión: ${disp} cp${over ? ' ⚠' : ''}`
+                            : `en camión: ${disp} cp · offline (puede estar desactualizado)`}
+                        </Text>
+                      </View>
+                      <View style={styles.qtyRow}>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => setCajas(l.egg_type_id, l.cajas - 1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.qtyBtnText}>−</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                          style={styles.qtyInput}
+                          value={String(l.cajas)}
+                          onChangeText={(txt) => setCajas(l.egg_type_id, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0)}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                          selectTextOnFocus
+                        />
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => setCajas(l.egg_type_id, l.cajas + 1)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.qtyBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.lineEquiv}>{formatCajonesFor(l.cajas, t?.is_packaged ?? false)} cj</Text>
+                      </View>
+                      <View style={styles.priceRow}>
+                        <Text style={styles.priceUnit}>
+                          $/{t ? priceUnitLabel(t.is_packaged) : 'cajón'}{t?.min_price != null ? ` · mín ${t.min_price}` : ''}
+                        </Text>
+                        <TextInput
+                          style={styles.priceInput}
+                          value={l.precio}
+                          onChangeText={(txt) => setPrecio(l.egg_type_id, txt)}
+                          keyboardType="decimal-pad"
+                          placeholder="precio (opc.)"
+                          placeholderTextColor="#9ca3af"
+                          selectTextOnFocus
+                        />
+                        <Text style={styles.priceLineTotal}>
+                          {(() => { const p = parseFloat(l.precio.replace(',', '.')); return formatMoney(t && Number.isFinite(p) && p > 0 ? lineTotal(l.cajas, p, t.is_packaged, t.packages_per_box) : 0); })()}
+                        </Text>
+                      </View>
+                      {priceHints?.[l.egg_type_id] && priceHints[l.egg_type_id].options.length > 1 && (
+                        <TouchableOpacity onPress={() => setPriceInfoFor(l.egg_type_id)} style={styles.priceHistBtn} activeOpacity={0.7}>
+                          <Text style={styles.priceHistTxt} numberOfLines={1}>
+                            💲 Ya cobrados: {priceHints[l.egg_type_id].options.slice(0, 3).map((o) => formatMoney(o.price)).join(' · ')}{priceHints[l.egg_type_id].options.length > 3 ? '…' : ''} · ver/elegir
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+                <Text style={styles.totalEquiv}>
+                  {totalCajas} cajas plásticas{grandTotal > 0 ? ` · Total a ${payment === 'credito' ? 'crédito' : 'cobrar'}: ${formatMoney(grandTotal)}` : ''}
+                </Text>
+                <Text style={styles.subHint}>El precio es opcional: dejalo vacío si no cobrás ahora.</Text>
+              </View>
+            )}
+
+            {/* Forma de pago */}
+            <Text style={styles.label}>Forma de pago</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, payment === 'efectivo' && styles.chipActive]}
+                onPress={() => setPayment('efectivo')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, payment === 'efectivo' && styles.chipTextActive]}>💵 Efectivo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, payment === 'credito' && styles.chipActive]}
+                onPress={() => setPayment('credito')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, payment === 'credito' && styles.chipTextActive]}>💳 Crédito (fiado)</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>
+              {payment === 'credito'
+                ? 'Queda como deuda del cliente hasta que se cobre.'
+                : 'Se cobra en el momento.'}
+            </Text>
+
+            {/* Modo de entrega */}
+            <Text style={styles.label}>Modo de entrega</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, mode === 'cp' && styles.chipActive]}
+                onPress={() => setMode('cp')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, mode === 'cp' && styles.chipTextActive]}>📦 Deja cajas plásticas</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, mode === 'cartones' && styles.chipActive]}
+                onPress={() => setMode('cartones')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, mode === 'cartones' && styles.chipTextActive]}>🥚 En cartones (sin cajas)</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>
+              {mode === 'cp'
+                ? 'Las cajas plásticas quedan en el local y se recogen después.'
+                : 'Se entrega en maples/cartones; no quedan cajas en el local.'}
+            </Text>
+
+            {/* Cajas devueltas en el acto (solo si deja cajas) */}
+            {mode === 'cp' && (
+              <>
+                <Text style={styles.label}>Cajas vacías devueltas en el acto</Text>
+                <Text style={styles.subHint}>De las {totalCajas} que dejás, cuántas se vacían y te devolvés ahora. Quedan {Math.max(0, totalCajas - cajasDevueltas)} en el local.</Text>
+                <View style={styles.stepper}>
+                  <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasDevueltas((n) => Math.max(0, n - 1))} activeOpacity={0.7}>
+                    <Text style={styles.stepBtnText}>−</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.stepInput}
+                    value={String(cajasDevueltas)}
+                    onChangeText={(txt) => setCajasDevueltas(Math.min(totalCajas, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0))}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasDevueltas((n) => Math.min(totalCajas, n + 1))} activeOpacity={0.7}>
+                    <Text style={styles.stepBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Cajas recogidas */}
+            <Text style={styles.label}>Cajas plásticas recogidas</Text>
+            <Text style={styles.subHint}>En el local hay {Math.max(0, boxBalance ?? 0)} caja(s) plástica(s).</Text>
+            <View style={styles.stepper}>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasRecogidas((n) => Math.max(0, n - 1))} activeOpacity={0.7}>
+                <Text style={styles.stepBtnText}>−</Text>
+              </TouchableOpacity>
+              <TextInput
+                style={styles.stepInput}
+                value={String(cajasRecogidas)}
+                onChangeText={(txt) => setCajasRecogidas(Math.min(9999, parseInt(txt.replace(/[^0-9]/g, ''), 10) || 0))}
+                keyboardType="number-pad"
+                maxLength={4}
+                selectTextOnFocus
+              />
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setCajasRecogidas((n) => Math.min(9999, n + 1))} activeOpacity={0.7}>
+                <Text style={styles.stepBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.subHint}>Cajas vacías que retirás del local en esta visita (puede ser más o menos que las que dejás).</Text>
+          </>
+        )}
+
+        {/* Notas */}
+        <Text style={styles.label}>Notas (opcional)</Text>
+        <TextInput
+          style={styles.notes}
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="Observaciones de la entrega…"
+          placeholderTextColor="#9ca3af"
+          multiline
+        />
+
+        <TouchableOpacity
+          style={[styles.saveBtn, isOnline && createDelivery.isPending && { opacity: 0.6 }]}
+          onPress={onSave}
+          // Offline la mutación queda "pausada" (isPending=true) y NO debe
+          // deshabilitar el botón: la entrega se guarda igual y se encola.
+          disabled={isOnline && createDelivery.isPending}
+          activeOpacity={0.85}
+        >
+          {isOnline && createDelivery.isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveBtnText}>Guardar entrega</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Historial de precios cobrados a este cliente para el tipo elegido */}
+      <Modal visible={priceInfoFor !== null} transparent animationType="fade" onRequestClose={() => setPriceInfoFor(null)}>
+        <View style={styles.pModalBg}>
+          <View style={styles.pModalCard}>
+            <Text style={styles.pModalTitle}>Precios ya cobrados</Text>
+            <Text style={styles.pModalSub}>
+              {typeById(priceInfoFor ?? '')?.name ?? ''} · por {typeById(priceInfoFor ?? '')?.is_packaged ? 'envase' : 'cajón'}
+            </Text>
+            {(priceInfoFor && priceHints?.[priceInfoFor]?.options || []).map((o) => (
+              <TouchableOpacity key={o.price} style={styles.pOpt}
+                onPress={() => { if (priceInfoFor) setPrecio(priceInfoFor, String(o.price)); setPriceInfoFor(null); }}
+                activeOpacity={0.8}>
+                <Text style={styles.pOptPrice}>{formatMoney(o.price)}</Text>
+                <Text style={styles.pOptMeta}>
+                  {o.count} {o.count === 1 ? 'vez' : 'veces'} · últ. {new Date(o.lastAt).toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.pClose} onPress={() => setPriceInfoFor(null)}>
+              <Text style={styles.pCloseTxt}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f9fafb' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 56 : 16,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  backBtn: {
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnText: { fontSize: 14, color: '#92400e', fontWeight: '700' },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginHorizontal: 8,
+  },
+  content: { padding: 16, gap: 8, paddingBottom: 40 },
+  customerName: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  offlineBanner: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    marginBottom: 4,
+  },
+  offlineText: { color: '#92400e', fontSize: 12, fontWeight: '600' },
+  debtBanner: { backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: '#bfdbfe', marginBottom: 4 },
+  debtBannerAlert: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  debtText: { color: '#1d4ed8', fontSize: 13, fontWeight: '700' },
+  debtTextAlert: { color: '#b91c1c' },
+  lineGroup: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 0 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingBottom: 10, paddingTop: 2 },
+  priceUnit: { flex: 1, fontSize: 11, color: '#6b7280', fontWeight: '600' },
+  priceInput: { width: 90, height: 38, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f9fafb', textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#111827', padding: 0 },
+  priceLineTotal: { minWidth: 72, textAlign: 'right', fontSize: 14, fontWeight: '800', color: '#059669' },
+  priceHistBtn: { paddingHorizontal: 12, paddingBottom: 10, marginTop: -2 },
+  priceHistTxt: { fontSize: 12, color: '#1d4ed8', fontWeight: '700' },
+  pModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  pModalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 18, gap: 8 },
+  pModalTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  pModalSub: { fontSize: 13, color: '#6b7280', marginBottom: 4 },
+  pOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
+  pOptPrice: { fontSize: 17, fontWeight: '800', color: '#059669' },
+  pOptMeta: { fontSize: 12, color: '#6b7280' },
+  pClose: { marginTop: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center' },
+  pCloseTxt: { color: '#374151', fontWeight: '700' },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 12,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  chip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  chipActive: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
+  chipText: { fontSize: 14, color: '#374151', fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+  subHint: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  linesWrap: { marginTop: 12, gap: 8 },
+  lineCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  lineNameCol: { flex: 1 },
+  lineName: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  lineStock: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  lineStockOver: { color: '#dc2626', fontWeight: '700' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qtyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: { fontSize: 22, color: '#1d4ed8', fontWeight: '700' },
+  qtyInput: {
+    width: 62,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    padding: 0,
+  },
+  lineEquiv: { fontSize: 12, color: '#059669', fontWeight: '700', minWidth: 44, textAlign: 'right' },
+  totalEquiv: { fontSize: 14, color: '#059669', fontWeight: '700', marginTop: 4 },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  stepBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnText: { fontSize: 28, color: '#1d4ed8', fontWeight: '700' },
+  stepInput: { fontSize: 30, fontWeight: '800', color: '#111827', minWidth: 70, textAlign: 'center', padding: 0 },
+  stepValue: { fontSize: 34, fontWeight: '800', color: '#111827', minWidth: 50, textAlign: 'center' },
+  equiv: { fontSize: 15, color: '#059669', fontWeight: '700', marginTop: 6 },
+  notes: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 12,
+    minHeight: 70,
+    fontSize: 14,
+    color: '#111827',
+    marginTop: 4,
+    textAlignVertical: 'top',
+  },
+  saveBtn: {
+    backgroundColor: '#16a34a',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+});

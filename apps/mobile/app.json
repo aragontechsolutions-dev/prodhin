@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "SISGESDEL Drivers",
+    "slug": "prodhin-mobile",
+    "version": "1.1.8",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "prodhin",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.aragontechsolutions.prodhin"
+    },
+    "android": {
+      "package": "com.aragontechsolutions.prodhin",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "plugins": [
+      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Esta app necesita tu ubicación para mostrarte en el mapa." }],
+      ["expo-image-picker", { "cameraPermission": "Esta app necesita la cámara para fotografiar las ofertas de la competencia." }]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}
